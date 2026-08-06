@@ -91,6 +91,25 @@ python review.py 文件.py --llm
 python review.py <文件或目录>
 ```
 
+## 与现有工具的关系（诚实声明）
+
+**这不是 ruff / bandit / semgrep 的替代品，也不是 open-code-review 这类审查 agent 的对手。**
+
+这个赛道已有很强的成熟工具：静态分析有 ruff、bandit、semgrep（16k★+），代码审查 agent 有 alibaba/open-code-review、CodeRabbit 等。它们能力远强于本工具。
+
+这个项目的定位不是"更好的审查器"，而是：
+
+> **一个反过度工程的对照实验**——证明"最小单文件 + 规则优先 + 可选 LLM"就足以覆盖轻度审查需求，且零依赖、可审计、一个文件拷走就能用。
+
+它适合：不想为"快速判断一段代码质量/安全"装一整套工具链的人。想要深度静态分析请用 ruff/bandit/semgrep，想要自动化 PR 审查请用专业 agent。
+
+## 方法论影响（Acknowledgements）
+
+本工具的设计理念受以下开源工作启发（均为方法论/思想借鉴，无代码复制）：
+
+- **PenguinHarness 自进化闭环** —— "可证伪改进建议"（每条问题必须给出可验证的预期行为）这一纪律
+- **反过度工程决策阶梯（Ponytail）** —— "能用一个文件解决就不引框架"的立场
+
 ## 局限（诚实）
 
 - 只支持 Python（`*.py`）。静态分析基于 AST，其他语言没有内置检查。
