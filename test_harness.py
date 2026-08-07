@@ -154,7 +154,39 @@ def boundary(path):
             "details": f"检查 {len(funcs)} 个函数，发现 {len(findings)} 个边界未处理" if findings else "边界处理良好"}
 
 
-def mutation(path, target_dir):
+def coverage(path, timeout=3):
+    """覆盖率估算：调用各顶层函数，统计被成功调用(无异常崩溃)的比例。"""
+    mod = _load_module(path)
+    if mod is None:
+        return {"ok": True, "skipped": True, "details": "模块加载失败，跳过覆盖率"}
+    funcs = _find_functions(path)
+    if not funcs:
+        return {"ok": True, "skipped": True, "details": "无可测函数"}
+    called = 0
+    for fname in funcs:
+        fn = getattr(mod, fname, None)
+        if not callable(fn):
+            continue
+        try:
+            import inspect
+            nparams = len([p for p in inspect.signature(fn).parameters.values() if p.default is inspect.Parameter.empty])
+        except Exception:
+            nparams = 1
+        try:
+            if nparams == 0:
+                fn()
+                called += 1
+            else:
+                fn(None)  # 用 None 探测(能跑通算覆盖)
+                called += 1
+        except Exception:
+            pass
+    return {"ok": True, "funcs_total": len(funcs), "funcs_called": called,
+            "coverage_pct": round(called / len(funcs) * 100, 1) if funcs else 0,
+            "details": f"函数覆盖 {called}/{len(funcs)} = {round(called/len(funcs)*100,1) if funcs else 0}%"}
+
+
+def mutation(path, target_dir, max_mutants: int = 20):
     """变异测试：对目标文件做一处简单变异，跑现有测试看能否捕获。
     若变异后测试仍全绿 → 测试覆盖弱（存活变异体）。"""
     src = open(path, encoding="utf-8").read()
@@ -192,6 +224,8 @@ def mutation(path, target_dir):
             finally:
                 if os.path.exists(tmp):
                     os.remove(tmp)
+            if max_mutants and mutants >= max_mutants:
+                break  # 限次，避免大文件过慢
     return {"mutants": mutants, "survived": survive,
             "killed": mutants - survive,
             "ok": survive == 0,
@@ -229,15 +263,16 @@ def stability(path, n=20, timeout=3):
     return {"ok": all(not r["crash"] and not r["slow"] for r in results), "results": results}
 
 
-def run_all(path, target_dir, do_mutation=True, do_stability=True, do_boundary=True, n=20):
+def run_all(path, target_dir, do_mutation=True, do_stability=True, do_boundary=True, n=20, max_mutants=20):
     """完整测试闭环。"""
     report = {"target": path, "harness": "test_harness v1.0"}
     report["smoke"] = smoke(path)
+    report["coverage"] = coverage(path)
     report["unit"] = run_unit(target_dir)
     if do_boundary:
         report["boundary"] = boundary(path)
     if do_mutation and report["unit"].get("test_count", 0) > 0:
-        report["mutation"] = mutation(path, target_dir)
+        report["mutation"] = mutation(path, target_dir, max_mutants)
     if do_stability:
         report["stability"] = stability(path, n=n)
     return report
@@ -251,14 +286,15 @@ if __name__ == "__main__":
     ap.add_argument("--no-boundary", action="store_true")
     ap.add_argument("--no-stability", action="store_true")
     ap.add_argument("--stability-n", type=int, default=20)
+    ap.add_argument("--max-mutants", type=int, default=20, help="变异测试限次(默认20,防大文件过慢)")
     args = ap.parse_args()
     rep = run_all(args.target, args.dir,
                   do_mutation=not args.no_mutation,
                   do_stability=not args.no_stability,
                   do_boundary=not args.no_boundary,
-                  n=args.stability_n)
+                  n=args.stability_n, max_mutants=args.max_mutants)
     print(f"══ 测试 harness 报告: {rep['target']} ══")
-    for k in ["smoke", "unit", "boundary", "mutation", "stability"]:
+    for k in ["smoke", "coverage", "unit", "boundary", "mutation", "stability"]:
         if k in rep:
             v = rep[k]
             mark = "✅" if v.get("ok", False) else "⚠️" if v.get("skipped") else "❌"

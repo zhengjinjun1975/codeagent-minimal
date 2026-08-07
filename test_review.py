@@ -72,3 +72,33 @@ def test_six_static_dimensions():
     r = review._static_analyze(GOOD)
     assert "bugs" in r and "architecture" in r
     assert "syntax" in r and "security" in r and "complexity" in r
+
+
+def test_max_complexity_configurable():
+    # 高复杂度函数默认被标, 放宽阈值后不计
+    src = "def f(a):\n" + "".join(f"    if a>{i}:\n        a-={i}\n" for i in range(1, 15)) + "    return a\n"
+    f = _tmp("_t_cx.py", src)
+    r_default = review.review_file(f, use_llm=False, max_complexity=10)
+    r_loose = review.review_file(f, use_llm=False, max_complexity=30)
+    assert r_default["static_score"] < r_loose["static_score"]  # 放宽阈值分更高
+    os.remove(f)
+
+
+def test_strict_undefined_opt_in():
+    src = "def f(items):\n    return [x for x in items if x>0]\n" + "print(undefined_zzz)\n"
+    f = _tmp("_t_un.py", src)
+    r_off = review.review_file(f, use_llm=False, strict_undefined=False)
+    r_on = review.review_file(f, use_llm=False, strict_undefined=True)
+    t_off = {i["title"] for i in r_off["issues"]}
+    t_on = {i["title"] for i in r_on["issues"]}
+    assert not any("可能未定义" in x for x in t_off)  # 默认关
+    assert any("可能未定义" in x for x in t_on)      # strict 开
+    os.remove(f)
+
+
+def test_harness_coverage():
+    f = _tmp("_t_cov.py", "def ok():\n    return 42\ndef no():\n    raise ValueError()\n")
+    rep = th.run_all(f, str(HERE), do_boundary=False, do_stability=False, do_mutation=False)
+    assert "coverage" in rep
+    assert rep["coverage"]["funcs_total"] >= 2
+    os.remove(f)

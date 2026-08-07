@@ -65,18 +65,21 @@ def _static_check_imports(tree, content: str) -> list:
                            "line": lineno, "suggestion": "删除未使用的 import"})
     return issues
 
-def _static_check_complexity(tree) -> list:
+def _static_check_complexity(tree, max_complexity: int = 10) -> list:
     issues = []
     for node in ast.walk(tree):
         if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
             c = 1
+            branches = 0
             for n in ast.walk(node):
                 if isinstance(n, (ast.If, ast.While, ast.For, ast.ExceptHandler,
                                   ast.And, ast.Or, ast.Assert, ast.Try)):
                     c += 1
-            if c > 10:
-                issues.append({"severity": "major", "title": f"圈复杂度 {c} > 10: {node.name}",
-                               "line": node.lineno, "suggestion": "考虑拆分为多个小函数"})
+                    branches += 1
+            if c > max_complexity:
+                kind = "分支复杂" if branches > 5 else "整体复杂"
+                issues.append({"severity": "major", "title": f"圈复杂度 {c} > {max_complexity} ({kind}): {node.name}",
+                               "line": node.lineno, "suggestion": f"分支多可拆分；纯长逻辑可用 --max-complexity 放宽"})
     return issues
 
 def _static_check_naming(tree) -> list:
@@ -92,8 +95,8 @@ def _static_check_naming(tree) -> list:
                                "line": node.lineno, "suggestion": f"改名 {node.name.capitalize()}"})
     return issues
 
-def _static_check_bugs(tree, content: str) -> list:
-    """软件 BUG 检测：未定义名/未用变量/裸 except/可变默认参数/==None。"""
+def _static_check_bugs(tree, content: str, strict_undefined: bool = False) -> list:
+    """软件 BUG 检测：裸 except/可变默认参数/==None；undefined-name 默认关闭(strict 才查)。"""
     issues = []
     # 裸 except / 空 except
     for node in ast.walk(tree):
@@ -114,51 +117,49 @@ def _static_check_bugs(tree, content: str) -> list:
                 if isinstance(op, ast.Eq) and isinstance(comp, ast.Constant) and comp.value is None:
                     issues.append({"severity": "minor", "title": "== None 应写 is None",
                                    "line": node.lineno, "suggestion": "用 `is None` 判断"})
-    # 未定义名（粗查：Load 但从未定义）——函数参数算已定义，避免误报
-    defined = set()
-    loaded = set()
-    for node in ast.walk(tree):
-        if isinstance(node, ast.FunctionDef):
-            defined.add(node.name)
-            # 函数参数都是已定义名
-            for a in node.args.posonlyargs + node.args.args + node.args.kwonlyargs:
-                defined.add(a.arg)
-            if node.args.vararg:
-                defined.add(node.args.vararg.arg)
-            if node.args.kwarg:
-                defined.add(node.args.kwarg.arg)
-        elif isinstance(node, ast.ClassDef):
-            defined.add(node.name)
-        elif isinstance(node, ast.Assign):
-            for t in node.targets:
-                if isinstance(t, ast.Name):
-                    defined.add(t.id)
-        elif isinstance(node, (ast.For, ast.AsyncFor)):
-            if isinstance(node.target, ast.Name):
-                defined.add(node.target.id)
-        elif isinstance(node, ast.ExceptHandler):
-            if node.name:
+    # 未定义名（默认关闭，启发式易误报，仅 strict 启用）
+    if strict_undefined:
+        defined = set()
+        loaded = set()
+        for node in ast.walk(tree):
+            if isinstance(node, ast.FunctionDef):
                 defined.add(node.name)
-        elif isinstance(node, (ast.ListComp, ast.SetComp, ast.DictComp, ast.GeneratorExp)):
-            for g in node.generators:
-                if isinstance(g.target, ast.Name):
-                    defined.add(g.target.id)
-        elif isinstance(node, ast.Import):
-            for a in node.names:
-                defined.add(a.asname or a.name.split(".")[0])
-        elif isinstance(node, ast.ImportFrom):
-            for a in node.names:
-                defined.add(a.asname or a.name)
-        elif isinstance(node, ast.Name) and isinstance(node.ctx, ast.Load):
-            loaded.add(node.id)
-    # 只报真正可疑的（排内置/局部作用域误报，收敛到明显情况）
-    builtins = set(dir(__builtins__)) if isinstance(__builtins__, dict) else set(dir(__builtins__))
-    for n in loaded - defined - builtins - {"self", "cls", "__name__", "__file__"}:
-        # 排除看起来像模块引用/小写短名的常见误报
-        if n in {"if", "for", "in", "or", "and", "not"}:
-            continue
-        issues.append({"severity": "info", "title": f"可能未定义: {n}", "line": 0,
-                       "suggestion": f"确认 {n} 已定义或导入（启发式，可能误报）"})
+                for a in node.args.posonlyargs + node.args.args + node.args.kwonlyargs:
+                    defined.add(a.arg)
+                if node.args.vararg:
+                    defined.add(node.args.vararg.arg)
+                if node.args.kwarg:
+                    defined.add(node.args.kwarg.arg)
+            elif isinstance(node, ast.ClassDef):
+                defined.add(node.name)
+            elif isinstance(node, ast.Assign):
+                for t in node.targets:
+                    if isinstance(t, ast.Name):
+                        defined.add(t.id)
+            elif isinstance(node, (ast.For, ast.AsyncFor)):
+                if isinstance(node.target, ast.Name):
+                    defined.add(node.target.id)
+            elif isinstance(node, ast.ExceptHandler):
+                if node.name:
+                    defined.add(node.name)
+            elif isinstance(node, (ast.ListComp, ast.SetComp, ast.DictComp, ast.GeneratorExp)):
+                for g in node.generators:
+                    if isinstance(g.target, ast.Name):
+                        defined.add(g.target.id)
+            elif isinstance(node, ast.Import):
+                for a in node.names:
+                    defined.add(a.asname or a.name.split(".")[0])
+            elif isinstance(node, ast.ImportFrom):
+                for a in node.names:
+                    defined.add(a.asname or a.name)
+            elif isinstance(node, ast.Name) and isinstance(node.ctx, ast.Load):
+                loaded.add(node.id)
+        builtins = set(dir(__builtins__)) if isinstance(__builtins__, dict) else set(dir(__builtins__))
+        for n in loaded - defined - builtins - {"self", "cls", "__name__", "__file__"}:
+            if n in {"if", "for", "in", "or", "and", "not"}:
+                continue
+            issues.append({"severity": "info", "title": f"可能未定义: {n}", "line": 0,
+                           "suggestion": f"确认 {n} 已定义或导入（启发式，可能误报）"})
     return issues
 
 
@@ -264,7 +265,7 @@ def _strip_self_check_code(content: str) -> str:
 
 SEVERITY_WEIGHTS = {"critical": 20, "major": 10, "minor": 3, "info": 1}
 
-def _static_analyze(content: str) -> dict:
+def _static_analyze(content: str, max_complexity: int = 10, strict_undefined: bool = False) -> dict:
     """对单文件执行全量静态分析, 返回结构化结果 + 得分"""
     result = {"syntax": [], "imports": [], "complexity": [], "naming": [], "security": [], "network": [], "bugs": [], "architecture": [], "score": 100}
     all_issues = []
@@ -278,9 +279,9 @@ def _static_analyze(content: str) -> dict:
         try:
             tree = ast.parse(content)
             result["imports"] = _static_check_imports(tree, content)
-            result["complexity"] = _static_check_complexity(tree)
+            result["complexity"] = _static_check_complexity(tree, max_complexity)
             result["naming"] = _static_check_naming(tree)
-            result["bugs"] = _static_check_bugs(tree, content)
+            result["bugs"] = _static_check_bugs(tree, content, strict_undefined)
             result["architecture"] = _static_check_architecture(content)
             all_issues.extend(result["imports"] + result["complexity"] + result["naming"]
                               + result["bugs"] + result["architecture"])
@@ -345,9 +346,9 @@ def _collect_py_files(target: str) -> list:
         return [p] if p.suffix == ".py" else []
     return sorted([f for f in p.rglob("*.py") if ".venv" not in str(f) and "node_modules" not in str(f)])
 
-def review_file(path: str, use_llm: bool) -> dict:
+def review_file(path: str, use_llm: bool, max_complexity: int = 10, strict_undefined: bool = False) -> dict:
     content = Path(path).read_text(encoding="utf-8", errors="ignore")
-    static = _static_analyze(content)
+    static = _static_analyze(content, max_complexity, strict_undefined)
     file_result = {
         "file": path,
         "static_score": static["score"],
@@ -372,6 +373,9 @@ def main():
     ap.add_argument("--json", action="store_true", help="输出 JSON")
     ap.add_argument("--score-only", action="store_true", help="只输出每文件得分")
     ap.add_argument("--llm", action="store_true", help="启用 LLM 增强审查(需配 LLM_API_KEY)")
+    ap.add_argument("--max-complexity", type=int, default=10, help="圈复杂度阈值(默认10)")
+    ap.add_argument("--strict-undefined", action="store_true", help="启用未定义名检查(启发式,易误报,默认关)")
+    ap.add_argument("--threshold", type=int, default=0, help="平均得分低于此值则 exit 1(CI 门禁)")
     ap.add_argument("--test", action="store_true", help="运行测试 harness(冒烟/单元/边界/变异/稳定性)")
     ap.add_argument("--test-dir", default=".", help="测试文件所在目录(配合 --test)")
     args = ap.parse_args()
@@ -383,7 +387,7 @@ def main():
     if not files:
         print("未找到 .py 文件"); sys.exit(0)
 
-    results = [review_file(str(f), args.llm) for f in files]
+    results = [review_file(str(f), args.llm, args.max_complexity, args.strict_undefined) for f in files]
 
     # ── 测试 harness（模块B）──
     test_report = None
@@ -437,6 +441,15 @@ def main():
     bad = [r["file"] for r in results if r["static_score"] < 60]
     if bad:
         print(f"⚠️ 需关注(<60分): {', '.join(bad)}")
+
+    # CI 门禁：平均得分低于阈值则 exit 1
+    if args.threshold > 0:
+        avg = sum(r["static_score"] for r in results) / len(results)
+        if avg < args.threshold:
+            print(f"\n❌ CI 门禁: 平均得分 {avg:.0f} < 阈值 {args.threshold} → 失败(exit 1)")
+            sys.exit(1)
+        else:
+            print(f"\n✅ CI 门禁: 平均得分 {avg:.0f} >= 阈值 {args.threshold} → 通过")
 
     # 测试 harness 报告
     if test_report:
