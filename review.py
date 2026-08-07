@@ -118,7 +118,7 @@ def _static_check_bugs(tree, content: str) -> list:
     defined = set()
     loaded = set()
     for node in ast.walk(tree):
-        if isinstance(node, (ast.FunctionDef, ast.ClassDef)):
+        if isinstance(node, ast.FunctionDef):
             defined.add(node.name)
             # 函数参数都是已定义名
             for a in node.args.posonlyargs + node.args.args + node.args.kwonlyargs:
@@ -127,6 +127,8 @@ def _static_check_bugs(tree, content: str) -> list:
                 defined.add(node.args.vararg.arg)
             if node.args.kwarg:
                 defined.add(node.args.kwarg.arg)
+        elif isinstance(node, ast.ClassDef):
+            defined.add(node.name)
         elif isinstance(node, ast.Assign):
             for t in node.targets:
                 if isinstance(t, ast.Name):
@@ -155,8 +157,8 @@ def _static_check_bugs(tree, content: str) -> list:
         # 排除看起来像模块引用/小写短名的常见误报
         if n in {"if", "for", "in", "or", "and", "not"}:
             continue
-        issues.append({"severity": "minor", "title": f"可能未定义: {n}", "line": 0,
-                       "suggestion": f"确认 {n} 已定义或导入"})
+        issues.append({"severity": "info", "title": f"可能未定义: {n}", "line": 0,
+                       "suggestion": f"确认 {n} 已定义或导入（启发式，可能误报）"})
     return issues
 
 
@@ -260,7 +262,7 @@ def _strip_self_check_code(content: str) -> str:
         pass
     return content
 
-SEVERITY_WEIGHTS = {"critical": 20, "major": 10, "minor": 3}
+SEVERITY_WEIGHTS = {"critical": 20, "major": 10, "minor": 3, "info": 1}
 
 def _static_analyze(content: str) -> dict:
     """对单文件执行全量静态分析, 返回结构化结果 + 得分"""
