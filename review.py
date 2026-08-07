@@ -92,6 +92,88 @@ def _static_check_naming(tree) -> list:
                                "line": node.lineno, "suggestion": f"改名 {node.name.capitalize()}"})
     return issues
 
+def _static_check_bugs(tree, content: str) -> list:
+    """软件 BUG 检测：未定义名/未用变量/裸 except/可变默认参数/==None。"""
+    issues = []
+    # 裸 except / 空 except
+    for node in ast.walk(tree):
+        if isinstance(node, ast.ExceptHandler) and node.type is None:
+            issues.append({"severity": "major", "title": "裸 except（吞掉所有异常）",
+                           "line": node.lineno, "suggestion": "指定异常类型，如 except ValueError:"})
+    # 可变默认参数（经典 bug：共享可变对象）
+    for node in ast.walk(tree):
+        if isinstance(node, ast.FunctionDef):
+            for d in node.args.defaults:
+                if isinstance(d, (ast.List, ast.Dict, ast.Set)):
+                    issues.append({"severity": "major", "title": f"可变默认参数: {node.name}()",
+                                   "line": node.lineno, "suggestion": "用 None 作默认，函数内初始化"})
+    # == None 应 is None
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Compare):
+            for op, comp in zip(node.ops, node.comparators):
+                if isinstance(op, ast.Eq) and isinstance(comp, ast.Constant) and comp.value is None:
+                    issues.append({"severity": "minor", "title": "== None 应写 is None",
+                                   "line": node.lineno, "suggestion": "用 `is None` 判断"})
+    # 未定义名（粗查：Load 但从未定义）——函数参数算已定义，避免误报
+    defined = set()
+    loaded = set()
+    for node in ast.walk(tree):
+        if isinstance(node, (ast.FunctionDef, ast.ClassDef)):
+            defined.add(node.name)
+            # 函数参数都是已定义名
+            for a in node.args.posonlyargs + node.args.args + node.args.kwonlyargs:
+                defined.add(a.arg)
+            if node.args.vararg:
+                defined.add(node.args.vararg.arg)
+            if node.args.kwarg:
+                defined.add(node.args.kwarg.arg)
+        elif isinstance(node, ast.Assign):
+            for t in node.targets:
+                if isinstance(t, ast.Name):
+                    defined.add(t.id)
+        elif isinstance(node, ast.Import):
+            for a in node.names:
+                defined.add(a.asname or a.name.split(".")[0])
+        elif isinstance(node, ast.ImportFrom):
+            for a in node.names:
+                defined.add(a.asname or a.name)
+        elif isinstance(node, ast.Name) and isinstance(node.ctx, ast.Load):
+            loaded.add(node.id)
+    # 只报真正可疑的（排内置/局部作用域误报，收敛到明显情况）
+    builtins = set(dir(__builtins__)) if isinstance(__builtins__, dict) else set(dir(__builtins__))
+    for n in loaded - defined - builtins - {"self", "cls", "__name__", "__file__"}:
+        # 排除看起来像模块引用/小写短名的常见误报
+        if n in {"if", "for", "in", "or", "and", "not"}:
+            continue
+        issues.append({"severity": "minor", "title": f"可能未定义: {n}", "line": 0,
+                       "suggestion": f"确认 {n} 已定义或导入"})
+    return issues
+
+
+def _static_check_architecture(content: str) -> list:
+    """架构稳健评估：文件过大、函数过长、import 依赖过多。"""
+    issues = []
+    lines = content.split("\n")
+    if len(lines) > 500:
+        issues.append({"severity": "major", "title": f"文件过大({len(lines)}行)",
+                       "line": 0, "suggestion": "考虑拆分为多模块"})
+    try:
+        tree = ast.parse(content)
+        imports = sum(1 for n in ast.walk(tree) if isinstance(n, (ast.Import, ast.ImportFrom)))
+        if imports > 15:
+            issues.append({"severity": "minor", "title": f"import 依赖过多({imports}个)",
+                           "line": 0, "suggestion": "检查是否过度依赖"})
+        for node in ast.walk(tree):
+            if isinstance(node, ast.FunctionDef):
+                size = (node.end_lineno or node.lineno) - node.lineno
+                if size > 60:
+                    issues.append({"severity": "major", "title": f"函数过长({size}行): {node.name}",
+                                   "line": node.lineno, "suggestion": "拆分为多个小函数"})
+    except SyntaxError:
+        pass
+    return issues
+
+
 def _static_check_security(content: str) -> list:
     issues = []
     # SQL 注入（区分大小写匹配 SQL 关键字，避免 list.insert/dict.update 误判）
@@ -136,7 +218,7 @@ SEVERITY_WEIGHTS = {"critical": 20, "major": 10, "minor": 3}
 
 def _static_analyze(content: str) -> dict:
     """对单文件执行全量静态分析, 返回结构化结果 + 得分"""
-    result = {"syntax": [], "imports": [], "complexity": [], "naming": [], "security": [], "score": 100}
+    result = {"syntax": [], "imports": [], "complexity": [], "naming": [], "security": [], "bugs": [], "architecture": [], "score": 100}
     all_issues = []
     result["syntax"] = _static_check_syntax(content)
     all_issues.extend(result["syntax"])
@@ -148,7 +230,10 @@ def _static_analyze(content: str) -> dict:
             result["imports"] = _static_check_imports(tree, content)
             result["complexity"] = _static_check_complexity(tree)
             result["naming"] = _static_check_naming(tree)
-            all_issues.extend(result["imports"] + result["complexity"] + result["naming"])
+            result["bugs"] = _static_check_bugs(tree, content)
+            result["architecture"] = _static_check_architecture(content)
+            all_issues.extend(result["imports"] + result["complexity"] + result["naming"]
+                              + result["bugs"] + result["architecture"])
         except SyntaxError:
             pass
     penalty = sum(SEVERITY_WEIGHTS.get(i["severity"], 5) for i in all_issues)
@@ -232,11 +317,13 @@ def review_file(path: str, use_llm: bool) -> dict:
     return file_result
 
 def main():
-    ap = argparse.ArgumentParser(description="CodeReview Minimal — 审代码不写代码的人用的审查器")
+    ap = argparse.ArgumentParser(description="CodeReview Minimal — 审代码不写代码的人用的审查器 + 测试 harness")
     ap.add_argument("target", help="要审查的文件或目录")
     ap.add_argument("--json", action="store_true", help="输出 JSON")
     ap.add_argument("--score-only", action="store_true", help="只输出每文件得分")
     ap.add_argument("--llm", action="store_true", help="启用 LLM 增强审查(需配 LLM_API_KEY)")
+    ap.add_argument("--test", action="store_true", help="运行测试 harness(冒烟/单元/边界/变异/稳定性)")
+    ap.add_argument("--test-dir", default=".", help="测试文件所在目录(配合 --test)")
     args = ap.parse_args()
 
     if not os.path.exists(args.target):
@@ -247,6 +334,15 @@ def main():
         print("未找到 .py 文件"); sys.exit(0)
 
     results = [review_file(str(f), args.llm) for f in files]
+
+    # ── 测试 harness（模块B）──
+    test_report = None
+    if args.test:
+        try:
+            import test_harness as th
+            test_report = th.run_all(str(files[0]), args.test_dir)
+        except Exception as e:
+            test_report = {"error": str(e)}
 
     if args.score_only:
         for r in results:
@@ -291,6 +387,25 @@ def main():
     bad = [r["file"] for r in results if r["static_score"] < 60]
     if bad:
         print(f"⚠️ 需关注(<60分): {', '.join(bad)}")
+
+    # 测试 harness 报告
+    if test_report:
+        print("\n" + "=" * 60)
+        print("🧪 测试 harness（冒烟/单元/边界/变异/稳定性）")
+        if "error" in test_report:
+            print(f"   ⚠️ harness 错误: {test_report['error']}")
+        for k in ["smoke", "unit", "boundary", "mutation", "stability"]:
+            if k in test_report:
+                v = test_report[k]
+                mark = "✅" if v.get("ok", False) else "⚠️" if v.get("skipped") else "❌"
+                print(f"   {mark} {k}: {v.get('details', '')}")
+                if k == "boundary" and v.get("findings"):
+                    for fnd in v["findings"][:5]:
+                        print(f"      → {fnd['suggestion']}")
+                if k == "mutation" and v.get("survived"):
+                    print(f"      → 有 {v['survived']} 个变异未被测试捕获，测试覆盖需加强")
+        if test_report and not test_report.get("unit", {}).get("skipped") and test_report.get("unit", {}).get("test_count", 0) == 0:
+            print("   ⚠️ 无测试用例：变异/单元未充分覆盖，建议补测试")
 
 if __name__ == "__main__":
     main()
