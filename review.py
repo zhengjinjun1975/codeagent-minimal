@@ -32,6 +32,8 @@ import argparse
 import urllib.request
 from pathlib import Path
 
+__version__ = "2.3"
+
 # ═══════════════════════════════════════════════════
 # 静态分析 (零模型, 纯标准库)
 # ═══════════════════════════════════════════════════
@@ -346,9 +348,88 @@ def _collect_py_files(target: str) -> list:
         return [p] if p.suffix == ".py" else []
     return sorted([f for f in p.rglob("*.py") if ".venv" not in str(f) and "node_modules" not in str(f)])
 
-def review_file(path: str, use_llm: bool, max_complexity: int = 10, strict_undefined: bool = False) -> dict:
+def _external_bandit(content: str) -> list:
+    """可选对接 bandit（装了才用）：深度安全扫描，无则返回 []。"""
+    import shutil
+    if shutil.which("bandit") is None:
+        try:
+            import bandit  # noqa
+        except ImportError:
+            return []
+    import tempfile
+    import subprocess as sp
+    with tempfile.NamedTemporaryFile("w", suffix=".py", delete=False, encoding="utf-8") as f:
+        f.write(content)
+        tmp = f.name
+    issues = []
+    try:
+        r = sp.run(["bandit", "-f", "json", "-q", tmp], capture_output=True, text=True, timeout=30)
+        import json as _j
+        data = _j.loads(r.stdout) if r.stdout.strip() else {}
+        for res in data.get("results", []):
+            sev = {"HIGH": "critical", "MEDIUM": "major", "LOW": "minor"}.get(res.get("issue_severity", "LOW"), "minor")
+            issues.append({"severity": sev, "title": f"[bandit] {res.get('test_id','')} {res.get('issue_text','')[:60]}",
+                           "line": res.get("line_number", 0), "suggestion": "见 bandit 文档修复", "source": "bandit"})
+    except Exception:
+        pass
+    finally:
+        try: os.remove(tmp)
+        except OSError: pass
+    return issues
+
+
+def _external_lint(content: str) -> list:
+    """可选对接 ruff/pyflakes（装了才用）：深度静态，无则返回 []。"""
+    import shutil, tempfile
+    import subprocess as sp
+    tool = None
+    if shutil.which("ruff") or _module_exists("ruff"):
+        tool = ["ruff", "check", "--quiet", "--output-format", "concise"]
+    elif shutil.which("pyflakes"):
+        tool = ["pyflakes"]
+    else:
+        try:
+            import pyflakes  # noqa
+            tool = ["pyflakes"]
+        except ImportError:
+            return []
+    with tempfile.NamedTemporaryFile("w", suffix=".py", delete=False, encoding="utf-8") as f:
+        f.write(content)
+        tmp = f.name
+    issues = []
+    try:
+        r = sp.run(tool + [tmp], capture_output=True, text=True, timeout=30)
+        for line in (r.stdout or "").splitlines() + (r.stderr or "").splitlines():
+            # ruff: path:line:col: E501 msg ; pyflakes: path:line: msg
+            m = __import__("re").match(r".*?:(\d+):\d*:\s*(.*)", line) or __import__("re").match(r".*?:(\d+):\s*(.*)", line)
+            if m:
+                issues.append({"severity": "minor", "title": f"[{tool[0]}] {m.group(2)[:70]}",
+                               "line": int(m.group(1)), "suggestion": "按提示修复", "source": tool[0]})
+    except Exception:
+        pass
+    finally:
+        try: os.remove(tmp)
+        except OSError: pass
+    return issues
+
+
+def _module_exists(name: str) -> bool:
+    try:
+        __import__(name)
+        return True
+    except ImportError:
+        return False
+
+
+def review_file(path: str, use_llm: bool, max_complexity: int = 10, strict_undefined: bool = False, external: bool = False) -> dict:
     content = Path(path).read_text(encoding="utf-8", errors="ignore")
     static = _static_analyze(content, max_complexity, strict_undefined)
+    if external:
+        ext = _external_bandit(content) + _external_lint(content)
+        if ext:
+            static["all_issues"].extend(ext)
+            penalty = sum(SEVERITY_WEIGHTS.get(i["severity"], 5) for i in static["all_issues"])
+            static["score"] = max(0, 100 - penalty)
     file_result = {
         "file": path,
         "static_score": static["score"],
@@ -375,6 +456,7 @@ def main():
     ap.add_argument("--llm", action="store_true", help="启用 LLM 增强审查(需配 LLM_API_KEY)")
     ap.add_argument("--max-complexity", type=int, default=10, help="圈复杂度阈值(默认10)")
     ap.add_argument("--strict-undefined", action="store_true", help="启用未定义名检查(启发式,易误报,默认关)")
+    ap.add_argument("--external", action="store_true", help="可选对接 bandit/ruff(装了才用,深度增强)")
     ap.add_argument("--threshold", type=int, default=0, help="平均得分低于此值则 exit 1(CI 门禁)")
     ap.add_argument("--test", action="store_true", help="运行测试 harness(冒烟/单元/边界/变异/稳定性)")
     ap.add_argument("--test-dir", default=".", help="测试文件所在目录(配合 --test)")
@@ -387,7 +469,7 @@ def main():
     if not files:
         print("未找到 .py 文件"); sys.exit(0)
 
-    results = [review_file(str(f), args.llm, args.max_complexity, args.strict_undefined) for f in files]
+    results = [review_file(str(f), args.llm, args.max_complexity, args.strict_undefined, args.external) for f in files]
 
     # ── 测试 harness（模块B）──
     test_report = None

@@ -47,6 +47,9 @@ python review.py 你的项目/ --strict-undefined    # 启用未定义名检查(
 
 # CI 门禁：平均得分低于阈值则 exit 1
 python review.py 你的项目/ --threshold 70
+
+# 可选对接专业工具（装了 bandit/ruff 才深度增强，没装自动用内置）
+python review.py 你的项目/ --external
 ```
 
 ## 示例
@@ -69,9 +72,12 @@ $ python review.py sample_target.py --test
    ✅ stability: 无崩溃无挂起
 ```
 
-## 可选 LLM 增强
+## 可选增强
 
-设 `LLM_API_KEY` 后 `--llm` 启用模型审查（补过度工程/可证伪预测）。核心静态分析仍零依赖，LLM 是可选增强。
+- **`--llm`**：设 `LLM_API_KEY` 后启用模型审查（补过度工程/可证伪预测）
+- **`--external`**：环境装了 **bandit**（深度安全）或 **ruff/pyflakes**（深度静态）时自动对接，没装则用内置（纯标准库核心不变）
+
+核心静态分析始终零依赖；LLM 与外部工具都是可选增强。
 
 ## 诚实边界
 
