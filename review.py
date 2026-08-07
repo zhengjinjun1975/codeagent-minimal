@@ -131,6 +131,16 @@ def _static_check_bugs(tree, content: str) -> list:
             for t in node.targets:
                 if isinstance(t, ast.Name):
                     defined.add(t.id)
+        elif isinstance(node, (ast.For, ast.AsyncFor)):
+            if isinstance(node.target, ast.Name):
+                defined.add(node.target.id)
+        elif isinstance(node, ast.ExceptHandler):
+            if node.name:
+                defined.add(node.name)
+        elif isinstance(node, (ast.ListComp, ast.SetComp, ast.DictComp, ast.GeneratorExp)):
+            for g in node.generators:
+                if isinstance(g.target, ast.Name):
+                    defined.add(g.target.id)
         elif isinstance(node, ast.Import):
             for a in node.names:
                 defined.add(a.asname or a.name.split(".")[0])
@@ -174,6 +184,42 @@ def _static_check_architecture(content: str) -> list:
     return issues
 
 
+def _static_check_network(content: str) -> list:
+    """网络安全隐患：SSRF/明文HTTP/URL含凭证/网络数据执行/不安全配置。"""
+    issues = []
+    # SSRF：请求 URL 来自变量（若用户可控则 SSRF 风险）
+    if re.search(r'(requests\.(get|post|put|delete|head)\s*\(\s*[a-zA-Z_][a-zA-Z0-9_]*)', content):
+        issues.append({"severity": "major", "title": "SSRF 风险(请求URL为变量)",
+                       "line": 0, "suggestion": "若 URL 来自用户输入，攻击者可探测内网；校验协议/域名白名单"})
+    if re.search(r'urllib\.request\.urlopen\s*\(\s*[a-zA-Z_][a-zA-Z0-9_]*\s*\)', content):
+        issues.append({"severity": "major", "title": "SSRF 风险(urlopen 变量URL)",
+                       "line": 0, "suggestion": "校验 URL 协议与域名，防内网探测"})
+    # 明文 HTTP（非 TLS）
+    if re.search(r'["\']http://[^"\'\s]+', content) and not re.search(r'https?://(localhost|127\.0\.0\.1|0\.0\.0\.0)', content):
+        issues.append({"severity": "major", "title": "明文 HTTP（应用 HTTPS）",
+                       "line": 0, "suggestion": "生产环境用 https://，避免明文传输敏感数据"})
+    # URL 内嵌凭证（http://user:pass@）
+    if re.search(r'https?://[^@\s/:]+:[^@\s/]+@', content):
+        issues.append({"severity": "critical", "title": "URL 内嵌明文凭证",
+                       "line": 0, "suggestion": "凭证不要写进 URL，用环境变量/密钥管理"})
+    # 网络获取数据直接执行（eval/exec/__import__ 接收网络数据）
+    if re.search(r'(response\.text|\.content|requests\.get[^)]*\))\s*[^\n]{0,40}(eval|exec|__import__)', content, re.S):
+        issues.append({"severity": "critical", "title": "网络数据直接执行(eval/exec)",
+                       "line": 0, "suggestion": "不可信网络数据不要 eval/exec，用安全解析"})
+    # 不安全配置
+    if re.search(r'DEBUG\s*=\s*True', content):
+        issues.append({"severity": "major", "title": "DEBUG=True 泄漏调试信息",
+                       "line": 0, "suggestion": "生产环境关闭 DEBUG"})
+    if re.search(r'ALLOWED_HOSTS\s*=\s*\[?\s*["\']\*', content):
+        issues.append({"severity": "major", "title": "ALLOWED_HOSTS=*（Host 头注入）",
+                       "line": 0, "suggestion": "限定允许的 Host"})
+    # shell 网络命令（curl/wget）带变量
+    if re.search(r'(curl|wget)\b[^)\n]{0,40}[\+\{]', content):
+        issues.append({"severity": "major", "title": "shell 网络命令拼接",
+                       "line": 0, "suggestion": "避免用 shell 拼 curl/wget，用参数列表"})
+    return issues
+
+
 def _static_check_security(content: str) -> list:
     issues = []
     # SQL 注入（区分大小写匹配 SQL 关键字，避免 list.insert/dict.update 误判）
@@ -204,7 +250,7 @@ def _strip_self_check_code(content: str) -> str:
     """剔除安全检查函数自身的源码区间，修复"扫描器扫到自己"的自指误报。"""
     try:
         tree = ast.parse(content)
-        targets = {"_static_check_security", "_strip_self_check_code"}
+        targets = {"_static_check_security", "_static_check_network", "_strip_self_check_code"}
         lines = content.split("\n")
         for node in tree.body:
             if isinstance(node, ast.FunctionDef) and node.name in targets:
@@ -218,12 +264,14 @@ SEVERITY_WEIGHTS = {"critical": 20, "major": 10, "minor": 3}
 
 def _static_analyze(content: str) -> dict:
     """对单文件执行全量静态分析, 返回结构化结果 + 得分"""
-    result = {"syntax": [], "imports": [], "complexity": [], "naming": [], "security": [], "bugs": [], "architecture": [], "score": 100}
+    result = {"syntax": [], "imports": [], "complexity": [], "naming": [], "security": [], "network": [], "bugs": [], "architecture": [], "score": 100}
     all_issues = []
     result["syntax"] = _static_check_syntax(content)
     all_issues.extend(result["syntax"])
     result["security"] = _static_check_security(_strip_self_check_code(content))
     all_issues.extend(result["security"])
+    result["network"] = _static_check_network(_strip_self_check_code(content))
+    all_issues.extend(result["network"])
     if not result["syntax"]:
         try:
             tree = ast.parse(content)

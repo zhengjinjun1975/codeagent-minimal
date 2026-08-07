@@ -49,9 +49,11 @@ def _find_functions(path):
     except SyntaxError:
         return []
     funcs = []
+    entry_names = {"main", "cli", "run", "setup", "serve", "start"}
     for node in tree.body:
         if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)) and not node.name.startswith("_"):
-            funcs.append(node.name)
+            if node.name not in entry_names:  # 排除 CLI/入口函数(需命令行参数, 不可单测)
+                funcs.append(node.name)
     return funcs
 
 
