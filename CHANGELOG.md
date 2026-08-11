@@ -4,6 +4,14 @@
 
 格式遵循 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.0.0/)。
 
+## [0.1.1] - 2026-08-11
+
+### 新增（代码原子库随仓库分发 + 方法论落地）
+
+- **内置代码原子库**：`atoms/` 目录随仓库分发——19 个极简代码原子（.md，智能制造/地球物理/本体建模/数据检索/深度学习 5 领域）+ 3 个可直接运行的 .py（bm25_search / softmax / isolation_forest）
+- **复用建议完善**：`--reuse-atoms` 本地 Obsidian 原子 → GitHub 远端开源 → 大模型兜底，三层递进全程静默不报错
+- **方法论文档**：README 内置「复用优先·极简落地」决策流；完整文档见 Obsidian `knowledge/code/patterns/reuse-first-minimalism.md`
+
 ## [0.1.0] - 2026-08-11
 
 ### 变更（版本降维 + 方法论融合）

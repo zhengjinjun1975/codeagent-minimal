@@ -32,7 +32,7 @@ import argparse
 import urllib.request
 from pathlib import Path
 
-__version__ = "0.1.0"
+__version__ = "0.1.1"
 
 # ═══════════════════════════════════════════════════
 # 静态分析 (零模型, 纯标准库)
