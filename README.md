@@ -1,12 +1,31 @@
 # CodeReview Minimal — 专业化代码审查 + 测试 harness
 
-> 给需要审代码但不写代码的人用的**专业化代码审查 + 测试工具**。纯标准库零依赖，静态审查（语法/BUG/安全/架构）+ 测试 harness（冒烟/单元/边界/变异/稳定性），0-100 分。
+> 给需要审代码但不写代码的人用的**专业化代码审查 + 测试工具**。纯标准库零依赖，静态审查（语法/BUG/安全/架构/复用）+ 测试 harness（冒烟/单元/边界/变异/稳定性），0-100 分。
 
 [![License](https://img.shields.io/badge/License-Apache--2.0-blue.svg)](LICENSE)
 
 ## 纯标准库 · 零依赖
 
 **核心卖点：`Python` 标准库零第三方依赖**（`ast`/`re`/`json`/`subprocess`/`importlib`）。开箱即用，不装任何包。可选：环境里有 `pytest` 时单元测试自动优先用它，没有则标准库兜底。
+
+## 代码方法论：复用优先 · 极简落地（Reuse-First Minimalism）
+
+审查器内置这套方法论，判断代码是否**能复用却重写、该极简却过度抽象**。完整文档：`E:/knowledge-base/obsidian-vault/knowledge/code/patterns/reuse-first-minimalism.md`
+
+```
+┌─ 找的阶梯（Reuse）─ 优先 ─┐
+│  ① 本地 Obsidian 代码原子库（极简原子） │
+│  ② GitHub 远端开源代码（--reuse-atoms）│
+│  ③ 大模型兜底（--llm）                  │
+└────────────────────────────┘
+          ↓ 未命中
+┌─ 写的阶梯（极简）─ 原极简原则 ─┐
+│  标准库 → 已装依赖 → 一行 → 最少代码 │
+└────────────────────────────┘
+```
+
+- **`--reuse-atoms`**：审查时先检索本地 Obsidian 代码原子库（智能制造/地球物理/本体/检索/深度学习 5 领域），未命中自动降级检索 GitHub 开源代码，给"复用建议"。**全程静默不报错**（无 Obsidian/断网/限流都自动跳过）。
+- **`_static_check_reuse` 审查维度**：静态检查"冗余抽象 / 转发函数 / 重复字符串 / 仅 __init__ 的类"，提醒该复用/该极简。
 
 ## 双模块
 

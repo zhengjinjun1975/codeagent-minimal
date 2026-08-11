@@ -32,7 +32,7 @@ import argparse
 import urllib.request
 from pathlib import Path
 
-__version__ = "2.3"
+__version__ = "0.1.0"
 
 # ═══════════════════════════════════════════════════
 # 静态分析 (零模型, 纯标准库)
@@ -267,9 +267,167 @@ def _strip_self_check_code(content: str) -> str:
 
 SEVERITY_WEIGHTS = {"critical": 20, "major": 10, "minor": 3, "info": 1}
 
+# ── Obsidian 代码原子库路径（复用优先·极简落地的方法论①本地原子）──
+ATOMS_DIR = r"E:/knowledge-base/obsidian-vault/knowledge/code/atoms"
+
+def _list_code_atoms() -> list:
+    """列出 Obsidian 代码原子库的全部原子（.md，极简可复用片段）。"""
+    if not os.path.isdir(ATOMS_DIR):
+        return []
+    atoms = []
+    for root, _dirs, files in os.walk(ATOMS_DIR):
+        for f in files:
+            if f.endswith(".md") and not f.startswith("_"):
+                atoms.append(os.path.join(root, f))
+    return atoms
+
+def _reuse_suggestion(content: str, top_k: int = 3) -> list:
+    """应用接口：检索 Obsidian 代码原子库，给待审代码的复用建议。
+
+    从待审代码提取关键词（import 模块名 + 函数名），扫描原子库的标题/源码，
+    命中的原子说明"该功能已有极简实现，可复用"，提示审查者对照。
+
+    返回：[{"atom": 文件名, "domain": 领域, "title": 标题, "matched": 命中词}]
+    """
+    atoms = _list_code_atoms()
+    if not atoms:
+        return []
+    # 提取待审代码的关键词（import 的模块 + 定义的函数名）
+    keywords = set()
+    try:
+        tree = ast.parse(content)
+        for n in ast.walk(tree):
+            if isinstance(n, ast.Import):
+                for a in n.names:
+                    keywords.add(a.asname or a.name.split(".")[0])
+            elif isinstance(n, ast.ImportFrom):
+                keywords.add(n.module.split(".")[0] if n.module else "")
+            elif isinstance(n, (ast.FunctionDef, ast.ClassDef)):
+                keywords.add(n.name)
+    except SyntaxError:
+        pass
+    keywords = {k for k in keywords if k and len(k) >= 2}
+    suggestions = []
+    for atom in atoms:
+        try:
+            txt = open(atom, encoding="utf-8").read()
+        except Exception:
+            continue
+        hits = [k for k in keywords if k in txt or k.lower() in txt.lower()]
+        if hits:
+            name = os.path.splitext(os.path.basename(atom))[0]
+            domain = os.path.basename(os.path.dirname(atom))
+            # 取标题
+            title = ""
+            m = re.search(r"^title:\s*[\"']?([^\"']+)", txt, re.M)
+            if m:
+                title = m.group(1).strip()
+            suggestions.append({"atom": name, "domain": domain, "title": title or name, "matched": hits[:4]})
+    suggestions.sort(key=lambda s: -len(s["matched"]))
+    if suggestions:
+        return suggestions[:top_k]
+    # 本地 Obsidian 原子未命中 → ③远端降级：检索 GitHub 开源代码库（全程静默不报错）
+    remote = _remote_reuse_suggestion(content, top_k)
+    if remote:
+        return [dict(r, source="github") for r in remote]
+    return []
+
+
+def _remote_reuse_suggestion(content: str, top_k: int = 3) -> list:
+    """应用接口③远端降级：本地 Obsidian 原子未命中时，检索 GitHub 开源代码库。
+
+    用 GitHub 代码搜索 API（带 gh token，repo scope 即可）。全程 try/except 静默，
+    网络失败/无 token/限流 都返回 []，绝不抛异常中断审查。
+
+    返回：[{"repo", "path", "url", "name"}]  GitHub 代码命中项
+    """
+    # 提取关键词（import 模块 + 函数名）
+    keywords = set()
+    try:
+        tree = ast.parse(content)
+        for n in ast.walk(tree):
+            if isinstance(n, ast.Import):
+                for a in n.names:
+                    keywords.add((a.asname or a.name).split(".")[0])
+            elif isinstance(n, ast.ImportFrom):
+                keywords.add((n.module or "").split(".")[0])
+            elif isinstance(n, (ast.FunctionDef, ast.ClassDef)):
+                keywords.add(n.name)
+    except SyntaxError:
+        return []
+    keywords = {k for k in keywords if k and len(k) >= 3 and k not in ("def", "the", "and", "for", "with", "from", "import")}
+    if not keywords:
+        return []
+    # 读 gh token（repo scope 即可）
+    token = ""
+    try:
+        hosts = os.path.expanduser("~") + "/AppData/Roaming/GitHub CLI/hosts.yml"
+        for line in open(hosts, encoding="utf-8"):
+            if "oauth_token:" in line:
+                token = line.split(":", 1)[1].strip().strip('"')
+                break
+    except Exception:
+        return []
+    if not token:
+        return []
+    query = " ".join(list(keywords)[:4]) + " language:python"
+    try:
+        import urllib.parse
+        url = "https://api.github.com/search/code?q=" + urllib.parse.quote(query) + "&per_page=" + str(top_k)
+        req = urllib.request.Request(url, headers={"Authorization": f"token {token}",
+                                                   "Accept": "application/vnd.github+json",
+                                                   "User-Agent": "codeagent-minimal"})
+        resp = urllib.request.urlopen(req, timeout=12)
+        data = json.loads(resp.read().decode("utf-8"))
+        items = data.get("items", [])
+        return [{"repo": i.get("repository", {}).get("full_name"),
+                 "path": i.get("path"), "name": i.get("name"),
+                 "url": i.get("html_url")} for i in items[:top_k]]
+    except Exception:
+        return []
+
+
+def _static_check_reuse(tree, content: str) -> list:
+    """复用优先·极简落地审查维度。
+
+    检查代码是否违反方法论：能复用却重写、该极简却过度抽象、重复实现。
+    （复用优先 → 提醒已有代码/原子库可复用；极简落地 → 提醒去掉冗余抽象。）
+    """
+    issues = []
+    try:
+        funcs = [n for n in ast.walk(tree) if isinstance(n, (ast.FunctionDef, ast.AsyncFunctionDef))]
+        # 1. 函数体过短却独立成函数（不必要的抽象）
+        for fn in funcs:
+            body_len = sum(1 for s in ast.walk(fn) if isinstance(s, ast.stmt))
+            if body_len <= 2 and fn.name.startswith("_"):
+                issues.append({"severity": "minor", "title": f"冗余抽象: 函数 {fn.name} 体过短({body_len}句), 可内联", "line": fn.lineno})
+        # 2. 纯转发函数（仅调用另一函数，无附加值）→ 极简落地应内联/复用
+        for fn in funcs:
+            calls = [n for n in ast.walk(fn) if isinstance(n, ast.Call)]
+            if len(calls) == 1 and len(fn.body) == 1 and isinstance(fn.body[0], (ast.Return, ast.Expr)):
+                # 参数都是简单标识符（ast.arg 类型），且不含默认值/复杂结构
+                simple_args = all(not a.arg.startswith("_") for a in fn.args.args) and not fn.args.vararg and not fn.args.kwarg
+                if simple_args:
+                    issues.append({"severity": "minor", "title": f"转发函数 {fn.name}: 仅调用一次, 考虑直接复用调用点", "line": fn.lineno})
+        # 3. 重复字符串常量（同一字面量出现≥3次 → 应提取常量复用）
+        from collections import Counter
+        str_lits = [n.value for n in ast.walk(tree) if isinstance(n, ast.Constant) and isinstance(n.value, str) and len(n.value) >= 4]
+        for s, cnt in Counter(str_lits).most_common(3):
+            if cnt >= 3:
+                issues.append({"severity": "minor", "title": f"重复字符串 '{s}' 出现{cnt}次, 建议提取常量复用", "line": 1})
+        # 4. 不必要的类包装（类仅一个方法且是 __init__ → 过度工程）
+        for cls in [n for n in ast.walk(tree) if isinstance(n, ast.ClassDef)]:
+            methods = [n for n in cls.body if isinstance(n, (ast.FunctionDef, ast.AsyncFunctionDef))]
+            if len(methods) == 1 and methods[0].name == "__init__":
+                issues.append({"severity": "minor", "title": f"过度工程: 类 {cls.name} 仅含 __init__, 可用 dict/简单结构替代", "line": cls.lineno})
+    except Exception:
+        pass
+    return issues
+
+
 def _static_analyze(content: str, max_complexity: int = 10, strict_undefined: bool = False) -> dict:
     """对单文件执行全量静态分析, 返回结构化结果 + 得分"""
-    result = {"syntax": [], "imports": [], "complexity": [], "naming": [], "security": [], "network": [], "bugs": [], "architecture": [], "score": 100}
+    result = {"syntax": [], "imports": [], "complexity": [], "naming": [], "security": [], "network": [], "bugs": [], "architecture": [], "reuse": [], "score": 100}
     all_issues = []
     result["syntax"] = _static_check_syntax(content)
     all_issues.extend(result["syntax"])
@@ -285,8 +443,9 @@ def _static_analyze(content: str, max_complexity: int = 10, strict_undefined: bo
             result["naming"] = _static_check_naming(tree)
             result["bugs"] = _static_check_bugs(tree, content, strict_undefined)
             result["architecture"] = _static_check_architecture(content)
+            result["reuse"] = _static_check_reuse(tree, content)
             all_issues.extend(result["imports"] + result["complexity"] + result["naming"]
-                              + result["bugs"] + result["architecture"])
+                              + result["bugs"] + result["architecture"] + result["reuse"])
         except SyntaxError:
             pass
     penalty = sum(SEVERITY_WEIGHTS.get(i["severity"], 5) for i in all_issues)
@@ -421,7 +580,7 @@ def _module_exists(name: str) -> bool:
         return False
 
 
-def review_file(path: str, use_llm: bool, max_complexity: int = 10, strict_undefined: bool = False, external: bool = False) -> dict:
+def review_file(path: str, use_llm: bool, max_complexity: int = 10, strict_undefined: bool = False, external: bool = False, reuse_atoms: bool = False) -> dict:
     content = Path(path).read_text(encoding="utf-8", errors="ignore")
     static = _static_analyze(content, max_complexity, strict_undefined)
     if external:
@@ -436,6 +595,9 @@ def review_file(path: str, use_llm: bool, max_complexity: int = 10, strict_undef
         "static_issues": static["all_issues"],
         "issues": [dict(i, file=path) for i in static["all_issues"]],
     }
+    # 应用接口：检索 Obsidian 代码原子库给复用建议（复用优先·极简落地）
+    if reuse_atoms:
+        file_result["reuse_suggestions"] = _reuse_suggestion(content)
     if use_llm and _llm_enabled():
         llm = _llm_review(f"### {path}\n```python\n{content}\n```")
         if "error" not in llm:
@@ -457,6 +619,7 @@ def main():
     ap.add_argument("--max-complexity", type=int, default=10, help="圈复杂度阈值(默认10)")
     ap.add_argument("--strict-undefined", action="store_true", help="启用未定义名检查(启发式,易误报,默认关)")
     ap.add_argument("--external", action="store_true", help="可选对接 bandit/ruff(装了才用,深度增强)")
+    ap.add_argument("--reuse-atoms", action="store_true", help="复用优先·极简落地: 检索本地Obsidian代码原子→GitHub远端开源→(大模型兜底), 全程静默不报错")
     ap.add_argument("--threshold", type=int, default=0, help="平均得分低于此值则 exit 1(CI 门禁)")
     ap.add_argument("--test", action="store_true", help="运行测试 harness(冒烟/单元/边界/变异/稳定性)")
     ap.add_argument("--test-dir", default=".", help="测试文件所在目录(配合 --test)")
@@ -469,7 +632,7 @@ def main():
     if not files:
         print("未找到 .py 文件"); sys.exit(0)
 
-    results = [review_file(str(f), args.llm, args.max_complexity, args.strict_undefined, args.external) for f in files]
+    results = [review_file(str(f), args.llm, args.max_complexity, args.strict_undefined, args.external, args.reuse_atoms) for f in files]
 
     # ── 测试 harness（模块B）──
     test_report = None
@@ -514,6 +677,13 @@ def main():
             print("   🔮 可证伪改进(修复后预期):")
             for p in r["model"]["predictions"]:
                 print(f"      - {p}")
+        if "reuse_suggestions" in r and r["reuse_suggestions"]:
+            print("   ♻️ 复用建议（复用优先·极简落地）:")
+            for s in r["reuse_suggestions"]:
+                if s.get("source") == "github":
+                    print(f"      - [GitHub] {s.get('repo')} {s.get('path')} ({s.get('url')})")
+                else:
+                    print(f"      - [Obsidian原子·{s.get('domain')}] {s.get('title')} 命中: {','.join(s.get('matched',[]))}")
 
     # 汇总
     avg = sum(r["static_score"] for r in results) / len(results)
