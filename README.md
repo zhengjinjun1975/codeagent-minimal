@@ -3,6 +3,7 @@
 > 给需要审代码但不写代码的人用的**专业化代码审查 + 测试工具**。纯标准库零依赖，静态审查（语法/BUG/安全/架构/复用）+ 测试 harness（冒烟/单元/边界/变异/稳定性），0-100 分。
 
 [![License](https://img.shields.io/badge/License-Apache--2.0-blue.svg)](LICENSE)
+[![Version](https://img.shields.io/badge/version-0.1.1-blue.svg)](CHANGELOG.md)
 
 ## 纯标准库 · 零依赖
 
