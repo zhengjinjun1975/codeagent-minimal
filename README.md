@@ -11,7 +11,7 @@
 
 ## 代码方法论：复用优先 · 极简落地（Reuse-First Minimalism）
 
-审查器内置这套方法论，判断代码是否**能复用却重写、该极简却过度抽象**。完整文档：`E:/knowledge-base/obsidian-vault/knowledge/code/patterns/reuse-first-minimalism.md`
+审查器内置这套方法论，判断代码是否**能复用却重写、该极简却过度抽象**。完整文档见仓库 `docs/`（方法论文档）。
 
 ```
 ┌─ 找的阶梯（Reuse）─ 优先 ─┐

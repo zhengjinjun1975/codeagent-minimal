@@ -43,7 +43,7 @@ print({str(c).split("#")[-1]: {str(p).split("#")[-1] for p in ps}
 - 本体若同时有 `rdf:type`(实例归属)，可据此把"类层级"和"实例分类"分开处理。
 
 ## 来源
-本地 `E:/domain-libs/ontology/rdflib`、`E:/domain-libs/ontology/networkx`；类型索引思路源自 `E:/open-source/factory-ontology-kit/codes/graph_rag.py`(value_index 分类)。
+类型索引思路源自 `factory-ontology-kit`（开源）的 `codes/graph_rag.py`(value_index 分类)。
 
 ## 何时用 / 别用
 - **用**：本体含 TBox(类定义)，要回答"某类属于哪个大类/父子关系"。

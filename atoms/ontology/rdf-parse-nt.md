@@ -40,7 +40,7 @@ tail = lambda uri: str(uri).split("#")[-1]
 - 大文件用 `g.parse(..., format="nt")` 流式即可；纯标准库版本可用 `line.split()` 手撕（见 ontology_qa_v3.parse_nt）。
 
 ## 来源
-本地 `E:/domain-libs/ontology/rdflib`；`graph_rag.py`/`ontology_qa_v3.py` 手写解析思路见 `E:/open-source/factory-ontology-kit/codes/`。
+`graph_rag.py`/`ontology_qa_v3.py` 手写解析思路见 `factory-ontology-kit`（开源）的 `codes/`。
 
 ## 何时用 / 别用
 - **用**：本体是 N-Triples/Turtle，要快速转成图、跑 SPARQL 或建邻接表。

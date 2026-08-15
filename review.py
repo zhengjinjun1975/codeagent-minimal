@@ -268,7 +268,7 @@ def _strip_self_check_code(content: str) -> str:
 SEVERITY_WEIGHTS = {"critical": 20, "major": 10, "minor": 3, "info": 1}
 
 # ── Obsidian 代码原子库路径（复用优先·极简落地的方法论①本地原子）──
-ATOMS_DIR = r"E:/knowledge-base/obsidian-vault/knowledge/code/atoms"
+ATOMS_DIR = os.environ.get("ATOMS_DIR", "atoms")
 
 def _list_code_atoms() -> list:
     """列出 Obsidian 代码原子库的全部原子（.md，极简可复用片段）。"""

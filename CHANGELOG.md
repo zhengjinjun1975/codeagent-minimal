@@ -28,7 +28,7 @@
 写的阶梯（极简）：标准库 → 已装依赖 → 一行 → 最少代码
 ```
 
-完整方法论文档：`E:/knowledge-base/obsidian-vault/knowledge/code/patterns/reuse-first-minimalism.md`
+完整方法论文档见仓库 `docs/`。
 
 ## 旧版（v2.x，已降维，历史不在此记录）
 

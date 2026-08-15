@@ -42,7 +42,7 @@ print(G["E1"]["E2"]["rel"])                # 边属性
 - 图退化到"实体→邻居"小规模时，纯标准库 `defaultdict(list)` 更轻，不必上 networkx。
 
 ## 来源
-本地 `E:/domain-libs/ontology/networkx`；图检索设计源自 `E:/open-source/factory-ontology-kit/codes/graph_rag.py`。
+图检索设计源自 `factory-ontology-kit`（开源）的 `codes/graph_rag.py`。
 
 ## 何时用 / 别用
 - **用**：需要最短路径、连通分量、多种图算法，或图会变大/反复遍历。
