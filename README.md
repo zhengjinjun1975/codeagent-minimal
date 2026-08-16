@@ -3,8 +3,20 @@
 > **v0.3.0 · 原子化重构** — 把代码审查 / 测试 / 依赖漏洞 / 变异 / 模糊 / 回归 / 自进化等能力拆成 **16 个可独立运行、可任意组装的原子智能体**，由统一运行时编排、统一入口 `codeagent` 驱动。
 > **开源内核 + 闭源编排**：本仓库开源 16 原子 + 统一运行时/入口（Apache-2.0）；重型闭源编排（assembler / orchestrator / CodeMode）位于独立工作区，不随本仓库分发。
 
-[![License](https://img.shields.io/badge/License-Apache--2.0-blue.svg)](LICENSE)
+[![License](https://img.shields.io/badge/License-Apache-2.0-blue.svg)](LICENSE)
 [![Version](https://img.shields.io/badge/version-0.3.0-blue.svg)](CHANGELOG.md)
+
+---
+
+## 文档导航
+
+| 文档 | 说明 |
+|------|------|
+| **[docs/ATOMS_GUIDE.md](docs/ATOMS_GUIDE.md)** | 16 原子逐个指南：能力 / 入参 / 返回信封 `{ok,data}` / 示例代码（真实信封核实），含独立运行 + 统一入口两种调用 |
+| **[docs/INTEGRATION_GUIDE.md](docs/INTEGRATION_GUIDE.md)** | 对接传统框架（LangChain / CrewAI / AutoGen / OpenAI Agents SDK / Claude Code）：作为 Tool / 子代理节点 / 图编排 / REST / CLI 集成，边界为本地原子 + 数据不出厂 + 开源内核闭源编排 |
+| **examples/** | 已跑通对接示例：`codeagent_toolkit.py`（统一接入层）、`langchain_integration.py`、`crewai_integration.py`、`graph_orchestration.py`（子代理节点+图编排）、`web_api_client.py`（REST） |
+
+> 用户可**独立使用**（读 ATOMS_GUIDE 直接用 16 原子）与**独立集成**（读 INTEGRATION_GUIDE + examples 接入任意框架），无需闭源编排参与。
 
 ---
 
@@ -124,6 +136,37 @@ python codeagent.py deliver --chain "think,gen,review,test,evolve"
 兼容旧入口：`python codeagent.py <target> --review/--test/--dep/--refine/--reuse ...`
 
 通用开关：`--json` 输出机器可读 JSON；`--mode code|design|layout|content` 切换审查维度；`--remote`/`--osv`/`--llm` 显式开启远端能力（默认数据不出厂）。
+
+### 原子使用指南
+
+每个原子的 **能力 / 入参 / 返回 `{ok, data}` 信封 / 示例代码**（基于真实信封核实，含独立运行 + 统一入口双调用）见 **[docs/ATOMS_GUIDE.md](docs/ATOMS_GUIDE.md)**：
+
+```python
+# 进程内能力路由（脚本/框架集成）
+from agent_runtime import AgentRuntime
+rt = AgentRuntime(local_only=True)                 # 数据不出厂
+res = rt.run_capability("codereview.review", path="sample_target.py", mode="code")
+print(res["ok"], res["data"]["score"])             # True 100
+```
+
+```bash
+# 统一入口（CLI，等价输出）
+python codeagent.py review sample_target.py --json
+```
+
+### 对接传统框架
+
+把 16 原子作为 **Tool / 子代理节点 / 图编排 / REST / CLI** 接入 **LangChain · CrewAI · AutoGen · OpenAI Agents SDK · Claude Code** 的完整示例与边界见 **[docs/INTEGRATION_GUIDE.md](docs/INTEGRATION_GUIDE.md)**，可运行代码在 **examples/**：
+
+```bash
+python examples/langchain_integration.py     # LangChain Tool（需 pip install langchain-core）
+python examples/crewai_integration.py        # CrewAI Tool（需 pip install crewai）
+python examples/graph_orchestration.py       # 子代理节点 + 图编排（零依赖）
+python web/server.py --port 8080 &           # 先起 REST 服务
+python examples/web_api_client.py            # REST 集成
+```
+
+> **边界**：默认**本地原子 / 数据不出厂**（`local_only=True`，剥离云端密钥）；本仓库即**开源内核 + 开源编排**，重型闭源编排（assembler / orchestrator / CodeMode）位于独立工作区、不随本仓库分发。
 
 ---
 
