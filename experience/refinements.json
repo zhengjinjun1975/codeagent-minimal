@@ -1,0 +1,59 @@
+[
+ {
+  "when": "2026-08-16 13:19:10",
+  "task": "修复登录接口注入",
+  "score": 70,
+  "prev_score": 80.0,
+  "keywords": [
+   "修复登录接口注入",
+   "修复",
+   "复登",
+   "登录",
+   "录接",
+   "接口",
+   "口注",
+   "注入"
+  ],
+  "observation": [
+   "存在 1 个未解决 issue",
+   "评分 70 未达 80 门槛"
+  ],
+  "attribution": "p/『子代理规格』缺关键依赖定义，改任务拆解与验收标准",
+  "bucket": "G",
+  "refinement": "先走五段派单：检索路径先行→单文件×单增强→预算自适应→_task_state.md 落盘→证据回执；拆分大任务(单文件×单增强)，避免一次塞多文件；修复前先写失败测试(红)→最小改→绿→回归，形成可证伪闭环",
+  "kept": false,
+  "verdict": "未通过→建议回滚到上一快照"
+ },
+ {
+  "when": "2026-08-16 13:20:09",
+  "task": "sample_target.py",
+  "score": 70,
+  "prev_score": -1,
+  "keywords": [
+   "sample",
+   "target"
+  ],
+  "observation": [
+   "迭代上限截断，任务只完成前半段",
+   "评分 70 未达 80 门槛"
+  ],
+  "attribution": "p/『约束/验收』下次强化验收标准与证据回执",
+  "bucket": "P",
+  "refinement": "先走五段派单：检索路径先行→单文件×单增强→预算自适应→_task_state.md 落盘→证据回执；拆分大任务(单文件×单增强)，避免一次塞多文件",
+  "kept": true,
+  "verdict": "通过(严格更好)"
+ },
+ {
+  "when": "2026-08-16 13:20:09",
+  "task": "_t_tdd.py",
+  "score": 85,
+  "observation": [
+   "观察：测试通过"
+  ],
+  "attribution": "p/『约束/验收』下次强化验收标准与证据回执",
+  "bucket": "P",
+  "refinement": "先走五段派单：检索路径先行→单文件×单增强→预算自适应→_task_state.md 落盘→证据回执",
+  "kept": true,
+  "verdict": "TDD闭环"
+ }
+]

@@ -610,6 +610,42 @@ def review_file(path: str, use_llm: bool, max_complexity: int = 10, strict_undef
             file_result["issues"].extend(dict(i, file=path) for i in llm.get("issues", []))
     return file_result
 
+def _dep_enrich(file_result, content, graph):
+    """依赖图感知增强：把 issue 关联到『谁调用它/改它波及谁』，审查更准更深。
+    对审查命中的每个实体(函数/类)，标出直接调用方(影响面)。"""
+    try:
+        import dep_audit as da
+        mod = Path(file_result["file"]).stem
+        defined = [e for e in graph["entities"] if e.split(".")[0] == mod]
+        if not defined:
+            return
+        for i in file_result["issues"]:
+            title = i.get("title", "")
+            hit = next((e for e in defined if e.split(".")[-1] in title), None)
+            if not hit:
+                continue
+            callers = da.callers(graph, hit)
+            if callers:
+                i["callers"] = callers
+                i["suggestion"] = (i.get("suggestion", "") or "").strip()
+                i["impact"] = f"改 {hit} 波及 {len(callers)} 个调用方: {', '.join(callers[:8])}"
+    except Exception:
+        pass
+
+
+def _run_dep(target, impact, transitive):
+    """运行本体感知依赖图审查, 返回 (json_dict, human_text)。"""
+    import dep_audit as da
+    report = da.dep_report([target], impact=impact, transitive=transitive)
+    return report, da._fmt_report(report)
+
+
+def _run_self_evolve(memdir="experience"):
+    """打通 self_evolve: 把经验记忆目录设为仓库内 experience/。"""
+    import self_evolve
+    return self_evolve
+
+
 def main():
     ap = argparse.ArgumentParser(description="CodeReview Minimal — 审代码不写代码的人用的审查器 + 测试 harness")
     ap.add_argument("target", help="要审查的文件或目录")
@@ -623,6 +659,12 @@ def main():
     ap.add_argument("--threshold", type=int, default=0, help="平均得分低于此值则 exit 1(CI 门禁)")
     ap.add_argument("--test", action="store_true", help="运行测试 harness(冒烟/单元/边界/变异/稳定性)")
     ap.add_argument("--test-dir", default=".", help="测试文件所在目录(配合 --test)")
+    ap.add_argument("--dep", action="store_true", help="本体感知依赖图审查: 实体/调用图/循环依赖/模块耦合/跨文件影响(改A波及B)")
+    ap.add_argument("--impact", metavar="SYMBOL", help="影响分析: 改该符号/模块波及谁(配合 --dep)")
+    ap.add_argument("--transitive", action="store_true", help="影响分析含传递闭包")
+    ap.add_argument("--refine", metavar="OUTCOME_JSON", help="refine() 自省闭环: 观察→归因→精炼→校验(快照回滚)+自动沉淀技能+记忆复盘")
+    ap.add_argument("--tdd", action="store_true", help="TDD反馈闭环: 测试反馈→改进→再测试(红→改→绿→回归)")
+    ap.add_argument("--full", action="store_true", help="一键套餐: 静态+测试harness+external+reuse+依赖图 一次跑完")
     args = ap.parse_args()
 
     if not os.path.exists(args.target):
@@ -632,7 +674,42 @@ def main():
     if not files:
         print("未找到 .py 文件"); sys.exit(0)
 
+    # --full 一键套餐: 静态 + 测试harness + external + reuse + 依赖图 一次跑完
+    if args.full:
+        args.test = True
+        args.external = True
+        args.reuse_atoms = True
+        args.dep = True
+
     results = [review_file(str(f), args.llm, args.max_complexity, args.strict_undefined, args.external, args.reuse_atoms) for f in files]
+
+    # ── 本体感知依赖图审查（依赖图感知增强 + 影响分析/循环依赖/耦合）──
+    dep_report = None
+    if args.dep or args.impact:
+        try:
+            import dep_audit as da
+            graph = da.build_graph([args.target])
+            for r in results:
+                try:
+                    _dep_enrich(r, Path(r["file"]).read_text(encoding="utf-8", errors="ignore"), graph)
+                except Exception:
+                    pass
+            dep_report, dep_text = _run_dep(args.target, args.impact, args.transitive)
+        except Exception as e:
+            dep_report, dep_text = None, f"(依赖图审查不可用: {e})"
+
+    # ── refine() 自省闭环 + 自我提示 + 记忆复盘（Graph Engineering 自进化执行）──
+    if args.refine:
+        try:
+            import self_evolve as se
+            memdir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "experience")
+            outcome = json.loads(args.refine) if not os.path.exists(args.refine) \
+                else json.loads(Path(args.refine).read_text(encoding="utf-8"))
+            res = se.refine(outcome.get("task", args.target), outcome, memdir=memdir)
+            print("🧬 refine() 自省闭环:")
+            print(json.dumps(res, ensure_ascii=False, indent=2))
+        except Exception as e:
+            print(f"🧬 refine() 不可用: {e}")
 
     # ── 测试 harness（模块B）──
     test_report = None
@@ -650,7 +727,10 @@ def main():
         return
 
     if args.json:
-        print(json.dumps(results, ensure_ascii=False, indent=2))
+        out = {"results": results}
+        if dep_report:
+            out["dep_audit"] = dep_report
+        print(json.dumps(out, ensure_ascii=False, indent=2))
         return
 
     # 人类可读报告
@@ -669,6 +749,8 @@ def main():
             print(f"   {mark} [{i.get('severity')}] {loc}{i.get('title')}")
             if i.get("suggestion"):
                 print(f"      → {i['suggestion']}")
+            if i.get("impact"):
+                print(f"      ↳ {i['impact']}")
         if "model" in r and r["model"].get("overengineering"):
             print("   🧹 过度工程:")
             for o in r["model"]["overengineering"]:
@@ -684,6 +766,22 @@ def main():
                     print(f"      - [GitHub] {s.get('repo')} {s.get('path')} ({s.get('url')})")
                 else:
                     print(f"      - [Obsidian原子·{s.get('domain')}] {s.get('title')} 命中: {','.join(s.get('matched',[]))}")
+
+    # 依赖图审查报告
+    if dep_report:
+        print("\n" + "=" * 60)
+        print(dep_text)
+
+    # ── TDD 反馈闭环（测试反馈→改进→再测试）──
+    if args.tdd:
+        try:
+            import self_evolve as se
+            memdir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "experience")
+            res = se.tdd_loop(str(files[0]), memdir=memdir, task=args.target)
+            print("\n🧪 TDD 反馈闭环（红→改→绿→回归）:")
+            print(json.dumps(res, ensure_ascii=False, indent=2))
+        except Exception as e:
+            print(f"🧪 TDD 闭环不可用: {e}")
 
     # 汇总
     avg = sum(r["static_score"] for r in results) / len(results)
