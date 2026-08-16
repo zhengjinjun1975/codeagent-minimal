@@ -21,19 +21,21 @@ import subprocess
 
 class CodeDispatchAgent(AtomicAgent):
     name = "code-dispatch"
-    version = "0.1.0"
+    version = "0.2.0"
     domain = "dispatch"
-    description = "派单原子: 5段模板+自适应预算+背靠背验证+并行冲突防护"
-    provides = ["dispatch.template", "dispatch.budget", "dispatch.verify", "dispatch.conflict"]
+    description = "派单原子: 5段模板+自适应预算+背靠背验证+并行冲突防护+allow/ask/deny细粒度权限"
+    provides = ["dispatch.template", "dispatch.budget", "dispatch.verify", "dispatch.conflict",
+                "dispatch.permission"]
     depends_on = []
-    inputs = ["background", "goal", "constraint", "redline", "deliverable", "task", "files_needed", "language", "claims", "workdir", "rerun_cmd", "tasks", "workspace"]
-    outputs = ["template", "budget", "items", "summary", "conflicts", "safe", "recommendation"]
+    inputs = ["background", "goal", "constraint", "redline", "deliverable", "task", "files_needed", "language", "claims", "workdir", "rerun_cmd", "tasks", "workspace", "policy", "action", "resource", "resource_type"]
+    outputs = ["template", "budget", "items", "summary", "conflicts", "safe", "recommendation", "decision", "policy"]
 
     def _register_defaults(self):
         self.register("dispatch.template", self._template)
         self.register("dispatch.budget", self._budget)
         self.register("dispatch.verify", self._verify)
         self.register("dispatch.conflict", self._conflict)
+        self.register("dispatch.permission", self._permission)
 
     # ── dispatch.template：派单5段模板 ──
     def _template(self, background="", goal="", constraint="", redline="", deliverable="",
@@ -114,13 +116,78 @@ class CodeDispatchAgent(AtomicAgent):
                 "recommendation": rec, "detail": conflicts}
 
 
+    # ── dispatch.permission：allow/ask/deny 三级细粒度权限（OpenCode P1-2）──
+    def _permission(self, policy=None, action="check", resource="", resource_type="command",
+                    decision=None, rules=None):
+        """细粒度权限模型：对「工具 / 命令 / 文件」资源做 allow/ask/deny 三级判定 + 通配。
+        对齐 OpenCode permission（allow/ask/deny + 通配 + 运行期可切换）。
+
+        policy 结构（示例）：
+            {
+              "default": "ask",
+              "rules": [
+                {"type": "command", "pattern": "git *",        "effect": "allow"},
+                {"type": "command", "pattern": "rm -rf *",     "effect": "deny"},
+                {"type": "command", "pattern": "pytest *",     "effect": "ask"},
+                {"type": "tool",    "pattern": "llm.generate", "effect": "deny"},
+                {"type": "file",    "pattern": "E:/secrets/*", "effect": "deny"},
+              ]
+            }
+        判定优先级：deny > allow > ask > default。通配 `*` 支持前缀/后缀/任意段。
+        action: check(判定单个资源) | add_rule(增规则) | list(展示策略)。
+        """
+        policy = policy or {"default": "ask", "rules": rules or []}
+        default = policy.get("default", "ask")
+        rules = policy.get("rules", [])
+
+        if action == "list":
+            return {"policy": policy, "default": default, "rules": rules}
+        if action == "add_rule":
+            if decision not in ("allow", "ask", "deny"):
+                return self._envelope(False, degraded=True,
+                                      error=f"decision 须 allow/ask/deny, 实得 {decision}")
+            rules.append({"type": resource_type, "pattern": resource, "effect": decision})
+            policy["rules"] = rules
+            return {"policy": policy, "added": {"type": resource_type,
+                                                "pattern": resource, "effect": decision}}
+
+        # check：对 resource 做判定。优先级 deny > allow > ask > default。
+        if not resource:
+            return self._envelope(False, degraded=True, error="check 需 resource")
+        matched_rules = []
+        for r in rules:
+            if r.get("type") == resource_type and _glob_match(r.get("pattern", ""), resource):
+                matched_rules.append(r)
+        # 按 effect 优先级取最高（deny > allow > ask）
+        rank = {"deny": 3, "allow": 2, "ask": 1}
+        best = max(matched_rules, key=lambda r: rank.get(r.get("effect", "ask"), 0)) if matched_rules else None
+        effect = best["effect"] if best else default
+        return {"decision": effect, "resource": resource, "resource_type": resource_type,
+                "policy": {"default": default, "matched_rule": best, "matched_count": len(matched_rules)},
+                "note": "deny > allow > ask > default; ask 表示需人工确认",
+                "granted": effect in ("allow", "ask"),
+                "blocked": effect == "deny"}
+
+
+def _glob_match(pattern, text):
+    """轻量通配匹配：`*` 匹配任意串（含空），支持前缀/后缀/中间任意段。无第三方依赖。"""
+    if pattern == "*":
+        return True
+    if pattern == text:
+        return True
+    # 将 glob 转成正则
+    import re
+    regex = "^" + re.escape(pattern).replace("\\*", ".*") + "$"
+    return re.match(regex, text) is not None
+
+
 agent = CodeDispatchAgent()
 
 if __name__ == "__main__":
     import argparse, json
     ap = argparse.ArgumentParser(description="code-dispatch 原子自测入口")
     ap.add_argument("--capability", default="dispatch.template",
-                    choices=["dispatch.template", "dispatch.budget", "dispatch.verify", "dispatch.conflict"])
+                    choices=["dispatch.template", "dispatch.budget", "dispatch.verify", "dispatch.conflict", "dispatch.permission"])
     args = ap.parse_args()
     agent.load()
     print("══ code-dispatch 原子自测 ══", agent.describe()["name"], "status=" + agent.describe()["status"])
@@ -130,6 +197,12 @@ if __name__ == "__main__":
         r = agent.run(_capability="dispatch.budget", task="实现 add", files_needed=1)
     elif args.capability == "dispatch.verify":
         r = agent.run(_capability="dispatch.verify", claims=[{"claim": "c1", "action": "python -c pass"}])
+    elif args.capability == "dispatch.permission":
+        r = agent.run(_capability="dispatch.permission", action="check", resource="rm -rf /etc",
+                      resource_type="command",
+                      policy={"default": "ask", "rules": [
+                          {"type": "command", "pattern": "git *", "effect": "allow"},
+                          {"type": "command", "pattern": "rm -rf *", "effect": "deny"}]})
     else:
         r = agent.run(_capability="dispatch.conflict",
                       tasks=[{"name": "A", "files": ["x.py", "reg.json"]}, {"name": "B", "files": ["reg.json"]}])

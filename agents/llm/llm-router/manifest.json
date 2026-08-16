@@ -1,16 +1,18 @@
 {
   "name": "llm-router",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "domain": "llm",
-  "description": "模型路由原子：复用 model_config.json 结构。llm.generate 走云端 GLM，llm.review 走本地 ornith。local-only 开关保证敏感数据不出厂（禁云端）。",
+  "description": "多模型 provider 注册表原子: 本地 ornith/Ollama + 云端 DeepSeek/GLM 等热扩展(改config即加模型)。llm.generate 云端按provider路由, llm.review 本地。llm.list_models/registry 模型目录。local-only 默认 True 数据不出厂。",
   "open_source": true,
   "agent_class": "LlmRouterAgent",
   "entry": "main.py",
   "provides": [
     "llm.generate",
-    "llm.review"
+    "llm.review",
+    "llm.list_models",
+    "llm.registry"
   ],
   "depends_on": [],
-  "inputs": ["messages", "temp", "max_tokens", "local_only", "config_path"],
-  "outputs": ["content", "model", "provider"]
+  "inputs": ["messages", "temp", "max_tokens", "local_only", "config_path", "provider", "model", "api_key"],
+  "outputs": ["content", "model", "provider", "type", "models", "registry"]
 }

@@ -171,15 +171,17 @@
     },
     "llm-router": {
       "name": "llm-router",
-      "version": "0.1.0",
+      "version": "0.2.0",
       "domain": "llm",
-      "description": "模型路由原子：复用 model_config.json 结构。llm.generate 走云端 GLM，llm.review 走本地 ornith。local-only 开关保证敏感数据不出厂（禁云端）。",
+      "description": "多模型 provider 注册表原子: 本地 ornith/Ollama + 云端 DeepSeek/GLM 等热扩展(改config即加模型)。llm.generate 云端按provider路由, llm.review 本地。llm.list_models/registry 模型目录。local-only 默认 True 数据不出厂。",
       "open_source": true,
       "agent_class": "LlmRouterAgent",
       "entry": "main.py",
       "provides": [
         "llm.generate",
-        "llm.review"
+        "llm.review",
+        "llm.list_models",
+        "llm.registry"
       ],
       "depends_on": [],
       "inputs": [
@@ -187,14 +189,53 @@
         "temp",
         "max_tokens",
         "local_only",
-        "config_path"
+        "config_path",
+        "provider",
+        "model",
+        "api_key"
       ],
       "outputs": [
         "content",
         "model",
-        "provider"
+        "provider",
+        "type",
+        "models",
+        "registry"
       ],
       "path": "agents\\llm\\llm-router"
+    },
+    "mcp-client": {
+      "name": "mcp-client",
+      "version": "0.1.0",
+      "domain": "mcp",
+      "description": "MCP 客户端原子(新原子): 连外部 MCP server(local stdio + remote http), tools/list + tools/call 接入生态工具。默认 local_only 白名单, 远程需显式 allow_remote。零依赖纯标准库。",
+      "open_source": true,
+      "agent_class": "McpClientAgent",
+      "entry": "main.py",
+      "provides": [
+        "mcp.list",
+        "mcp.connect",
+        "mcp.tools",
+        "mcp.call"
+      ],
+      "depends_on": [],
+      "inputs": [
+        "server",
+        "endpoint",
+        "command",
+        "tools",
+        "timeout",
+        "local_only",
+        "allow_remote",
+        "allow_tools"
+      ],
+      "outputs": [
+        "servers",
+        "tools",
+        "result",
+        "server"
+      ],
+      "path": "agents\\mcp\\mcp-client"
     },
     "code-memory": {
       "name": "code-memory",
@@ -312,6 +353,42 @@
       ],
       "path": "agents\\reuse\\code-reuse"
     },
+    "code-skill": {
+      "name": "code-skill",
+      "version": "0.1.0",
+      "domain": "skill",
+      "description": "SKILL.md 技能标准原子(新原子): 兼容 .opencode/.claude/.agents/skills 搜索路径, skill.load 按需加载省上下文, skill.export 把自进化沉淀技能转 SKILL.md 标准可交换资产。",
+      "open_source": true,
+      "agent_class": "CodeSkillAgent",
+      "entry": "main.py",
+      "provides": [
+        "skill.list",
+        "skill.load",
+        "skill.export",
+        "skill.sediment"
+      ],
+      "depends_on": [
+        "memory.recall"
+      ],
+      "inputs": [
+        "paths",
+        "name",
+        "content",
+        "task",
+        "action",
+        "bucket",
+        "memdir",
+        "frontmatter"
+      ],
+      "outputs": [
+        "skills",
+        "skill",
+        "exported",
+        "added",
+        "path"
+      ],
+      "path": "agents\\skill\\code-skill"
+    },
     "task-state": {
       "name": "task-state",
       "version": "0.1.0",
@@ -380,6 +457,7 @@
     "code-dispatch",
     "dep-impact",
     "llm-router",
+    "mcp-client",
     "code-memory",
     "code-project",
     "code-reuse",
@@ -387,6 +465,7 @@
     "code-test",
     "code-review",
     "code-evolve",
+    "code-skill",
     "code-plan"
   ],
   "conflicts": []
