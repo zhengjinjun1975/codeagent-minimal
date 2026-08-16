@@ -36,12 +36,32 @@ class CodeReuseAgent(AtomicAgent):
         self.register("reuse.remote", self._remote)
 
     def _local(self, content=None, path=None, top_k=3):
-        """本地检索: 复用 _reuse_suggestion(Obsidian atoms → GitHub 远端降级)。"""
+        """本地检索: 复用 _reuse_suggestion(Obsidian atoms → GitHub 远端降级)。
+        修复断链：path 为目录时不再 open(dir) 抛 PermissionError，
+        而是聚合目录下 .py/.md 文件作为检索语料（真实搜索本地库）。"""
         src = content
         if not src and path:
-            src = open(str(path), encoding="utf-8", errors="ignore").read()
+            p = str(path)
+            if os.path.isdir(p):
+                # 目录 → 聚合目录内源码文件作为检索语料
+                parts = []
+                for root, _dirs, files in os.walk(p):
+                    for f in files:
+                        if f.endswith((".py", ".md")) and not f.startswith("_"):
+                            try:
+                                parts.append(open(os.path.join(root, f),
+                                                  encoding="utf-8", errors="ignore").read())
+                            except OSError:
+                                continue
+                src = "\n\n".join(parts)
+            else:
+                try:
+                    src = open(p, encoding="utf-8", errors="ignore").read()
+                except OSError as e:
+                    return self._envelope(False, degraded=True,
+                                          error=f"path 读取失败: {e}")
         if not src:
-            return self._envelope(False, degraded=True, error="缺 content 或 path 入参")
+            return self._envelope(False, degraded=True, error="缺 content 或 path 入参（path 为文件/含源码的目录）")
         sug = rv._reuse_suggestion(src, top_k=top_k)
         return {"suggestions": sug, "count": len(sug)}
 

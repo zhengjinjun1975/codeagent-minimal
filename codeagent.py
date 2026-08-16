@@ -115,12 +115,14 @@ class CodeAgent:
     def reg_guard(self, action="snapshot", path=None, funcs=None):
         """回归护栏：action=snapshot 建/比回归快照；action=affected 增量测试选择。"""
         kw = {}
-        if path:
-            kw["path"] = path
-        if funcs:
-            kw["funcs"] = funcs
         if action == "affected":
-            kw["changed_files"] = path
+            # test.affected 只接收 changed_files(文件路径列表)，不接收 path/funcs
+            kw["changed_files"] = [path] if path else []
+        else:
+            if path:
+                kw["path"] = path
+            if funcs:
+                kw["funcs"] = funcs
         return self.rt.reg_guard(action=action, **kw)
 
     def guard_chain(self, target, mode="code"):
