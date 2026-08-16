@@ -1,0 +1,71 @@
+codeagent-minimal
+Copyright 2026 Zheng Jinjun (zhengjinjun1975)
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+
+-------------------------------------------------------------------------
+Attribution & design-inspiration notices
+-------------------------------------------------------------------------
+
+codeagent-minimal is an ORIGINAL implementation. Where functionality or
+architecture is *inspired by* an open-source project, the inspiration is
+acknowledged here for transparency. All inspired ideas were re-implemented
+from scratch in pure Python standard library — no third-party source code is
+copied, bundled, or linked into this repository, and no derivative-work
+obligation is assumed beyond what Apache-2.0 itself already imposes on
+downstream users.
+
+The following projects / products inspired *design ideas only*
+(self-implemented, not copied):
+
+  * FSoft CodeWiki (MIT)
+      - "Reuse-first" structured code-atom knowledge retrieval concept,
+        re-implemented as the local code-atom reuse layer (atoms/ + reuse).
+  * dep_audit / Semgrep-style data-flow taint analysis (Semgrep is LGPL)
+      - The source->sink taint-analysis *idea*, re-implemented from scratch
+        as a pure-stdlib static taint engine (dep_scan.py / dep-scan atom).
+        No Semgrep or dep_audit source is used.
+  * OpenCode (MIT)
+      - MCP client / SKILL skills / CodeMode orchestration / fine-grained
+        permission (allow / ask / deny) *concepts*, re-implemented from
+        scratch (mcp-client, code-skill atoms; closed-source CodeMode lives
+        outside this repository).
+  * CodeReview / test-harness methodologies (variously MIT / Apache-2.0)
+      - Static review dimensions and mutation / fuzz testing *approaches*,
+        re-implemented as pure-stdlib modules (review.py, test_harness.py,
+        fuzz_engine.py, reg_guard.py).
+
+MIT is a permissive license compatible with Apache-2.0 for downstream use.
+Because no MIT source was copied into this repository, no MIT notice
+inclusion or derivative-work obligation is triggered for this project.
+
+-------------------------------------------------------------------------
+Dependency boundary
+-------------------------------------------------------------------------
+
+codeagent-minimal has ZERO third-party RUNTIME dependencies — it runs on the
+Python standard library only (ast / re / json / subprocess / importlib ...).
+Optional analyzers (bandit, pyflakes, coverage, pytest) are detected at
+runtime and gracefully skipped when absent; they are development
+conveniences, not required dependencies, and introduce no license obligation
+for the shipped artifact.
+
+-------------------------------------------------------------------------
+Open-source kernel / closed-source orchestration boundary
+-------------------------------------------------------------------------
+
+The 16 atomic agents, the unified runtime (agent_runtime.py) and the unified
+entry (codeagent.py) shipped in THIS repository are open source under
+Apache-2.0. The closed-source assembler / orchestrator and CodeMode live in
+the SEPARATE workspace E:/code_agent and are NOT part of this repository and
+are NOT shipped, linked, or required here.
