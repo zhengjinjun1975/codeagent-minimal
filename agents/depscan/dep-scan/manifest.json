@@ -1,0 +1,19 @@
+{
+  "name": "dep-scan",
+  "version": "0.2.0",
+  "domain": "depscan",
+  "description": "依赖漏洞SCA+污点原子：复用 dep_scan.scan_dependencies/taint_analyze/scan_all，纯 stdlib 数据不出厂。SCA 依赖漏洞 + Semgrep 级 source→sink 污点分析。",
+  "open_source": true,
+  "agent_class": "DepScanAgent",
+  "entry": "main.py",
+  "provides": [
+    "depscan.scan",
+    "depscan.sca",
+    "depscan.taint",
+    "depscan.osv"
+  ],
+  "depends_on": [],
+  "inputs": ["target", "osv_query", "allow_remote"],
+  "outputs": ["deps", "vulns", "sca", "taint", "findings", "total_findings", "summary"],
+  "path": "agents/depscan/dep-scan"
+}

@@ -7,7 +7,9 @@
 统一命令覆盖：
   review / test / evolve / reuse / impact / plan / memory / skill / mcp / llm /
   dispatch / project / taskstate / deliver   —— 映射到对应原子能力
+  dep-scan / fuzz / reg-guard                —— 重组合新增：SCA+污点扫描/属性模糊/回归护栏
   chain     —— 运行组装链（think→gen→review→test→evolve 大链，含 MCP/多模型/SKILL 协同）
+  guard     —— 安全·质量组装链（review+dep-scan+fuzz+reg-guard 协同，数据不出厂）
   evolve-loop —— 大自进化闭环（观察→归因→精炼→校验 + 记忆复盘 + 技能沉淀 + SKILL 资产）
   registry / status / models —— 运行时自省
 
@@ -101,6 +103,30 @@ class CodeAgent:
     def deliver(self, chain, outputs):
         return self.rt.run_capability("deliver.report", chain=chain, outputs=outputs)
 
+    # ── 重组合新增：安全·质量命令（dep-scan / fuzz / reg-guard）──
+    def dep_scan(self, target, osv_query=False, allow_remote=False):
+        """SCA+污点扫描：目标文件或目录。数据不出厂默认。"""
+        return self.rt.dep_scan(target, osv_query=osv_query, allow_remote=allow_remote)
+
+    def fuzz(self, path, funcname=None, iterations=40):
+        """属性模糊：funcname 指定单函数模糊，缺省覆盖驱动用例生成。"""
+        return self.rt.fuzz(path, funcname=funcname, iterations=iterations)
+
+    def reg_guard(self, action="snapshot", path=None, funcs=None):
+        """回归护栏：action=snapshot 建/比回归快照；action=affected 增量测试选择。"""
+        kw = {}
+        if path:
+            kw["path"] = path
+        if funcs:
+            kw["funcs"] = funcs
+        if action == "affected":
+            kw["changed_files"] = path
+        return self.rt.reg_guard(action=action, **kw)
+
+    def guard_chain(self, target, mode="code"):
+        """安全·质量组装链：review + dep-scan + fuzz 协同（数据不出厂）。"""
+        return self.rt.review_with_guard(target, mode=mode)
+
     # ── 组装链（完整大链，含 MCP/多模型/SKILL 协同）──
     def chain(self, task, code=None, spec=None, language="python", chain=None):
         """运行 think→gen→review→test→evolve 大链（数据不出厂）。
@@ -185,6 +211,18 @@ def _cli():
     p = sub.add_parser("deliver", help="交付报告")
     p.add_argument("--chain", default="think,gen,review,test,evolve")
     p.add_argument("--outputs", default="{}"); _add_json(p)
+    # 重组合新增：dep-scan / fuzz / reg-guard / guard
+    p = sub.add_parser("dep-scan", help="依赖漏洞SCA+污点扫描")
+    p.add_argument("target"); p.add_argument("--osv", action="store_true")
+    p.add_argument("--remote", action="store_true"); _add_json(p)
+    p = sub.add_parser("fuzz", help="属性模糊测试")
+    p.add_argument("path"); p.add_argument("--funcname", default=None)
+    p.add_argument("--iterations", type=int, default=40); _add_json(p)
+    p = sub.add_parser("reg-guard", help="回归护栏(快照/增量测试选择)")
+    p.add_argument("--action", default="snapshot", choices=["snapshot", "affected"])
+    p.add_argument("--path", default=None); p.add_argument("--func", default=None); _add_json(p)
+    p = sub.add_parser("guard", help="安全·质量组装链(review+dep-scan+fuzz协同)")
+    p.add_argument("target"); p.add_argument("--mode", default="code"); _add_json(p)
 
     # 存量兼容入口（无子命令时）：`codeagent <target> --review/--test/...`
     compat = argparse.ArgumentParser(add_help=False)
@@ -203,7 +241,7 @@ def _cli():
     # ── 首参探测：是子命令则走统一子命令，否则走存量兼容（compat）──
     _SUBCMDS = {"status", "models", "review", "test", "evolve", "evolve-loop", "chain",
                 "reuse", "impact", "mcp", "skill", "plan", "llm", "memory", "dispatch",
-                "project", "deliver"}
+                "project", "deliver", "dep-scan", "fuzz", "reg-guard", "guard"}
     argv = [a for a in sys.argv[1:] if not a.startswith("-")]
     is_sub = bool(argv and argv[0] in _SUBCMDS)
 
@@ -286,6 +324,17 @@ def _cli():
         _emit({"project": ca.project(args.path)}, args.json)
     elif args.cmd == "deliver":
         _emit({"deliver": ca.deliver(args.chain.split(","), json.loads(args.outputs))}, args.json)
+    elif args.cmd == "dep-scan":
+        _emit({"dep_scan": ca.dep_scan(args.target, osv_query=args.osv,
+                                       allow_remote=args.remote)}, args.json)
+    elif args.cmd == "fuzz":
+        _emit({"fuzz": ca.fuzz(args.path, funcname=args.funcname,
+                               iterations=args.iterations)}, args.json)
+    elif args.cmd == "reg-guard":
+        _emit({"reg_guard": ca.reg_guard(action=args.action, path=args.path,
+                                         funcs=[args.func] if args.func else None)}, args.json)
+    elif args.cmd == "guard":
+        _emit({"guard": ca.guard_chain(args.target, mode=args.mode)}, args.json)
     else:
         ap.print_help()
         return 0

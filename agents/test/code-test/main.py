@@ -9,6 +9,8 @@ boundary / mutation / stability / _find_functions。
   test.gen  — 从代码(AST)生成基本+边界测试文件
   test.run  — 复用 test_harness.run_all 跑完整测试闭环（冒烟/覆盖/单元/边界/变异/稳定）
   test.tdd  — 红→绿→回归 反馈闭环
+  test.snapshot — 复用 reg_guard.snapshot/snapshot_store 回归快照（输出相对基线变化即回归信号）
+  test.affected — 复用 reg_guard.select_affected_tests 依赖图增量回归测试选择
 核心零改动，数据不出厂。
 """
 
@@ -23,14 +25,15 @@ if REPO_ROOT not in sys.path:
 
 from atomic_base import AtomicAgent
 import test_harness as th  # 复用核心：核心零改动
+import reg_guard as rg     # 复用核心：回归快照/增量测试选择，核心零改动
 
 
 class CodeTestAgent(AtomicAgent):
     name = "code-test"
-    version = "0.1.0"
+    version = "0.2.0"
     domain = "test"
-    description = "测试原子：复用 test_harness，红绿回归"
-    provides = ["test.gen", "test.run", "test.tdd"]
+    description = "测试原子：复用 test_harness 红绿回归 + reg_guard 回归快照/增量测试选择"
+    provides = ["test.gen", "test.run", "test.tdd", "test.snapshot", "test.affected"]
     depends_on = []
     inputs = ["code", "path", "target_dir", "task"]
     outputs = ["test_files", "smoke", "coverage", "unit", "boundary", "mutation", "stability", "red_green"]
@@ -39,6 +42,8 @@ class CodeTestAgent(AtomicAgent):
         self.register("test.gen", self._gen)
         self.register("test.run", self._run)
         self.register("test.tdd", self._tdd)
+        self.register("test.snapshot", self._snapshot)
+        self.register("test.affected", self._affected)
 
     # ── test.gen：从 AST 生成基本 + 边界测试 ────────────────
     def _gen(self, code, path=None):
@@ -135,6 +140,31 @@ class CodeTestAgent(AtomicAgent):
                                        "随后重跑验证红→绿"}
         return report
 
+    # ── test.snapshot：回归快照（复用 reg_guard）──────────
+    def _snapshot(self, path, funcs=None, args_by_func=None, snapshot_dir=None):
+        """回归快照：记录函数输出基线，再比对相对基线是否变化（回归信号）。
+        funcs 缺省 → 自动探测目标文件内非私有函数。返回 {results, changed, summary}。"""
+        if not funcs:
+            funcs = []
+            try:
+                tree = ast.parse(open(path, encoding="utf-8", errors="ignore").read())
+                funcs = [n.name for n in ast.walk(tree)
+                         if isinstance(n, (ast.FunctionDef, ast.AsyncFunctionDef))
+                         and not n.name.startswith("_")]
+            except SyntaxError:
+                pass
+        sd = snapshot_dir or os.path.join(os.path.dirname(os.path.abspath(path)),
+                                          ".codeagent_snapshots")
+        return rg.snapshot_store(path, funcs, args_by_func=args_by_func,
+                                 snapshot_dir=sd)
+
+    # ── test.affected：依赖图增量回归测试选择（复用 reg_guard）──
+    def _affected(self, changed_files, project_root=".", test_map=None, transitive=True):
+        """依赖图影响分析：改这些文件 → 影响哪些模块 → 选哪些回归测试。
+        changed_files 为改动 .py 文件路径列表。返回 {affected, tests, ...}。"""
+        return rg.select_affected_tests(changed_files, project_root=project_root,
+                                        test_map=test_map, transitive=transitive)
+
 
 # 模块级实例
 agent = CodeTestAgent()
@@ -147,7 +177,7 @@ if __name__ == "__main__":
     ap.add_argument("path", help="目标 Python 文件")
     ap.add_argument("--dir", default=".", help="测试文件所在目录")
     ap.add_argument("--capability", default="test.run",
-                    choices=["test.gen", "test.run", "test.tdd"])
+                    choices=["test.gen", "test.run", "test.tdd", "test.snapshot", "test.affected"])
     args = ap.parse_args()
 
     agent.load()

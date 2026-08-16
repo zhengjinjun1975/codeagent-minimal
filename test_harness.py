@@ -194,7 +194,7 @@ def mutation(path, target_dir, max_mutants: int = 20):
     survive = 0
     lines = src.split("\n")
     for i, line in enumerate(lines):
-        # 简单变异：条件 == → != , > → <, True → False, 数字+1
+        # 简单变异：条件 == → != , > → < , True → False, 数字+1
         mutated = None
         if "==" in line and "!=" not in line:
             mutated = line.replace("==", "!=")
@@ -230,6 +230,430 @@ def mutation(path, target_dir, max_mutants: int = 20):
             "killed": mutants - survive,
             "ok": survive == 0,
             "details": f"生成 {mutants} 个变异，测试捕获 {mutants - survive} 个，存活 {survive} 个（存活=测试覆盖弱）"}
+
+
+# ═══════════════════════════════════════════════════
+# P0 变异深化：mutmut 级算子/过滤/报告（纯 stdlib）
+# ═══════════════════════════════════════════════════
+
+# mutmut 级变异算子（借鉴其算子清单，不复制实现）
+MUTATION_OPERATORS = {
+    "relational":  # 关系运算替换
+        [(ast.Eq, ast.NotEq), (ast.NotEq, ast.Eq),
+         (ast.Lt, ast.Gt), (ast.Gt, ast.Lt),
+         (ast.LtE, ast.GtE), (ast.GtE, ast.LtE),
+         (ast.Lt, ast.LtE), (ast.LtE, ast.Lt)],
+    "logical":     # 布尔短路替换
+        [(ast.And, ast.Or), (ast.Or, ast.And)],
+    "arith":       # 算术替换
+        [(ast.Add, ast.Sub), (ast.Sub, ast.Add),
+         (ast.Mult, ast.Div), (ast.Div, ast.Mult),
+         (ast.FloorDiv, ast.Mult), (ast.Mod, ast.Mult)],
+    "constant":    # 常量翻转
+        [(ast.Constant, "swap_bool"), (ast.Constant, "numeric_delta")],
+    "bool_op":     # BoolOp 成员增删（And→Or 语义）
+        [(ast.BoolOp, "flip_op")],
+}
+
+
+def _mut_apply(node, op):
+    """把算子的变换应用到一个 AST 节点，返回新节点或 None。
+
+    op 形式：
+      (src_operator_cls, dst_operator_cls) — 关系/逻辑/算术运算符替换
+      ("swap_bool",) / ("numeric_delta",)  — 常量翻转
+    node 为容器节点（Compare/BinOp/BoolOp/Constant），算子在容器内部。
+    """
+    if isinstance(op, tuple) and len(op) == 2 and isinstance(op[0], type) \
+            and (issubclass(op[0], ast.operator) or issubclass(op[0], ast.cmpop)):
+        src_cls, dst_cls = op
+        if isinstance(node, ast.Compare) and node.ops:
+            if isinstance(node.ops[0], src_cls):
+                return _mut_compare_op(node, src_cls, dst_cls)
+        elif isinstance(node, ast.BinOp):
+            if isinstance(node.op, src_cls):
+                try:
+                    return ast.copy_location(
+                        ast.BinOp(left=node.left, op=dst_cls(), right=node.right), node)
+                except Exception:
+                    return None
+        elif isinstance(node, ast.BoolOp):
+            if isinstance(node.op, src_cls):
+                try:
+                    return ast.copy_location(
+                        ast.BoolOp(op=dst_cls(), values=node.values), node)
+                except Exception:
+                    return None
+        return None
+    if isinstance(op, tuple) and op and isinstance(op[0], str) \
+            and isinstance(node, ast.Constant):
+        if op[0] == "swap_bool":
+            if isinstance(node.value, bool):
+                return ast.copy_location(ast.Constant(value=not node.value), node)
+        elif op[0] == "numeric_delta":
+            if isinstance(node.value, int) and abs(node.value) <= 1000:
+                return ast.copy_location(ast.Constant(value=node.value + 1), node)
+    return None
+
+
+def _mut_compare_op(node, src_cls, dst_cls):
+    """Compare 节点：只替换第一个比较符。"""
+    if node.ops:
+        try:
+            new_ops = [dst_cls()] + list(node.ops[1:])
+            n = ast.Compare(left=node.left, ops=new_ops, comparators=node.comparators)
+            return ast.copy_location(n, node)
+        except Exception:
+            return None
+    return None
+
+
+def _collect_mutation_points(tree):
+    """收集可变异点：[(节点, 算子类别, 算子)]。"""
+    points = []
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Compare) and node.ops:
+            for src_cls, dst_cls in MUTATION_OPERATORS["relational"]:
+                if isinstance(node.ops[0], src_cls):
+                    points.append((node, "relational", (src_cls, dst_cls)))
+                    break
+        elif isinstance(node, ast.BoolOp):
+            op = node.op
+            if isinstance(op, (ast.And, ast.Or)):
+                for src_cls, dst_cls in MUTATION_OPERATORS["logical"]:
+                    if isinstance(op, src_cls):
+                        points.append((node, "logical", (src_cls, dst_cls)))
+                        break
+        elif isinstance(node, ast.BinOp):
+            for src_cls, dst_cls in MUTATION_OPERATORS["arith"]:
+                if isinstance(node.op, src_cls):
+                    points.append((node, "arith", (src_cls, dst_cls)))
+                    break
+        elif isinstance(node, ast.Constant):
+            if isinstance(node.value, bool):
+                points.append((node, "constant", ("swap_bool",)))
+            elif isinstance(node.value, int) and abs(node.value) <= 1000:
+                points.append((node, "constant", ("numeric_delta",)))
+    return points
+
+
+class _MutateTransformer(ast.NodeTransformer):
+    """对整棵 AST 应用一个变异（命中 id 的节点），未命中则原样返回。"""
+
+    def __init__(self, target_id, op):
+        self.target_id = target_id
+        self.op = op
+
+    def generic_visit(self, node):
+        if id(node) == self.target_id:
+            mutated = _mut_apply(node, self.op)
+            if mutated is not None:
+                return mutated
+        return super().generic_visit(node)
+
+
+def _apply_mutation(src, point):
+    """对整份源码应用一处变异（深拷贝树 + transformer + 整体 unparse）。
+
+    point: (节点, 类别, 算子)。返回变异后完整源码；语法破坏/等价 → None。
+    """
+    node, cat, op = point
+    try:
+        tree = ast.parse(src)
+    except SyntaxError:
+        return None
+    import copy
+    new_tree = copy.deepcopy(tree)
+    # 定位深拷贝后对应的目标节点（按行号+类型匹配）
+    target = None
+    for n in ast.walk(new_tree):
+        if type(n) is type(node) and getattr(n, "lineno", None) == node.lineno \
+                and _same_op(n, node):
+            target = n
+            break
+    if target is None:
+        return None
+    try:
+        mutated_tree = _MutateTransformer(id(target), op).visit(new_tree)
+        out = ast.unparse(mutated_tree)
+    except Exception:
+        return None
+    try:
+        ast.parse(out)  # 语法校验
+    except SyntaxError:
+        return None
+    return out
+
+
+def _same_op(a, b):
+    """比较两个节点的「算子」是否同类（Compare.ops[0] / BinOp.op / BoolOp.op）。"""
+    if isinstance(a, ast.Compare) and isinstance(b, ast.Compare) and a.ops and b.ops:
+        return type(a.ops[0]) is type(b.ops[0])
+    if isinstance(a, ast.BinOp) and isinstance(b, ast.BinOp):
+        return type(a.op) is type(b.op)
+    if isinstance(a, ast.BoolOp) and isinstance(b, ast.BoolOp):
+        return type(a.op) is type(b.op)
+    if isinstance(a, ast.Constant) and isinstance(b, ast.Constant):
+        return type(a.value) is type(b.value)
+    return False
+
+
+def mutation_deep(path, target_dir, operators=None, max_mutants=60,
+                  filter_equivalent=True) -> dict:
+    """mutmut 级变异深化：按算子生成变异体 + 过滤等价变异 + 报告。
+
+    operators: 只跑指定算子类别（relational/logical/arith/constant），默认全部。
+    filter_equivalent: 尝试过滤等价变异（变异前后 AST dump 相同）。
+    返回 {mutants, killed, survived, mutation_score, ok, per_operator, survived_details,
+          filtered_equivalent, operators, details}。
+    """
+    src = open(path, encoding="utf-8").read()
+    try:
+        tree = ast.parse(src)
+    except SyntaxError:
+        return {"mutants": 0, "killed": 0, "survived": 0, "mutation_score": 0.0,
+                "ok": True, "per_operator": {}, "details": "源码语法错误，跳过变异"}
+    ops_filter = set(operators or list(MUTATION_OPERATORS.keys()))
+    points = [p for p in _collect_mutation_points(tree) if p[1] in ops_filter]
+
+    per_operator = {}
+    generated = 0
+    killed = 0
+    survived = []
+    mutated_srcs = []  # 存 (变异源码, line, cat)
+    for point in points:
+        node, cat, op = point
+        if cat not in per_operator:
+            per_operator[cat] = {"generated": 0, "killed": 0, "survived": 0}
+        line = node.lineno
+        new_src = _apply_mutation(src, point)
+        if new_src is None:
+            continue
+        # 等价变异过滤：AST dump 相同则跳过
+        if filter_equivalent:
+            try:
+                if ast.dump(ast.parse(new_src)) == ast.dump(ast.parse(src)):
+                    continue
+            except SyntaxError:
+                continue
+        per_operator[cat]["generated"] += 1
+        generated += 1
+        mutated_srcs.append((new_src, line, cat))
+        if max_mutants and generated >= max_mutants:
+            break
+
+    # 逐个跑测试
+    for new_src, line, cat in mutated_srcs:
+        tmp = path + ".mutdeep"
+        open(tmp, "w", encoding="utf-8").write(new_src)
+        try:
+            run = run_unit(target_dir)
+            if run.get("ok", False) and run.get("test_count", 0) > 0:
+                survived.append({"line": line, "cat": cat})
+                per_operator[cat]["survived"] += 1
+            else:
+                killed += 1
+                per_operator[cat]["killed"] += 1
+        finally:
+            if os.path.exists(tmp):
+                os.remove(tmp)
+
+    survived_count = len(survived)
+    score = round(killed / generated * 100, 1) if generated else 0.0
+    return {
+        "mutants": generated, "killed": killed, "survived": survived_count,
+        "mutation_score": score,
+        "ok": survived_count == 0,
+        "per_operator": per_operator,
+        "survived_details": survived,
+        "filtered_equivalent": "on" if filter_equivalent else "off",
+        "operators": sorted(ops_filter),
+        "details": (f"生成 {generated} 变异(killed {killed}/存活 {survived_count})，"
+                    f"变异分数 {score}%（<100% 说明测试覆盖有洞）"),
+    }
+
+
+def mutation_deep_report(path, target_dir, **kw) -> dict:
+    """变异深化 + 报告：附每个算子的变异分数与弱区建议。"""
+    r = mutation_deep(path, target_dir, **kw)
+    r["weak_areas"] = []
+    for cat, stats in (r.get("per_operator") or {}).items():
+        if stats["generated"] and stats["survived"] > 0:
+            r["weak_areas"].append({
+                "operator": cat, "survived": stats["survived"],
+                "generated": stats["generated"],
+                "suggestion": f"算子 {cat} 有 {stats['survived']} 个存活变异，"
+                              f"补覆盖该类别条件的测试用例",
+            })
+    return r
+
+
+# ═══════════════════════════════════════════════════
+# P0 覆盖率质量门禁：line+branch+--fail-under
+# ═══════════════════════════════════════════════════
+
+def branch_estimate(tree):
+    """粗略分支数估计：if/for/while/布尔/comprehension 的判定边。"""
+    branches = 0
+    for n in ast.walk(tree):
+        if isinstance(n, (ast.If, ast.While, ast.For, ast.AsyncFor, ast.With, ast.AsyncWith)):
+            branches += 2
+        elif isinstance(n, ast.BoolOp):
+            branches += len(n.values)
+        elif isinstance(n, ast.IfExp):
+            branches += 2
+        elif isinstance(n, ast.comprehension):
+            branches += 2
+    return branches
+
+
+def coverage_line(path, timeout=3):
+    """行覆盖率（近似）：用 AST 统计可执行语句，子进程跑 import + 顶格调用统计覆盖。"""
+    src = open(path, encoding="utf-8", errors="ignore").read()
+    try:
+        tree = ast.parse(src)
+    except SyntaxError:
+        return {"ok": True, "skipped": True, "details": "语法错误", "line_pct": 0.0}
+    # 可执行行 = 非 docstring/非 def/非 import 的语句行
+    exec_lines = set()
+    for n in ast.walk(tree):
+        if isinstance(n, (ast.Assign, ast.Expr, ast.Return, ast.If, ast.For, ast.While,
+                          ast.Call, ast.AugAssign, ast.AnnAssign)):
+            if getattr(n, "lineno", 0):
+                exec_lines.add(n.lineno)
+    return {"ok": True, "exec_lines": len(exec_lines), "line_pct": None, "details": "见 line+branch 门禁"}
+
+
+def coverage_gate(path, fail_under_line=60.0, fail_under_branch=50.0,
+                  timeout=8) -> dict:
+    """覆盖率质量门禁：line+branch 双维度 + --fail-under 判定。
+
+    用 coverage 库（若有）做真实行/分支覆盖；无 coverage 库时用内置近似
+    （行=函数内可执行行调用率，分支=分支结构存在率）。数据不出厂（全本地）。
+    返回 {line, branch, line_pct, branch_pct, gate_passed, checks:[...]}。
+    """
+    # 优先真实 coverage 库（可选依赖，缺失退化为内置近似）
+    try:
+        import coverage as _cov
+        cov = _cov.Coverage(branch=True, source=[os.path.dirname(path) or "."])
+        cov.start()
+        try:
+            import runpy
+            runpy.run_path(path, run_name="__main__")
+        except SystemExit:
+            pass
+        except Exception:
+            pass
+        cov.stop()
+        data = cov.get_data()
+        measured = data.measured_files()
+        report = cov.report(show_missing=False, skip_empty=True)
+        # report 返回总行覆盖率百分比（0-100）
+        line_pct = float(report) if report is not None else 0.0
+        branch_pct = 0.0
+        try:
+            br = cov.analysis2(path)
+            # analysis2 -> (file, executed, missing, excluded, missed_branches, partial_branches)
+            if len(br) >= 5 and br[4] is not None:
+                tot = len(br[4]) + len(br[5]) if len(br) >= 6 and br[5] else len(br[4])
+                missed = sum(len(m) for m in br[4])
+                branch_pct = round((1 - missed / tot) * 100, 1) if tot else 0.0
+        except Exception:
+            branch_pct = 0.0
+        cov.erase()
+    except ImportError:
+        # 内置近似
+        line_pct, branch_pct = _coverage_approx(path, timeout)
+
+    line_passed = line_pct >= fail_under_line
+    branch_passed = branch_pct >= fail_under_branch
+    gate_passed = line_passed and branch_passed
+    return {
+        "line_pct": round(line_pct, 1), "branch_pct": round(branch_pct, 1),
+        "fail_under_line": fail_under_line, "fail_under_branch": fail_under_branch,
+        "line_passed": line_passed, "branch_passed": branch_passed,
+        "gate_passed": gate_passed,
+        "checks": [
+            {"dimension": "line", "pct": round(line_pct, 1), "fail_under": fail_under_line,
+             "passed": line_passed, "status": "✅" if line_passed else "❌"},
+            {"dimension": "branch", "pct": round(branch_pct, 1), "fail_under": fail_under_branch,
+             "passed": branch_passed, "status": "✅" if branch_passed else "❌"},
+        ],
+        "engine": "coverage库" if _cov_ok() else "内置近似",
+        "summary": f"行覆盖 {line_pct:.1f}%({'>=' if line_passed else '<'}{fail_under_line}), "
+                   f"分支覆盖 {branch_pct:.1f}%({'>=' if branch_passed else '<'}{fail_under_branch}) "
+                   f"→ 门禁{'通过' if gate_passed else '未过'}",
+    }
+
+
+_cov_ok_flag = None
+
+
+def _cov_ok():
+    global _cov_ok_flag
+    if _cov_ok_flag is None:
+        try:
+            import coverage  # noqa: F401
+            _cov_ok_flag = True
+        except Exception:
+            _cov_ok_flag = False
+    return _cov_ok_flag
+
+
+def _coverage_approx(path, timeout=8):
+    """无 coverage 库时的近似：函数内可执行语句被顶格调用覆盖的比例作为行覆盖，
+    分支结构存在率作为分支覆盖。"""
+    src = open(path, encoding="utf-8", errors="ignore").read()
+    try:
+        tree = ast.parse(src)
+    except SyntaxError:
+        return 0.0, 0.0
+    funcs = [n for n in tree.body if isinstance(n, (ast.FunctionDef, ast.AsyncFunctionDef))]
+    total_exec = 0
+    total_branch = 0
+    for fn in funcs:
+        for n in ast.walk(fn):
+            if isinstance(n, (ast.Assign, ast.Expr, ast.Return, ast.Call, ast.AugAssign)):
+                total_exec += 1
+            if isinstance(n, (ast.If, ast.While, ast.For, ast.BoolOp, ast.IfExp)):
+                total_branch += 1
+    # 顶格调用函数 → 主路径覆盖
+    mod = _load_module(path)
+    if mod is None:
+        return 0.0, 0.0
+    exec_covered = 0
+    branch_covered = 0
+    for fn in funcs:
+        f = getattr(mod, fn.name, None)
+        if not callable(f):
+            continue
+        # 尝试用边界输入调用以覆盖更多分支
+        covered_any = False
+        for probe in (None, 0, -1, "", [], {}):
+            try:
+                import inspect as _in
+                nreq = len([p for p in _in.signature(f).parameters.values()
+                            if p.default is _in.Parameter.empty])
+                if nreq == 0:
+                    f()
+                else:
+                    args = [probe] * min(nreq, 3)
+                    f(*args)
+                covered_any = True
+                # 简单估算：该函数内部 exec 行算覆盖（无法精确到行，取比例）
+                break
+            except Exception:
+                continue
+        if covered_any:
+            fn_exec = sum(1 for n in ast.walk(fn)
+                          if isinstance(n, (ast.Assign, ast.Expr, ast.Return, ast.Call, ast.AugAssign)))
+            exec_covered += fn_exec
+            fn_br = sum(1 for n in ast.walk(fn)
+                        if isinstance(n, (ast.If, ast.While, ast.For, ast.BoolOp, ast.IfExp)))
+            branch_covered += fn_br
+    line_pct = round(exec_covered / total_exec * 100, 1) if total_exec else 100.0
+    branch_pct = round(branch_covered / total_branch * 100, 1) if total_branch else 100.0
+    return line_pct, branch_pct
 
 
 def stability(path, n=20, timeout=3):

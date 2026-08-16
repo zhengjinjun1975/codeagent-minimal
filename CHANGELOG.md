@@ -4,6 +4,18 @@
 
 格式遵循 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.0.0/)。
 
+## [0.3.0] - 2026-08-16
+
+### 重组合整体收尾（16 原子 + 统一运行时/入口/组装链 + 审查测试深化）
+
+- **registry.json 重建落盘 16 原子**：用 `agent_loader.build_registry()` 重建并写入 registry.json（此前代码重建但未落盘，仅 5 原子）。16 原子 = 14 核心 + **dep-scan（SCA 依赖漏洞 + 污点分析）** + **code-fuzz（覆盖率驱动属性模糊）**，零冲突、零降级。
+- **新原子升级 v0.2.0**：`dep-scan`、`code-fuzz` 由 0.1.0 升级至 **0.2.0**（与 code-test/code-review/code-dispatch/llm-router 对齐），manifest 落盘一致。
+- **统一运行时 agent_runtime.py 16 原子协同**：`dep_scan`/`fuzz`/`review_with_guard` 统一调用 dep-scan/code-fuzz 原子，SCA/污点 + 属性模糊 → code-review 安全·质量协同，数据不出厂默认。
+- **统一入口 codeagent.py**：新增 `dep-scan` / `fuzz` / `reg-guard` / `guard` 子命令（guard = review+dep-scan+fuzz 组装链）。
+- **修 4 失败测试（14→16 原子断言）**：`test_runtime_16_atoms_ready_no_degraded`、`test_unified_entry_api_atoms`、`test_sixteen_atoms_load_ready`、`test_assembler_dag_and_conflicts`。
+- **审查测试深化**：`test_each_atom_runs_real_data` 新增 dep-scan/fuzz 真实数据执行；新增 `test_guard_chain_coop_16_atoms`（guard 组装链真实数据协同）。
+- **回归全绿**：`pytest tests/ test_review.py` **64 passed**（原 59 + 修 4 + 新增 guard 测试）；闭源 `verify_chain.py` 组装链全绿（think→gen→review→test→evolve 独立可运行验证通过）。
+
 ## [0.2.0] - 2026-08-16
 
 ### 新增（原子化重构 P0：agent_loader + AtomicAgent 基类 + 首批 3 原子）

@@ -23,13 +23,14 @@ if REPO_ROOT not in sys.path:
 import agent_loader
 
 
-# ══════════ 1. 14 原子全加载（融合后新 CodeAgent 大整体：12 原子 + MCP + SKILL） ══════════
+# ══════════ 1. 16 原子全加载（重组合整体：14 原子 + dep-scan + code-fuzz） ══════════
 EXPECTED_ATOMS = {
     "dep-impact", "llm-router", "code-test",          # P0
     "code-review", "code-evolve", "code-memory",      # P1
     "code-plan", "code-dispatch", "code-reuse",       # P1
     "code-project", "task-state", "code-deliver",     # P1
     "mcp-client", "code-skill",                       # 融合新增（吸收 OpenCode）
+    "dep-scan", "code-fuzz",                          # 重组合新增（SCA/污点 + 属性模糊）
 }
 
 def _agents():
@@ -39,10 +40,10 @@ def _agents():
     return r["data"]["agents"]
 
 
-def test_fourteen_atoms_load_ready():
+def test_sixteen_atoms_load_ready():
     agents = _agents()
-    assert set(agents) == EXPECTED_ATOMS, f"原子集合不符(应为 14): {set(agents)}"
-    assert len(agents) == 14, f"融合后应为 14 原子，实得 {len(agents)}"
+    assert set(agents) == EXPECTED_ATOMS, f"原子集合不符(应为 16): {set(agents)}"
+    assert len(agents) == 16, f"重组合后应为 16 原子，实得 {len(agents)}"
     for name, a in agents.items():
         assert a.status == "ready", f"{name} 状态非 ready: {a.status}"
 
@@ -75,6 +76,13 @@ def test_each_atom_runs_real_data():
         ("code-skill", "skill.list", {}),
         ("code-skill", "skill.export", {"name": "test-skill", "description": "d",
                                         "content": "# t\n1. 实测"}),
+        # 重组合新增（SCA/污点 + 属性模糊）
+        ("dep-scan", "depscan.scan", {"target": target}),
+        ("dep-scan", "depscan.taint", {"target": target}),
+        ("code-fuzz", "fuzz.gen", {"path": target}),
+        ("code-fuzz", "fuzz.property",
+         {"path": target, "funcname": "add",
+          "properties": [("数值返回", lambda v: isinstance(v, (int, float)))]}),
     ]
     for atom, cap, kw in runs:
         a = agents[atom]
@@ -124,10 +132,10 @@ def test_assembler_dag_and_conflicts():
     d = r["data"]
     assert d["independent"] is True, d["conflicts"]
     assert "code-plan" in d["order"] and "code-review" in d["order"]
-    # 冲突检测应安全（14 原子无重复能力/缺依赖）
+    # 冲突检测应安全（16 原子无重复能力/缺依赖）
     c = assembler.detect_conflicts()
     assert c["ok"] and c["data"]["safe"] is True, c["data"]["conflicts"]
-    assert len(c["data"]["atoms"]) == 14
+    assert len(c["data"]["atoms"]) == 16
 
 
 # ══════════ 5. 存量迁移兼容 ══════════

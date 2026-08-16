@@ -65,6 +65,37 @@
       ],
       "path": "agents\\deliver\\code-deliver"
     },
+    "dep-scan": {
+      "name": "dep-scan",
+      "version": "0.2.0",
+      "domain": "depscan",
+      "description": "依赖漏洞SCA+污点原子：复用 dep_scan.scan_dependencies/taint_analyze/scan_all，纯 stdlib 数据不出厂。SCA 依赖漏洞 + Semgrep 级 source→sink 污点分析。",
+      "open_source": true,
+      "agent_class": "DepScanAgent",
+      "entry": "main.py",
+      "provides": [
+        "depscan.scan",
+        "depscan.sca",
+        "depscan.taint",
+        "depscan.osv"
+      ],
+      "depends_on": [],
+      "inputs": [
+        "target",
+        "osv_query",
+        "allow_remote"
+      ],
+      "outputs": [
+        "deps",
+        "vulns",
+        "sca",
+        "taint",
+        "findings",
+        "total_findings",
+        "summary"
+      ],
+      "path": "agents\\depscan\\dep-scan"
+    },
     "code-dispatch": {
       "name": "code-dispatch",
       "version": "0.2.0",
@@ -149,6 +180,44 @@
         "tdd"
       ],
       "path": "agents\\evolve\\code-evolve"
+    },
+    "code-fuzz": {
+      "name": "code-fuzz",
+      "version": "0.2.0",
+      "domain": "fuzz",
+      "description": "属性模糊测试原子：复用 fuzz_engine.coverage_driven_gen/fuzz_function/property_test/fuzz_project，纯 stdlib 子进程隔离执行。覆盖率驱动用例生成 + 属性/模糊测试捕获未处理异常。",
+      "open_source": true,
+      "agent_class": "CodeFuzzAgent",
+      "entry": "main.py",
+      "provides": [
+        "fuzz.gen",
+        "fuzz.run",
+        "fuzz.property",
+        "fuzz.project"
+      ],
+      "depends_on": [],
+      "inputs": [
+        "path",
+        "funcname",
+        "iterations",
+        "timeout",
+        "seed",
+        "max_cases",
+        "properties",
+        "max_funcs"
+      ],
+      "outputs": [
+        "func",
+        "cases",
+        "coverage_hint",
+        "runs",
+        "crashed",
+        "unhandled",
+        "failures",
+        "ok",
+        "details"
+      ],
+      "path": "agents\\fuzz\\code-fuzz"
     },
     "dep-impact": {
       "name": "dep-impact",
@@ -432,16 +501,18 @@
     },
     "code-test": {
       "name": "code-test",
-      "version": "0.1.0",
+      "version": "0.2.0",
       "domain": "test",
-      "description": "测试原子：复用 test_harness.run_all 跑冒烟/覆盖率/单元/边界/变异/稳定性，红绿回归。test.gen 从 AST 生成基本+边界测试。",
+      "description": "测试原子：复用 test_harness.run_all 跑冒烟/覆盖率/单元/边界/变异/稳定性，红绿回归。test.gen 从 AST 生成基本+边界测试。+ reg_guard 回归快照/增量测试选择。",
       "open_source": true,
       "agent_class": "CodeTestAgent",
       "entry": "main.py",
       "provides": [
         "test.gen",
         "test.run",
-        "test.tdd"
+        "test.tdd",
+        "test.snapshot",
+        "test.affected"
       ],
       "depends_on": [],
       "inputs": [
@@ -465,7 +536,9 @@
   },
   "order": [
     "code-deliver",
+    "dep-scan",
     "code-dispatch",
+    "code-fuzz",
     "dep-impact",
     "llm-router",
     "mcp-client",

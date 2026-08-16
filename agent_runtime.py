@@ -4,7 +4,8 @@
 这是「吸收 OpenCode 能力后融合成新 CodeAgent 大整体」的统一运行时核心。
 
 设计目标（融合，非零散原子）：
-- 单一 AgentRuntime：一个运行时统一注册 + 统一调度全部原子（12 原子 + 新原子 MCP/SKILL）。
+- 单一 AgentRuntime：一个运行时统一注册 + 统一调度全部原子（16 原子：12 核心 +
+  新原子 MCP/SKILL/dep-scan/code-fuzz）。
 - 原子协同 / 依赖 / 冲突 / 降级：经 loader 的 manifest 解析 + 拓扑序，本运行时做
   能力级路由（capability → atom）、可选依赖缺省降级、冲突提示。
 - 原子间数据流：`run_capability` 支持把上一原子的 `{ok,data}` 输出注入下一原子的
@@ -49,11 +50,12 @@ class AgentRuntime:
     """CodeAgent 统一运行时：单一运行时调度全部原子，提供协同 / 依赖 / 冲突 / 降级。
 
     用法：
-        rt = AgentRuntime()                 # 统一加载 14 原子（12 + MCP + SKILL）
+        rt = AgentRuntime()                 # 统一加载 16 原子（12 核心 + MCP/SKILL/dep-scan/code-fuzz）
         rt.run_capability("codereview.review", path=...)
         rt.run_chain([...], task=...)       # 原子协同数据流
         rt.evolve_loop(task, outcome)       # 大自进化闭环
         rt.review_with_mcp(path)            # MCP 供工具 → code-review
+        rt.review_with_guard(path)          # dep-scan/fuzz → code-review 安全协同
     """
 
     def __init__(self, agents_dir=None, registry_path=None, local_only=True,
@@ -253,6 +255,47 @@ class AgentRuntime:
             # 协同：把 MCP 工具可用的证据并入审查信封（供审计可见）
             if review.get("ok") and isinstance(review.get("data"), dict):
                 review["data"]["mcp_available_tools"] = mt["data"].get("count", 0)
+        return _ok(d)
+
+    # ── 重组合：dep-scan / code-fuzz / reg-guard 安全·质量协同 ──
+    def dep_scan(self, target, osv_query=False, allow_remote=False):
+        """统一调用 dep-scan 原子：SCA + taint 一站式。数据不出厂默认。"""
+        return self.run_capability("depscan.scan", target=target,
+                                   osv_query=osv_query, allow_remote=allow_remote)
+
+    def fuzz(self, path, funcname=None, iterations=40, **kw):
+        """统一调用 code-fuzz 原子：覆盖驱动用例生成 + 属性/模糊测试。"""
+        if funcname:
+            return self.run_capability("fuzz.run", path=path, funcname=funcname,
+                                       iterations=iterations, **kw)
+        return self.run_capability("fuzz.gen", path=path, **kw)
+
+    def reg_guard(self, action="snapshot", **kw):
+        """统一调用回归护栏：action=snapshot → 回归快照；action=affected → 增量测试选择。"""
+        cap = {"snapshot": "test.snapshot", "affected": "test.affected"}.get(action, "test.snapshot")
+        return self.run_capability(cap, **kw)
+
+    def review_with_guard(self, path, mode="code"):
+        """dep-scan/fuzz → code-review 安全协同：审查前跑 SCA+污点+模糊，
+        把安全/健壮性证据并入审查信封（codereview.review 结构化 findings）。
+        返回 {ok, data:{review, depscan, fuzz, merged}}。数据不出厂。"""
+        review = self.run_capability("codereview.review", path=path, mode=mode,
+                                     use_llm=False, reuse_atoms=True)
+        ds = self.dep_scan(path)
+        fu = self.fuzz(path) if os.path.isfile(str(path)) else None
+        d = {"review": review, "depscan": ds, "fuzz": fu}
+        merged = 0
+        if review.get("ok") and isinstance(review.get("data"), dict):
+            rd = review["data"]
+            rd["depscan_evidence"] = ds.get("data", {}) if ds.get("ok") else {"error": ds.get("error")}
+            if ds.get("ok") and isinstance(ds.get("data"), dict):
+                rd["security_findings"] = ds["data"].get("taint", {}).get("findings", []) \
+                    + [v for v in ds["data"].get("sca", {}).get("vulns", [])]
+                merged += len(rd["security_findings"])
+            if fu and fu.get("ok") and isinstance(fu.get("data"), dict):
+                rd["fuzz_findings"] = fu["data"].get("cases", [])
+                merged += len(rd["fuzz_findings"])
+            rd["guard_merged"] = merged
         return _ok(d)
 
     # ── 吸收 OpenCode ②：多模型路由 → gen/evolve ──

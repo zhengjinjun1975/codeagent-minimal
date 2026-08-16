@@ -37,21 +37,22 @@ from agent_runtime import AgentRuntime
 from codeagent import CodeAgent
 
 
-# ══════════ 1. 统一运行时：14 原子全加载 ══════════
+# ══════════ 1. 统一运行时：16 原子全加载 ══════════
 FUSED_ATOMS = {
     "dep-impact", "llm-router", "code-test",
     "code-review", "code-evolve", "code-memory",
     "code-plan", "code-dispatch", "code-reuse",
     "code-project", "task-state", "code-deliver",
     "mcp-client", "code-skill",
+    "dep-scan", "code-fuzz",          # 重组合新增（依赖SCA/污点 + 属性模糊）
 }
 
 
-def test_runtime_14_atoms_ready_no_degraded():
+def test_runtime_16_atoms_ready_no_degraded():
     rt = AgentRuntime()
     d = rt.describe()
-    assert set(d["atoms"]) == FUSED_ATOMS, f"应为 14 原子: {set(d['atoms'])}"
-    assert d["count"] == 14
+    assert set(d["atoms"]) == FUSED_ATOMS, f"应为 16 原子: {set(d['atoms'])}"
+    assert d["count"] == 16
     assert d["degraded"] == [], f"有原子加载降级: {d['degraded']}"
     assert d["conflicts"] == [], f"有冲突: {d['conflicts']}"
     assert d["local_only"] is True  # 数据不出厂默认
@@ -66,7 +67,7 @@ def test_runtime_14_atoms_ready_no_degraded():
 
 def test_unified_entry_api_atoms():
     ca = CodeAgent()
-    assert ca.atoms()["count"] == 14
+    assert ca.atoms()["count"] == 16
     # 统一 API 门面方法齐全
     for m in ("run", "review", "test", "refine", "reuse", "impact", "plan", "memory",
               "skill", "mcp", "llm", "dispatch", "project", "deliver", "chain",
@@ -244,6 +245,20 @@ def test_closed_orchestrator_absorbs_coop():
     # 技能 → SKILL.md 标准资产
     sm = orc.sediment_skill_to_md("修安全缺陷", "参数化 subprocess")
     assert sm["ok"] and "path" in sm["data"], f"SKILL.md 资产未产出: {sm.get('data')}"
+
+
+# ══════════ 6. 重组合：安全·质量组装链（guard） ══════════
+def test_guard_chain_coop_16_atoms():
+    """重组合新增：guard 组装链 = review + dep-scan + fuzz 协同，真实数据不出厂。"""
+    ca = CodeAgent()
+    r = ca.guard_chain(os.path.join(REPO_ROOT, "bad_sample.py"), mode="code")
+    assert r["ok"], r.get("error")
+    d = r["data"]
+    assert "review" in d and "depscan" in d and "fuzz" in d, f"guard 缺协同环节: {list(d.keys())}"
+    assert d["review"]["ok"], d["review"].get("error")
+    # SCA/污点 + 属性模糊均真实执行
+    assert d["depscan"]["ok"], d["depscan"].get("error")
+    assert d["fuzz"]["ok"], d["fuzz"].get("error")
 
 
 if __name__ == "__main__":
