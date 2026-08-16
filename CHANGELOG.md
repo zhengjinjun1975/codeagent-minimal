@@ -18,6 +18,12 @@
 - **`tests/test_codeagent_atomic_agents.py`**：19 用例（loader 校验/拓扑/冲突/降级 + 3 原子真实 load/run）。双绿回归：与现有 `test_review.py` 一起 `27 passed`。
 - **架构依据**：`E:/code_agent/docs/CODEGENT_ATOMIC_ARCHITECTURE.md`（原子化重构设计 P0）。
 
+### 吸收 OpenCode 能力升维收尾（LSP 诊断修复 + 六能力回归验证）
+
+- **LSP 诊断修复（code-review v0.2.0）**：`lsp_mock_server.py` 未定义名检测从粗糙正则改为 **AST 作用域感知**（模块/函数/类/lambda/推导式 + 参数/赋值/导入/循环变量/异常变量），修复把 `def`/`return`/函数参数误报为未定义名的 bug。`main.py` 增加**后台 reader 线程 + 队列**收 LSP 帧，规避 Windows 管道 `read(1)` 阻塞。端到端验证：语法错误(severity 1→critical)、未定义名(severity 2→major)、行长(severity 3→minor) 三类诊断并入评分**真实生效**（lsp_test_target 100→77）。新增测试目标 `lsp_test_target.py`（未定义名+行长）与 `lsp_syntax_error.py`（语法错误）。
+- **六能力回归验证（新增 `tests/test_codeagent_opencode_capabilities.py` 15 用例）**：MCP（mcp-client 真实工具 echo/upper/add + 真实调用转大写）、多模型（llm-router v0.2.0 注册表 cloud+local + 默认 local_only 封锁云端）、SKILL（code-skill 技能清单 + sediment 产出标准 SKILL.md 资产）、CodeMode 编排（闭源 codemode.py 单次 execute 编排依赖/并发/聚合真实生效 + confined 白名单拒绝任意能力）、细粒度权限（code-dispatch v0.2.0 dispatch.permission allow/ask/deny 三级判定 + deny>allow>ask 优先级 + 通配）、LSP 诊断（语法/未定义名零误报/行长 + 并入评分）。
+- **回归全绿**：registry 重建 14 原子（code-review/code-dispatch/llm-router 0.2.0）零冲突；`pytest tests/` **55 passed**（原 40 + 新 15）；闭源 `verify_chain.py` 组装链全绿（think→gen→review→test→evolve，独立可运行已验证）。
+
 ## [0.1.1] - 2026-08-11
 
 ### 新增（代码原子库随仓库分发 + 方法论落地）

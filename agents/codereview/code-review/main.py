@@ -114,11 +114,11 @@ class CodeReviewAgent(AtomicAgent):
     def _run_lsp(self, path=None, code=None, lsp_server=None, timeout=30):
         """连本地 LSP server（stdio JSON-RPC），对目标源码做 didOpen → 收 publishDiagnostics。
         lsp_server 为命令列表（参数列表执行，shell=False，防注入）。
-        默认用仓库内置 mock LSP server（真实协议）。失败 → degraded 返回空。"""
+        默认用仓库内置 mock LSP server（真实协议）。失败 → degraded 返回空。
+        用后台 reader 线程 + 队列收帧，规避 Windows 管道 read(1) 阻塞。"""
         try:
             cmd = lsp_server or [sys.executable,
                                  os.path.join(HERE, "lsp_mock_server.py")]
-            # 收集待诊断源码：优先 path，其次 code dict
             targets = []
             if path:
                 p = str(path)
@@ -137,31 +137,50 @@ class CodeReviewAgent(AtomicAgent):
                 return []
             proc = subprocess.Popen(cmd, shell=False, stdin=subprocess.PIPE,
                                     stdout=subprocess.PIPE, stderr=subprocess.PIPE, bufsize=0)
-            diags = []
+            # 后台 reader 线程：逐帧解析 push，放进队列
+            import queue, threading
+            fq = queue.Queue()
+            def _reader():
+                try:
+                    while True:
+                        frame = self._lsp_read_frame(proc.stdout)
+                        if frame is None:
+                            break
+                        fq.put(frame)
+                except Exception:
+                    pass
+            thr = threading.Thread(target=_reader, daemon=True)
+            thr.start()
             try:
                 self._lsp_send(proc, {"jsonrpc": "2.0", "id": 1, "method": "initialize",
                                       "params": {"processId": None, "rootUri": None,
                                                  "capabilities": {}}})
-                self._lsp_recv(proc, timeout)   # 消费 initialize 响应，避免与 didOpen push 错位
+                diags = []
                 for t in targets:
                     self._lsp_send(proc, {"jsonrpc": "2.0", "method": "textDocument/didOpen",
                                           "params": {"textDocument": {"uri": t["uri"],
                                                                        "languageId": "python",
                                                                        "version": 1,
                                                                        "text": t["text"]}}})
-                    push = self._lsp_recv(proc, timeout)
-                    if push and push.get("method") == "textDocument/publishDiagnostics":
-                        ds = push.get("params", {}).get("diagnostics", [])
-                        for d in ds:
-                            d["uri"] = t["uri"]
-                        diags.extend(ds)
+                    # 收 publishDiagnostics（带超时）
+                    try:
+                        while True:
+                            push = fq.get(timeout=timeout)
+                            if push.get("method") == "textDocument/publishDiagnostics":
+                                ds = push.get("params", {}).get("diagnostics", [])
+                                for d in ds:
+                                    d["uri"] = t["uri"]
+                                diags.extend(ds)
+                                break
+                    except Exception:
+                        break   # 超时无 push → 跳过该文件
+                return diags
             finally:
                 try:
                     proc.stdin.close()
                     proc.kill()
                 except Exception:
                     pass
-            return diags
         except Exception:
             return []
 
@@ -171,27 +190,27 @@ class CodeReviewAgent(AtomicAgent):
         proc.stdin.write(body)
         proc.stdin.flush()
 
-    def _lsp_recv(self, proc, timeout):
-        import time
-        end = time.time() + timeout
-        line = b""
-        while time.time() < end:
-            ch = proc.stdout.read(1)
+    @staticmethod
+    def _lsp_read_frame(stream):
+        """从流读一个 LSP 帧（Content-Length 头 + body）。返回 dict 或 None(EOF)。"""
+        import queue, threading
+        # 读头（\r\n\r\n 结束）
+        header = b""
+        while not header.endswith(b"\r\n\r\n"):
+            ch = stream.read(1)
             if not ch:
                 return None
-            line += ch
-            if line.endswith(b"\r\n\r\n"):
-                break
-        else:
-            return None
+            header += ch
+            if len(header) > 4096:
+                return None
         length = 0
-        for part in line.decode("utf-8", "ignore").split("\r\n"):
+        for part in header.decode("utf-8", "ignore").split("\r\n"):
             if part.lower().startswith("content-length:"):
                 try:
                     length = int(part.split(":", 1)[1].strip())
                 except Exception:
                     length = 0
-        body = proc.stdout.read(length) if length else b""
+        body = stream.read(length) if length else b""
         try:
             return json.loads(body.decode("utf-8", "ignore"))
         except Exception:

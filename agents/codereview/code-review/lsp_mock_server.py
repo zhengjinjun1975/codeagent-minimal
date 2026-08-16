@@ -12,9 +12,138 @@ server 主动 push `textDocument/publishDiagnostics`。对 Python 文件做几�
 
 真实协议：Content-Length 头 + JSON body（LSP 标准帧格式）。
 """
+import ast
 import json
 import sys
 import re
+
+
+def _defined_in_scope(text):
+    """AST 作用域感知收集所有已定义名（模块/函数/类/lambda/推导式 + 参数/赋值/导入/循环变量）。
+    返回 {name: (line, col)} 行号为定义所在行。修复正则把 def/return/参数 误报为未定义名。"""
+    defined = {}
+    builtins = set(dir(__builtins__)) | {
+        "__name__", "__file__", "__doc__", "__package__", "__spec__",
+        "__loader__", "__cached__", "__builtins__", "self", "cls",
+        "True", "False", "None", "__all__", "__debug__",
+    }
+    try:
+        tree = ast.parse(text)
+    except SyntaxError:
+        return {}  # 语法错误由独立诊断覆盖，不在此重复
+
+    def add(name, lineno):
+        if name and name not in defined and name not in builtins:
+            defined[name] = lineno
+
+    # 先全局收集所有绑定点（保守：把整个文件所有赋值/函数名/类名/导入都算已定义，
+    # 再单独跑调用点检查 —— 对 mock 级别足够且零误报）。
+    def bind_node(node):
+        if isinstance(node, ast.Module):
+            for stmt in node.body:
+                bind_node(stmt)
+        elif isinstance(node, ast.FunctionDef) or isinstance(node, ast.AsyncFunctionDef):
+            add(node.name, node.lineno)
+            for a in list(node.args.posonlyargs) + list(node.args.args) + list(node.args.kwonlyargs):
+                add(a.arg, node.lineno)
+            if node.args.vararg:
+                add(node.args.vararg.arg, node.lineno)
+            if node.args.kwarg:
+                add(node.args.kwarg.arg, node.lineno)
+            for stmt in node.body:
+                bind_node(stmt)
+        elif isinstance(node, ast.ClassDef):
+            add(node.name, node.lineno)
+            for stmt in node.body:
+                bind_node(stmt)
+        elif isinstance(node, ast.Lambda):
+            for a in list(node.args.posonlyargs) + list(node.args.args) + list(node.args.kwonlyargs):
+                add(a.arg, node.lineno)
+            if node.args.vararg:
+                add(node.args.vararg.arg, node.lineno)
+            if node.args.kwarg:
+                add(node.args.kwarg.arg, node.lineno)
+        elif isinstance(node, (ast.Assign, ast.AnnAssign, ast.AugAssign)):
+            targets = node.targets if isinstance(node, ast.Assign) else [node.target]
+            for t in targets:
+                for n in ast.walk(t):
+                    if isinstance(n, ast.Name):
+                        add(n.id, node.lineno)
+        elif isinstance(node, (ast.Import, ast.ImportFrom)):
+            for a in node.names:
+                add((a.asname or a.name).split(".")[0], node.lineno)
+        elif isinstance(node, (ast.For, ast.AsyncFor)):
+            for n in ast.walk(node.target):
+                if isinstance(n, ast.Name):
+                    add(n.id, node.lineno)
+            for stmt in node.body + node.orelse:
+                bind_node(stmt)
+        elif isinstance(node, (ast.With, ast.AsyncWith)):
+            for item in node.items:
+                if item.optional_vars:
+                    for n in ast.walk(item.optional_vars):
+                        if isinstance(n, ast.Name):
+                            add(n.id, node.lineno)
+            for stmt in node.body:
+                bind_node(stmt)
+        elif isinstance(node, ast.ExceptHandler):
+            if node.name:
+                add(node.name, node.lineno)
+            for stmt in node.body:
+                bind_node(stmt)
+        elif isinstance(node, (ast.While, ast.If, ast.Try)):
+            for stmt in node.body + node.orelse:
+                bind_node(stmt)
+            if isinstance(node, ast.Try):
+                for h in node.handlers:
+                    bind_node(h)
+                for stmt in node.finalbody:
+                    bind_node(stmt)
+        elif isinstance(node, ast.comprehension):
+            for n in ast.walk(node.target):
+                if isinstance(n, ast.Name):
+                    add(n.id, 0)
+            for gen in node.generators:
+                bind_node(gen)
+        elif isinstance(node, ast.Expr):
+            if isinstance(node.value, (ast.Str, ast.Constant)):
+                return
+            for n in ast.walk(node.value):
+                if isinstance(n, ast.Name) and isinstance(n.ctx, ast.Store):
+                    add(n.id, node.lineno)
+    bind_node(tree)
+    return defined
+
+
+def _undefined_names(text):
+    """AST 检测未定义名（Load 上下文，非定义处）。返回 [{line, col, name}]。"""
+    out = []
+    builtins = set(dir(__builtins__)) | {
+        "__name__", "__file__", "__doc__", "__package__", "__spec__",
+        "__loader__", "__cached__", "__builtins__", "self", "cls",
+        "True", "False", "None", "__all__", "__debug__",
+    }
+    try:
+        tree = ast.parse(text)
+    except SyntaxError:
+        return out
+    defined = _defined_in_scope(text)
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Name) and isinstance(node.ctx, ast.Load):
+            if node.id in builtins:
+                continue
+            # 排除作为函数参数默认值/注解里的名字已在 defined（bind_node 已收集）。
+            if node.id not in defined:
+                out.append({"line": node.lineno, "col": node.col_offset, "name": node.id})
+    # 去重 + 去关键字
+    seen, res = set(), []
+    for d in out:
+        key = (d["line"], d["col"], d["name"])
+        if key in seen:
+            continue
+        seen.add(key)
+        res.append(d)
+    return res
 
 
 def _read_message(stream):
@@ -60,19 +189,15 @@ def _diagnostics(uri, text):
                                 "end": {"line": ln - 1, "character": len(lines[ln - 1] if ln - 1 < len(lines) else "")}},
                       "severity": 1, "source": "mock-lsp",
                       "message": f"语法错误: {e.msg}"})
-    # 未定义名（取赋值/引用，粗略）
-    used = set(re.findall(r"\b([a-zA-Z_]\w*)\b", text))
-    defined = set(re.findall(r"\b(?:def|class)\s+([a-zA-Z_]\w*)", text)) | \
-              set(re.findall(r"\b([a-zA-Z_]\w*)\s*=\s*", text)) | \
-              set(dir(__builtins__)) | {"self", "__name__", "True", "False", "None"}
-    for i, line in enumerate(lines):
-        for name in re.findall(r"\b([a-zA-Z_]\w*)\b", line):
-            if name in used and name not in defined and len(name) > 1 and not line.lstrip().startswith("#"):
-                diags.append({"range": {"start": {"line": i, "character": line.find(name)},
-                                        "end": {"line": i, "character": line.find(name) + len(name)}},
-                              "severity": 2, "source": "mock-lsp",
-                              "message": f"未定义名 '{name}'"})
-                break
+    # 未定义名（AST 作用域感知，修复把 def/return/参数误报的 bug）
+    for d in _undefined_names(text):
+        i = d["line"] - 1
+        if i < 0 or i >= len(lines):
+            i = 0
+        diags.append({"range": {"start": {"line": i, "character": d["col"]},
+                                "end": {"line": i, "character": d["col"] + len(d["name"])}},
+                      "severity": 2, "source": "mock-lsp",
+                      "message": f"未定义名 '{d['name']}'"})
     # 行过长
     for i, line in enumerate(lines):
         if len(line) > 100:
