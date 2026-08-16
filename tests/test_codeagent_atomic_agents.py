@@ -254,6 +254,38 @@ def test_llm_review_degrades_gracefully():
     assert res["ok"] is True or res.get("degraded") is True
 
 
+# ══════════ 5. P0-1 回归：code-review path 分支不把审查结果当源码再分析 ══════════
+
+def test_code_review_path_branch_detects_security():
+    """回归护栏：bad_sample.py（命令注入/eval/硬编码密钥 3 major）经 path 分支必须全检出。
+    修复前该分支把审查结果 JSON repr 当源码二次分析 → score 91 / 0 major（静默漏报）。"""
+    bad = os.path.join(REPO_ROOT, "bad_sample.py")
+    r = agent_loader.load_agents()
+    a = r["data"]["agents"]["code-review"]
+    rr = a.run(_capability="codereview.review", path=bad, use_llm=False)
+    assert rr["ok"], f"path 分支审查失败: {rr.get('error')}"
+    maj = [i for i in rr["data"]["issues"] if i["severity"] == "major"]
+    assert len(maj) >= 3, f"应检出 ≥3 major 安全缺陷，实得 {len(maj)}"
+    titles = "|".join(i["title"] for i in maj)
+    assert "命令" in titles or "shell" in titles, f"漏报命令注入: {titles}"
+    assert "eval" in titles or "exec" in titles, f"漏报 eval/exec: {titles}"
+    assert "密钥" in titles or "密码" in titles, f"漏报硬编码密钥: {titles}"
+    assert rr["data"]["score"] <= 70, f"score 应显著下降，实得 {rr['data']['score']}"
+
+
+def test_llm_generate_local_only_default_blocks_network():
+    """P0-3 回归：llm.generate local_only 默认 True → 不显式 False 即数据不出厂。"""
+    r = agent_loader.load_agents()
+    llm = r["data"]["agents"]["llm-router"]
+    import time
+    t0 = time.time()
+    res = llm.run(_capability="llm.generate",
+                  messages=[{"role": "user", "content": "hi"}])  # 不传 local_only
+    assert res["ok"] is False and res.get("degraded") is True, f"默认应本地封锁: {res}"
+    assert time.time() - t0 < 2  # 立即返回，不发网络请求
+
+
+
 if __name__ == "__main__":
     import pytest
     sys.exit(pytest.main([__file__, "-v"]))

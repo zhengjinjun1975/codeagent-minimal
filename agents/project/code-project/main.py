@@ -38,10 +38,12 @@ class CodeProjectAgent(AtomicAgent):
     def _collect(self, path, file_pattern="*.py"):
         if os.path.isfile(path):
             return [path]
+        import fnmatch
         out = []
         for root, _d, files in os.walk(path):
             for f in files:
-                if f.endswith(file_pattern.lstrip("*.")) or f == file_pattern:
+                # 修复 P2-5：用 fnmatch 精确匹配（"*.py" 不再误配 .pyi/.pyw/copy 等）
+                if fnmatch.fnmatch(f, file_pattern) or f == file_pattern:
                     out.append(os.path.join(root, f))
         return sorted(out)
 

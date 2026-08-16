@@ -18,6 +18,8 @@ import os
 import sys
 from collections import defaultdict, deque
 
+from atomic_base import AtomicAgent
+
 # ── 常量 ────────────────────────────────────────
 REQUIRED_KEYS = ("name", "version", "entry")
 # 依赖方向铁律：depends_on 里的能力名，必须由某个开源原子 provide
@@ -182,11 +184,11 @@ def _instantiate(agent_dir: str, manifest: dict):
     if inst is not None and hasattr(inst, "call") and hasattr(inst, "run"):
         return inst
 
-    # 3) 找首个 AtomicAgent 子类
+    # 3) 找首个 AtomicAgent 子类（限定本模块内定义，避免误选非目标类）
+    # 修复 P2-4：agent_class 已在 manifest 声明则优先；dir 兜底限定 obj.__module__==module.__name__
     for attr in dir(module):
         obj = getattr(module, attr)
-        if isinstance(obj, type):
-            from atomic_base import AtomicAgent
+        if isinstance(obj, type) and getattr(obj, "__module__", None) == module.__name__:
             if issubclass(obj, AtomicAgent) and obj is not AtomicAgent:
                 return obj(manifest)
     raise ValueError(f"{entry} 未导出 AtomicAgent 子类/实例")

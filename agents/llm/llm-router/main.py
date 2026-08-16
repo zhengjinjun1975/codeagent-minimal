@@ -24,12 +24,14 @@ if REPO_ROOT not in sys.path:
 
 from atomic_base import AtomicAgent
 
-# 默认模型配置候选路径（复用 model_config.json，改配置即可切换模型，零改代码）
+# 默认模型配置候选路径（复用 model_config.json，改配置即可切换模型，零改代码）。
+# 修复 P1-3：不再硬编码闭源/私有绝对路径 E:/...，优先 env 覆盖，其次仓库内配置。
 _CONFIG_CANDIDATES = [
+    os.environ.get("CODEAGENT_MODEL_CONFIG", ""),        # env 显式指定（可移植）
     os.path.join(REPO_ROOT, "config", "model_config.json"),
     os.path.join(REPO_ROOT, "agents", "llm", "llm-router", "config", "model_config.json"),
-    "E:/code_agent/config/model_config.json",  # 既有宿主配置（兼容沿用）
 ]
+_CONFIG_CANDIDATES = [p for p in _CONFIG_CANDIDATES if p]
 
 
 def _read_env(key):
@@ -37,7 +39,8 @@ def _read_env(key):
               os.path.join(os.path.expanduser("~"), "AppData/Local/hermes/.env")]:
         try:
             for line in open(p, encoding="utf-8"):
-                if line.startswith(key):
+                # 修复 P2-8：精确匹配键名，避免 ZHIPU_API_KEY_OLD 误配前缀
+                if line.split("=", 1)[0].strip() == key:
                     return line.split("=", 1)[1].strip()
         except Exception:
             continue
@@ -82,8 +85,9 @@ class LlmRouterAgent(AtomicAgent):
     def _cfg(self, config_path):
         return _load_model_config(config_path)
 
-    def _generate(self, messages, temp=0.3, max_tokens=8192, local_only=False, config_path=None):
-        """云端 GLM 生成。local_only=True → 立即返回 degraded，不发任何请求（数据不出厂）。"""
+    def _generate(self, messages, temp=0.3, max_tokens=8192, local_only=True, config_path=None):
+        """云端 GLM 生成。local_only 默认 True（数据不出厂为默认，显式 False 才出网）。
+        local_only=True → 立即返回 degraded，不发任何请求。"""
         if local_only:
             return self._envelope(
                 False, degraded=True,

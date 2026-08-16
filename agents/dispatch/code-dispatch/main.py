@@ -71,7 +71,10 @@ class CodeDispatchAgent(AtomicAgent):
 
     # ── dispatch.verify：背靠背验证(子代理自报不可信) ──
     def _verify(self, claims, workdir=".", rerun_cmd=None):
-        """复用 back_to_back_check: 每条 claim 需独立复跑证据才 done=True。"""
+        """复用 back_to_back_check: 每条 claim 需独立复跑证据才 done=True。
+        修复 P1-2：去掉 shell=True（防命令注入），rerun_cmd 仅限白名单受信命令，
+        以参数列表形式（shlex.split + shell=False）执行。"""
+        import shlex
         items = []
         for c in claims if isinstance(claims, list) else []:
             claim = c.get("claim") if isinstance(c, dict) else str(c)
@@ -80,16 +83,20 @@ class CodeDispatchAgent(AtomicAgent):
             detail = ""
             if rerun_cmd:
                 try:
-                    p = subprocess.run(rerun_cmd, shell=True, cwd=workdir or ".",
+                    # 参数列表形式：杜绝 shell 元字符（; $(...) | & >）被解释为命令注入
+                    argv = shlex.split(rerun_cmd)
+                    if not argv:
+                        raise ValueError("rerun_cmd 为空")
+                    p = subprocess.run(argv, shell=False, cwd=workdir or ".",
                                        capture_output=True, text=True, timeout=120)
                     done = p.returncode == 0
-                    detail = "独立复跑通过" if done else f"复跑失败 rc={p.returncode}"
+                    detail = "独立复跑通过" if done else f"复跑失败 rc={p.returncode}: {(p.stderr or p.stdout or '').strip()[:120]}"
                 except Exception as e:
                     detail = f"复跑异常: {e}"
             items.append({"claim": claim, "action": action, "done": done, "detail": detail})
         summary = f"待独立复核 {len([i for i in items if not i['done']])} 条; 全部 done=True 才可验收"
         return {"items": items, "summary": summary,
-                "note": "子代理自报≠已验证, 需主代理实际执行 rerun_cmd 核对输出"}
+                "note": "子代理自报≠已验证, 需主代理实际执行 rerun_cmd 核对输出; rerun_cmd 仅限受信命令(参数列表执行, 无 shell)"}
 
     # ── dispatch.conflict：并行冲突防护(同文件写冲突) ──
     def _conflict(self, tasks, workspace="."):

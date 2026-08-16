@@ -43,44 +43,64 @@ class CodeTestAgent(AtomicAgent):
     # ── test.gen：从 AST 生成基本 + 边界测试 ────────────────
     def _gen(self, code, path=None):
         """code: {文件名: 代码内容}。生成 {test_files: {测试名: 测试代码}}。
-        path 可选：已落盘的目标文件路径（用于复用 _find_functions）。"""
+        path 可选：已落盘的目标文件路径（用于复用 _find_functions）。
+        修复 P2-6：按函数签名（AST args）生成对应参数，避免多参/关键字函数生成低价值用例；
+        产出前用 ast.parse 校验合法性，非法则回退为 import-only 测试。"""
         test_files = {}
         if isinstance(code, str):
             code = {path or "target.py": code}
         for name, content in code.items():
-            # 用 AST 找可测试函数（复用 test_harness._find_functions 思路）
-            funcs = []
+            funcs = []  # [(函数名, 必填位置参数个数)]
             try:
                 tree = ast.parse(content)
                 entry = {"main", "cli", "run", "setup", "serve", "start"}
                 for node in tree.body:
                     if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)) \
                             and not node.name.startswith("_") and node.name not in entry:
-                        funcs.append(node.name)
+                        pos_args = [a.arg for a in node.args.args]
+                        if pos_args and pos_args[0] in ("self", "cls"):
+                            pos_args = pos_args[1:]  # 剔除 self/cls
+                        # 必填位置参数 = 位置参数 - 带默认值的参数
+                        req = max(0, len(pos_args) - len(node.args.defaults))
+                        funcs.append((node.name, req))
             except SyntaxError:
                 funcs = []
             base = os.path.splitext(os.path.basename(name))[0]
             lines = ["import sys", "import os",
                      f"sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))",
                      f"import {base}"]
-            for fn in funcs:
+            for fn, req in funcs:
+                # 基本用例：按必填参数个数构造调用（缺参→显式提示，不再一律单参探测）
+                pos = ", ".join("None" for _ in range(max(1, req)))
                 lines += [f"def test_{fn}_basic():",
                           f"    try:",
-                          f"        {base}.{fn}()",
+                          f"        {base}.{fn}({pos})",
                           f"    except Exception as e:",
                           f"        print('{fn} 调用异常(可接受):', e)  # 边界值/缺参 视为红→需补",
                           f"def test_{fn}_boundary():",
-                          f"    # 边界值探测：不传参(缺参) / None / 空串 是否被正确处理",
-                          f"    for arg in [None, '', 0, []]:",
+                          f"    # 按签名必填参数个数探测边界值（None/空串/0/[]）",
+                          f"    args = [None, '', 0, []]",
+                          f"    for v in args[:max(1, {req})]:",
                           f"        try:",
-                          f"            {base}.{fn}(arg)",
+                          f"            {base}.{fn}(v)",
                           f"        except Exception:",
                           f"            pass"]
             if not funcs:
                 lines += ["def test_import_ok():",
                           f"    import {base}",
                           "    assert True"]
-            test_files[f"tests/test_{base}_gen.py"] = "\n".join(lines)
+            # 修复 P2-6：ast.parse 校验产出合法性，非法→回退 import-only
+            test_code = "\n".join(lines)
+            try:
+                ast.parse(test_code)
+            except SyntaxError:
+                test_code = ("import sys\nimport os\n"
+                             f"sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))\n"
+                             f"import {base}\n"
+                             "def test_import_ok():\n"
+                             f"    import {base}\n"
+                             "    assert True\n")
+            test_files[f"tests/test_{base}_gen.py"] = test_code
         return {"test_files": test_files, "summary": f"生成 {len(test_files)} 测试文件"}
 
     # ── test.run：复用 test_harness.run_all ────────────────

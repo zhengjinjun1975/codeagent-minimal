@@ -39,38 +39,52 @@ class CodeReviewAgent(AtomicAgent):
     def _review(self, path=None, code=None, mode="code", use_llm=False,
                 reuse_atoms=True, max_complexity=10):
         if path:
-            fr = rv.review_file(str(path), use_llm=use_llm,
+            # ── path 分支：直接复用 review_file 的完整审查结果。
+            #    修复 P0-1：不再把审查结果 dict 当源码二次 _static_analyze（否则安全缺陷被漏报）。
+            p = str(path)
+            content = open(p, encoding="utf-8", errors="ignore").read()
+            fr = rv.review_file(p, use_llm=use_llm,
                                 max_complexity=max_complexity, reuse_atoms=reuse_atoms)
-            files = {str(path): fr}
             if mode == "code":
                 try:
-                    graph = da.build_graph([str(path)])
-                    rv._dep_enrich(fr, open(str(path), encoding="utf-8", errors="ignore").read(), graph)
+                    graph = da.build_graph([p])
+                    rv._dep_enrich(fr, content, graph)
                 except Exception:
                     pass
-        elif code:
-            files = {k: (v if isinstance(v, str) else v.get("content", str(v))) for k, v in code.items()}
-        else:
-            return self._envelope(False, degraded=True, error="缺 path 或 code 入参")
-
-        results, issues = [], []
-        for name, content in files.items():
-            if isinstance(content, dict):
-                content = content.get("content", str(content))
-            static = rv._static_analyze(content, max_complexity=max_complexity)
-            r = {"file": name, "score": static["score"],
-                 "static_issues": static["all_issues"],
-                 "issues": [dict(i, file=name) for i in static["all_issues"]]}
-            if reuse_atoms:
-                r["reuse_suggestions"] = rv._reuse_suggestion(content)
+            r = {"file": p,
+                 "score": fr.get("static_score", fr.get("score", 0)),
+                 "static_issues": fr["static_issues"],
+                 "issues": fr["issues"]}   # 已带 file=p 与依赖图增强
+            if reuse_atoms and fr.get("reuse_suggestions"):
+                r["reuse_suggestions"] = fr["reuse_suggestions"]
             if mode in ("design", "layout", "content"):
-                extra = self._mode_rules(name, content, mode)
+                extra = self._mode_rules(p, content, mode)
                 r["issues"].extend(extra)
                 r["mode_issues"] = extra
                 penalty = sum(rv.SEVERITY_WEIGHTS.get(i["severity"], 3) for i in extra)
                 r["score"] = max(0, r["score"] - penalty)
-            results.append(r)
-            issues.extend(r["issues"])
+            results, issues = [r], r["issues"]
+        elif code:
+            results, issues = [], []
+            for name, content in code.items():
+                if not isinstance(content, str):
+                    content = content.get("content", str(content))
+                static = rv._static_analyze(content, max_complexity=max_complexity)
+                r = {"file": name, "score": static["score"],
+                     "static_issues": static["all_issues"],
+                     "issues": [dict(i, file=name) for i in static["all_issues"]]}
+                if reuse_atoms:
+                    r["reuse_suggestions"] = rv._reuse_suggestion(content)
+                if mode in ("design", "layout", "content"):
+                    extra = self._mode_rules(name, content, mode)
+                    r["issues"].extend(extra)
+                    r["mode_issues"] = extra
+                    penalty = sum(rv.SEVERITY_WEIGHTS.get(i["severity"], 3) for i in extra)
+                    r["score"] = max(0, r["score"] - penalty)
+                results.append(r)
+                issues.extend(r["issues"])
+        else:
+            return self._envelope(False, degraded=True, error="缺 path 或 code 入参")
 
         score = int(round(sum(r["score"] for r in results) / len(results))) if results else 0
         return {"files": results, "score": score, "issues": issues,

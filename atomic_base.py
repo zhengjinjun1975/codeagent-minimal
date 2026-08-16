@@ -96,17 +96,21 @@ class AtomicAgent:
         """统一 {ok, data} 信封。"""
         if ok:
             return {"ok": True, "data": data if data is not None else {}}
-        return {"ok": False, "data": data or {},
+        # 修复 P2-2：用 `is not None` 而非 `or {}`，避免合法 falsy 数据（0/""/[]）被吞
+        return {"ok": False, "data": data if data is not None else {},
                 "error": error or "unknown error", "degraded": degraded}
 
     # ── 统一接口 ─────────────────────────────────
     def call(self, capability: str, **kwargs) -> dict:
-        """调用某个能力，包 {ok, data} 信封；异常捕获 → {ok:false, error, degraded:true}。"""
+        """调用某个能力，包 {ok, data} 信封；异常捕获 → {ok:false, error, degraded:true}。
+        修复 P2-3：仅允许 `ready` 状态执行；`loaded` 需先 `load()`（否则能力未挂载，
+        返回明确的「未 ready」而非误导性的「能力未注册」。"""
         fn = self._capabilities.get(capability)
         if fn is None:
             return self._envelope(False, error=f"能力未注册: {capability}", degraded=True)
-        if self._status not in ("ready", "loaded"):
-            return self._envelope(False, error=f"原子状态不可用: {self._status}", degraded=True)
+        if self._status != "ready":
+            return self._envelope(False, degraded=True,
+                                  error=f"原子未 ready（当前 {self._status}），需先 load()")
         try:
             result = fn(**kwargs)
             if isinstance(result, dict) and "ok" in result and "data" in result:
@@ -142,3 +146,38 @@ class AtomicAgent:
             "capabilities": self.capabilities(),
             "manifest": self._manifest or {},
         }
+
+
+def run_cli(agent: "AtomicAgent", run_args: dict = None, description: str = ""):
+    """原子 CLI 公共样板（修复 P2-9：收敛各 main.py 重复的 __main__ argparse 头）。
+
+    用法（各原子 main.py）:
+        if __name__ == "__main__":
+            sys.exit(run_cli(agent, run_args={
+                "capability": {"default": agent.provides[0], "choices": list(agent.provides)},
+                "path": {},
+            }))
+    参数: run_args 为 {argname: argparse.add_argument 的 kwargs}; run_args 会合并进
+    _capability 调用。加载→describe→run→JSON 输出；失败退出 1。
+    """
+    import argparse
+    import json
+    import sys as _sys
+
+    ap = argparse.ArgumentParser(description=description or f"{agent.name} 原子 CLI 自测入口")
+    args_spec = run_args or {}
+    for a_name, a_kw in args_spec.items():
+        ap.add_argument("--" + a_name, **a_kw)
+    ns = ap.parse_args()
+    agent.load()
+    cap = getattr(ns, "capability", None) or agent.provides[0]
+    if cap not in agent.capabilities():
+        print(f"原子 {agent.name} 无能力 {cap}; 可选={list(agent.provides)}")
+        return 1
+    kw = {k: v for k, v in vars(ns).items() if k != "capability"}
+    print(f"══ {agent.name} 原子自测 ══ v{agent.version} status={agent.describe()['status']}")
+    r = agent.run(_capability=cap, **{k: v for k, v in kw.items() if v is not None})
+    print(json.dumps(r, ensure_ascii=False, indent=2, default=str))
+    if not r["ok"] and not r.get("degraded"):
+        return 1
+    return 0

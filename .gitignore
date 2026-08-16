@@ -2,3 +2,14 @@ __pycache__/
 *.pyc
 .venv/
 .env
+.pytest_cache/
+
+# 备份/残留（审查 P2-10 清理）
+*.bak
+*.bak_*
+*.orig
+*.tmp
+nul
+
+# 外置状态跟踪
+.taskstate/

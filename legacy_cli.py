@@ -105,8 +105,9 @@ def main():
         print(json.dumps(out, ensure_ascii=False, indent=2, default=str))
     else:
         for k, v in out.items():
-            mark = "✅" if k in (r.get("ok") for r in results.values()) else ""
-            print(f"[{k}] {json.dumps(v, ensure_ascii=False, default=str)[:200]}")
+            # 修复 P2-1：原 `k in (r.get("ok")...)` 把字符串 in 布尔集合恒 False，✅ 永不显示
+            mark = "✅" if results.get(k, {}).get("ok") else "❌"
+            print(f"{mark} [{k}] {json.dumps(v, ensure_ascii=False, default=str)[:200]}")
     # 全失败才退出非0
     ok_any = any(r.get("ok") for r in results.values())
     if results and not ok_any:
