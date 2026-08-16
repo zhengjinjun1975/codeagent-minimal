@@ -105,9 +105,13 @@ def _extract_sig(path, funcname):
 
 
 # ── 覆盖驱动生成（P1）：从分支生成针对性用例 ──
-def coverage_driven_gen(path, funcname=None, max_cases=8) -> dict:
+def coverage_driven_gen(path, funcname=None, iterations=8, max_cases=None) -> dict:
     """覆盖率驱动生成用例：从目标函数 AST 提取分支/条件，生成能覆盖多分支的输入。
-    返回 {func, cases:[{args:[...], describe}], coverage_hint}。"""
+    返回 {func, cases:[{args:[...], describe}], coverage_hint}。
+    契约：`iterations` 为生成的用例数（与 fuzz_function/fuzz_project 的 iterations 口径一致）；
+    `max_cases` 为旧名，保留向后兼容（提供时覆盖 iterations，P2 契约对齐后建议改用 iterations）。"""
+    if max_cases is not None:
+        iterations = max_cases
     tree = None
     try:
         tree = ast.parse(open(path, encoding="utf-8", errors="ignore").read())
@@ -141,7 +145,7 @@ def coverage_driven_gen(path, funcname=None, max_cases=8) -> dict:
         # 生成具体参数：对每个参数轮换 0/负数/空串/None 等边界
         if args:
             boundaries = [0, -1, "", None, [], 1]
-            for b in boundaries[:max_cases]:
+            for b in boundaries[:iterations]:
                 call_args = []
                 for i, a in enumerate(args):
                     call_args.append(b if i == 0 else _gen_value("int", random.Random()))

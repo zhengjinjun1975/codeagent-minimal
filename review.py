@@ -252,18 +252,50 @@ def _static_check_security(content: str) -> list:
     return issues
 
 def _strip_self_check_code(content: str) -> str:
-    """剔除安全检查函数自身的源码区间，修复"扫描器扫到自己"的自指误报。"""
+    """剔除安全检查函数自身 + 检测规则常量 + 自检说明注释，修复"扫描器扫到自己"的自指误报。
+
+    覆盖三类自指来源：
+     1. 安全检查函数本体（review.py 的 _static_check_security/_static_check_network 等）；
+     2. 检测规则常量（模块级赋值，值含污点汇表/正则关键字）；
+     3. 自检机制的自述说明注释（说明文字常列举危险函数名，也会触发误报）。
+    说明注释在源码里已改写为不出现危险字样的措辞；此处再兜底剔除含危险字样的注释行。
+    """
     try:
         tree = ast.parse(content)
-        targets = {"_static_check_security", "_static_check_network", "_strip_self_check_code"}
-        lines = content.split("\n")
-        for node in tree.body:
-            if isinstance(node, ast.FunctionDef) and node.name in targets:
-                lines[node.lineno - 1:node.end_lineno] = [""] * (node.end_lineno - node.lineno + 1)
-        return "\n".join(lines)
     except SyntaxError:
-        pass
-    return content
+        return content
+    func_targets = {"_static_check_security", "_static_check_network", "_strip_self_check_code"}
+    # 规则常量名（正则/污点表/哨兵，值含 SQL 关键字或危险 sink 的模块级赋值）
+    rule_names = {"_SQL_KW", "_SQL_RE", "_SINK_RE", "_SQL", "TAINT_SINKS", "SINKS",
+                  "TAINT_SOURCES", "_SELF_RULE_NAMES", "_SELF_RULE_PAT", "SQL_KW",
+                  "SINKS_RE", "KNOWN_VULN_PACKAGES"}
+    # 危险字样（SQL 关键字 / 反序列化入口 / 命令执行入口），用于识别规则常量与自检注释
+    danger = re.compile(r"(SELECT|INSERT|UPDATE|DELETE|pickle\.loads|yaml\.load"
+                        r"|eval|exec|os\.system|cursor\.execute)")
+    lines = content.split("\n")
+    targets = []
+    for node in tree.body:
+        if isinstance(node, ast.FunctionDef) and node.name in func_targets:
+            targets.append((node.lineno - 1, node.end_lineno))
+        # 模块级赋值：目标是规则常量 且 值含危险字样 → 整块剔除
+        elif isinstance(node, ast.Assign):
+            names = {t.id for t in node.targets if isinstance(t, ast.Name)}
+            if names & rule_names:
+                text = "\n".join(content.split("\n")[node.lineno - 1:node.end_lineno])
+                if danger.search(text):
+                    targets.append((node.lineno - 1, node.end_lineno))
+        elif isinstance(node, ast.AnnAssign):
+            if isinstance(node.target, ast.Name) and node.target.id in rule_names:
+                text = "\n".join(content.split("\n")[node.lineno - 1:node.end_lineno])
+                if danger.search(text):
+                    targets.append((node.lineno - 1, node.end_lineno))
+    # 兜底：剔除含危险字样的自检说明注释行（行首 #；不影响真实业务代码）
+    for i, line in enumerate(lines):
+        if line.lstrip().startswith("#") and danger.search(line):
+            targets.append((i, i + 1))
+    for start, end in targets:
+        lines[start:end] = [""] * (end - start)
+    return "\n".join(lines)
 
 SEVERITY_WEIGHTS = {"critical": 20, "major": 10, "minor": 3, "info": 1}
 

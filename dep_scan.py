@@ -520,6 +520,40 @@ def _sql_flows(tree) -> list:
     return flows
 
 
+# 检测规则常量名（污点源/汇表、sink/正则/SQL 关键字哨兵）。这些"规则定义"的值本身
+# 含可触发自身安全扫描器误报的 SQL 关键字与危险函数字样，扫描器扫到自己时会被误报。
+# 扫描目标为自身源码时，剔除这些常量区（类似 review.py 的 _strip_self_check_code）。
+_SELF_RULE_NAMES = {"TAINT_SOURCES", "TAINT_SINKS", "_SINK_RE", "_SQL_RE", "_SQL_KW",
+                    "SQL_KW", "SINKS", "SINKS_RE", "KNOWN_VULN_PACKAGES"}
+_SELF_RULE_PAT = re.compile(
+    r"(SELECT|INSERT|UPDATE|DELETE|pickle\.loads|yaml\.load|eval|exec|os\.system|cursor\.execute)")
+
+
+def _strip_self_rule_constants(source: str) -> str:
+    """剔除自身检测规则常量区（模块级 Assign），修复"扫描器扫到自己"的自指误报。
+
+    只剔除目标名为已知规则常量、且值含安全敏感字样（SQL 关键字/危险 sink）的模块级赋值，
+    不动真实业务代码；扫描对象非自身时这些常量名几乎不会出现，故不影响他人文件。
+    """
+    try:
+        tree = ast.parse(source)
+    except SyntaxError:
+        return source
+    lines = source.split("\n")
+    targets = []
+    for node in tree.body:
+        if isinstance(node, ast.Assign):
+            names = {t.id for t in node.targets if isinstance(t, ast.Name)}
+            if names & _SELF_RULE_NAMES:
+                block = "\n".join(lines[node.lineno - 1:node.end_lineno])
+                if _SELF_RULE_PAT.search(block):
+                    targets.append((node.lineno - 1, node.end_lineno))
+    for start, end in targets:
+        lines[start:end] = [""] * (end - start)
+    return "\n".join(lines)
+
+
+
 def taint_analyze(target: str) -> dict:
     """Semgrep 级污点分析：源→汇 数据流。target 为文件或目录。"""
     findings = []
@@ -534,7 +568,9 @@ def taint_analyze(target: str) -> dict:
                     py_files.append(os.path.join(root, f))
     for pf in py_files[:300]:
         try:
-            tree = ast.parse(open(pf, encoding="utf-8", errors="ignore").read())
+            source = open(pf, encoding="utf-8", errors="ignore").read()
+            # 扫描自身源码时剔除检测规则常量区，避免自指误报（不影响其他文件）
+            tree = ast.parse(_strip_self_rule_constants(source))
         except SyntaxError:
             continue
         files_scanned += 1

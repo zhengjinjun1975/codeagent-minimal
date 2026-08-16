@@ -46,10 +46,10 @@ class CodeFuzzAgent(AtomicAgent):
         self.register("fuzz.project", self._project)
 
     # ── 能力实现（复用 fuzz_engine，一行不改核心）────────────────
-    def _gen(self, path, funcname=None, max_cases=8):
+    def _gen(self, path, funcname=None, iterations=8, max_cases=None):
         """覆盖率驱动生成用例。path 必填，funcname 可选（缺省扫全部函数）。"""
         return fuzz_engine.coverage_driven_gen(path, funcname=funcname,
-                                               max_cases=max_cases)
+                                               iterations=iterations, max_cases=max_cases)
 
     def _run(self, path, funcname, iterations=100, timeout=2.0, seed=None):
         """属性/模糊测试单函数：子进程隔离，防崩溃污染主进程。"""
