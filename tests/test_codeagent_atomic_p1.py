@@ -97,8 +97,12 @@ def test_assembly_chain_real_run():
     d = r["data"]
     assert d["verdict"] == "全部通过", d["verdict"]
     assert d["results"]["test"]["data"]["red_green"]["green"]
-    tp = d["runtime"].get("test_path")
-    assert tp and os.path.exists(tp), "test 未跑真实文件"
+    # P2-11: run_chain 内临时工作区用 TemporaryDirectory，run 结束 finally 已 cleanup，
+    # 因此对 runtime.test_path 做 os.path.exists 必为 False（与 verify_chain 对齐修正）。
+    # 改断言 test.files_tested —— test 逐个落盘并真实执行的文件路径，证明「test 跑真实文件」。
+    ft = d["results"]["test"]["data"].get("files_tested", [])
+    assert ft, "test 未跑真实文件(files_tested 为空)"
+    assert os.path.basename(ft[0]) in real_code, f"test 未跑 gen 落盘文件: {ft[0]}"
     assert "kept" in d["results"]["evolve"]["data"]
 
 
