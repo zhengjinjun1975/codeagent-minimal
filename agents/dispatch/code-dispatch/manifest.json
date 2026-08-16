@@ -1,0 +1,13 @@
+{
+  "name": "code-dispatch",
+  "version": "0.1.0",
+  "domain": "dispatch",
+  "description": "派单原子: 复用 dispatch_template 派单5段 + estimate_budget 自适应预算 + back_to_back 背靠背验证 + check_workspace_conflicts 并行冲突防护。纯启发式/规则。",
+  "open_source": true,
+  "agent_class": "CodeDispatchAgent",
+  "entry": "main.py",
+  "provides": ["dispatch.template", "dispatch.budget", "dispatch.verify", "dispatch.conflict"],
+  "depends_on": [],
+  "inputs": ["background", "goal", "constraint", "redline", "deliverable", "task", "files_needed", "language", "claims", "workdir", "rerun_cmd", "tasks", "workspace"],
+  "outputs": ["template", "budget", "items", "summary", "conflicts", "safe", "recommendation"]
+}

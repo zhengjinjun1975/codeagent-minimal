@@ -1,0 +1,393 @@
+{
+  "schema": "codeagent-registry-v1",
+  "agents_dir": "agents",
+  "agents": {
+    "code-review": {
+      "name": "code-review",
+      "version": "0.1.0",
+      "domain": "codereview",
+      "description": "代码审查原子(多模): 复用 review.py._static_analyze/review_file/_dep_enrich, 静态审查+依赖图感知+复用建议。code/design/layout/content 四模。",
+      "open_source": true,
+      "agent_class": "CodeReviewAgent",
+      "entry": "main.py",
+      "provides": [
+        "codereview.review",
+        "codereview.design",
+        "codereview.layout",
+        "codereview.content"
+      ],
+      "depends_on": [
+        "impact.analyze"
+      ],
+      "inputs": [
+        "path",
+        "code",
+        "mode",
+        "use_llm",
+        "reuse_atoms",
+        "max_complexity"
+      ],
+      "outputs": [
+        "score",
+        "issues",
+        "static_issues",
+        "model",
+        "reuse_suggestions"
+      ],
+      "path": "agents\\codereview\\code-review"
+    },
+    "code-deliver": {
+      "name": "code-deliver",
+      "version": "0.1.0",
+      "domain": "deliver",
+      "description": "交付/报告原子: 汇总组装链各原子输出为验收报告(数据不出厂)。deliver.report 聚合 think/gen/review/test/evolve 结果, deliver.package 收集产物清单。",
+      "open_source": true,
+      "agent_class": "CodeDeliverAgent",
+      "entry": "main.py",
+      "provides": [
+        "deliver.report",
+        "deliver.package"
+      ],
+      "depends_on": [],
+      "inputs": [
+        "chain",
+        "outputs",
+        "evidence"
+      ],
+      "outputs": [
+        "report",
+        "artifacts",
+        "verdict"
+      ],
+      "path": "agents\\deliver\\code-deliver"
+    },
+    "code-dispatch": {
+      "name": "code-dispatch",
+      "version": "0.1.0",
+      "domain": "dispatch",
+      "description": "派单原子: 复用 dispatch_template 派单5段 + estimate_budget 自适应预算 + back_to_back 背靠背验证 + check_workspace_conflicts 并行冲突防护。纯启发式/规则。",
+      "open_source": true,
+      "agent_class": "CodeDispatchAgent",
+      "entry": "main.py",
+      "provides": [
+        "dispatch.template",
+        "dispatch.budget",
+        "dispatch.verify",
+        "dispatch.conflict"
+      ],
+      "depends_on": [],
+      "inputs": [
+        "background",
+        "goal",
+        "constraint",
+        "redline",
+        "deliverable",
+        "task",
+        "files_needed",
+        "language",
+        "claims",
+        "workdir",
+        "rerun_cmd",
+        "tasks",
+        "workspace"
+      ],
+      "outputs": [
+        "template",
+        "budget",
+        "items",
+        "summary",
+        "conflicts",
+        "safe",
+        "recommendation"
+      ],
+      "path": "agents\\dispatch\\code-dispatch"
+    },
+    "code-evolve": {
+      "name": "code-evolve",
+      "version": "0.1.0",
+      "domain": "evolve",
+      "description": "自进化原子: 复用 self_evolve.refine(观察→归因→精炼→校验四步闭环)/self_prompt/tdd_loop/_sediment_skill。evolve.refine 四步闭环+技能沉淀, evolve.tdd 红绿闭环。",
+      "open_source": true,
+      "agent_class": "CodeEvolveAgent",
+      "entry": "main.py",
+      "provides": [
+        "evolve.refine",
+        "evolve.skill",
+        "evolve.self_prompt",
+        "evolve.tdd"
+      ],
+      "depends_on": [
+        "memory.recall"
+      ],
+      "inputs": [
+        "task",
+        "outcome",
+        "snapshot",
+        "memdir",
+        "auto_sediment",
+        "top_k"
+      ],
+      "outputs": [
+        "observation",
+        "attribution",
+        "refinement",
+        "kept",
+        "verdict",
+        "skills",
+        "prompt",
+        "tdd"
+      ],
+      "path": "agents\\evolve\\code-evolve"
+    },
+    "dep-impact": {
+      "name": "dep-impact",
+      "version": "0.1.0",
+      "domain": "impact",
+      "description": "依赖图影响分析原子：复用 dep_audit.build_graph/dep_report，零 LLM。分析改符号/模块波及谁、循环依赖、模块耦合。",
+      "open_source": true,
+      "agent_class": "DepImpactAgent",
+      "entry": "main.py",
+      "provides": [
+        "impact.analyze",
+        "impact.circular",
+        "impact.coupling"
+      ],
+      "depends_on": [],
+      "inputs": [
+        "path",
+        "symbol",
+        "impact",
+        "transitive"
+      ],
+      "outputs": [
+        "files",
+        "entities",
+        "edges",
+        "coupling",
+        "circular_imports",
+        "impact"
+      ],
+      "path": "agents\\impact\\dep-impact"
+    },
+    "llm-router": {
+      "name": "llm-router",
+      "version": "0.1.0",
+      "domain": "llm",
+      "description": "模型路由原子：复用 model_config.json 结构。llm.generate 走云端 GLM，llm.review 走本地 ornith。local-only 开关保证敏感数据不出厂（禁云端）。",
+      "open_source": true,
+      "agent_class": "LlmRouterAgent",
+      "entry": "main.py",
+      "provides": [
+        "llm.generate",
+        "llm.review"
+      ],
+      "depends_on": [],
+      "inputs": [
+        "messages",
+        "temp",
+        "max_tokens",
+        "local_only",
+        "config_path"
+      ],
+      "outputs": [
+        "content",
+        "model",
+        "provider"
+      ],
+      "path": "agents\\llm\\llm-router"
+    },
+    "code-memory": {
+      "name": "code-memory",
+      "version": "0.1.0",
+      "domain": "memory",
+      "description": "记忆/经验原子: 复用 self_evolve.remember/_load/_save + OptMem 思路。memory.save 经验沉淀, memory.recall 跨会话召回, memory.sediment 技能沉淀。落 experience/*.json。",
+      "open_source": true,
+      "agent_class": "CodeMemoryAgent",
+      "entry": "main.py",
+      "provides": [
+        "memory.save",
+        "memory.recall",
+        "memory.sediment"
+      ],
+      "depends_on": [],
+      "inputs": [
+        "findings",
+        "task",
+        "memdir",
+        "top_k"
+      ],
+      "outputs": [
+        "added",
+        "lessons",
+        "prompt",
+        "skills"
+      ],
+      "path": "agents\\memory\\code-memory"
+    },
+    "code-plan": {
+      "name": "code-plan",
+      "version": "0.1.0",
+      "domain": "plan",
+      "description": "方案设计原子: 复用 dispatch_template 派单5段模板任务拆解。plan.think 输出5段方案+文件清单, plan.gen 按方案产出代码骨架/透传代码。",
+      "open_source": true,
+      "agent_class": "CodePlanAgent",
+      "entry": "main.py",
+      "provides": [
+        "plan.think",
+        "plan.gen"
+      ],
+      "depends_on": [
+        "taskstate.track"
+      ],
+      "inputs": [
+        "task",
+        "language",
+        "domain",
+        "files_needed",
+        "spec"
+      ],
+      "outputs": [
+        "plan",
+        "assumptions",
+        "files_needed",
+        "constraint_chain",
+        "questions",
+        "files",
+        "score"
+      ],
+      "path": "agents\\plan\\code-plan"
+    },
+    "code-project": {
+      "name": "code-project",
+      "version": "0.1.0",
+      "domain": "project",
+      "description": "项目加载/分析原子: 复用 load_project/scan_issues/analyze_project 思路, 产出项目快照+问题清单。project.load 快照, project.scan 扫描问题, project.analyze 分析。",
+      "open_source": true,
+      "agent_class": "CodeProjectAgent",
+      "entry": "main.py",
+      "provides": [
+        "project.load",
+        "project.scan",
+        "project.analyze"
+      ],
+      "depends_on": [],
+      "inputs": [
+        "path",
+        "file_pattern",
+        "max_complexity",
+        "impact"
+      ],
+      "outputs": [
+        "files",
+        "snapshot",
+        "issues",
+        "summary"
+      ],
+      "path": "agents\\project\\code-project"
+    },
+    "code-reuse": {
+      "name": "code-reuse",
+      "version": "0.1.0",
+      "domain": "reuse",
+      "description": "代码复用检索原子: 复用 review.py._list_code_atoms/_reuse_suggestion + atoms/19个复用库。reuse.local 本地检索, reuse.atom 列库, reuse.remote GitHub降级。",
+      "open_source": true,
+      "agent_class": "CodeReuseAgent",
+      "entry": "main.py",
+      "provides": [
+        "reuse.local",
+        "reuse.atom",
+        "reuse.remote"
+      ],
+      "depends_on": [],
+      "inputs": [
+        "content",
+        "path",
+        "top_k",
+        "task"
+      ],
+      "outputs": [
+        "suggestions",
+        "atoms",
+        "count"
+      ],
+      "path": "agents\\reuse\\code-reuse"
+    },
+    "task-state": {
+      "name": "task-state",
+      "version": "0.1.0",
+      "domain": "taskstate",
+      "description": "任务状态原子: 复用 E:/optmem/taskstate/task_state.py 外置状态(做到哪/下一步/证据/决策点), 跨会话续跑不丢进度。taskstate.track 跟踪状态。",
+      "open_source": true,
+      "agent_class": "TaskStateAgent",
+      "entry": "main.py",
+      "provides": [
+        "taskstate.track"
+      ],
+      "depends_on": [],
+      "inputs": [
+        "task",
+        "action",
+        "tid",
+        "state",
+        "progress",
+        "evidence",
+        "gate",
+        "status_file"
+      ],
+      "outputs": [
+        "status",
+        "task_id",
+        "file",
+        "progress"
+      ],
+      "path": "agents\\taskstate\\task-state"
+    },
+    "code-test": {
+      "name": "code-test",
+      "version": "0.1.0",
+      "domain": "test",
+      "description": "测试原子：复用 test_harness.run_all 跑冒烟/覆盖率/单元/边界/变异/稳定性，红绿回归。test.gen 从 AST 生成基本+边界测试。",
+      "open_source": true,
+      "agent_class": "CodeTestAgent",
+      "entry": "main.py",
+      "provides": [
+        "test.gen",
+        "test.run",
+        "test.tdd"
+      ],
+      "depends_on": [],
+      "inputs": [
+        "code",
+        "path",
+        "target_dir",
+        "task"
+      ],
+      "outputs": [
+        "test_files",
+        "smoke",
+        "coverage",
+        "unit",
+        "boundary",
+        "mutation",
+        "stability",
+        "red_green"
+      ],
+      "path": "agents\\test\\code-test"
+    }
+  },
+  "order": [
+    "code-deliver",
+    "code-dispatch",
+    "dep-impact",
+    "llm-router",
+    "code-memory",
+    "code-project",
+    "code-reuse",
+    "task-state",
+    "code-test",
+    "code-review",
+    "code-evolve",
+    "code-plan"
+  ],
+  "conflicts": []
+}

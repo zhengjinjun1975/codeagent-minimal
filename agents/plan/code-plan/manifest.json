@@ -1,0 +1,13 @@
+{
+  "name": "code-plan",
+  "version": "0.1.0",
+  "domain": "plan",
+  "description": "方案设计原子: 复用 dispatch_template 派单5段模板任务拆解。plan.think 输出5段方案+文件清单, plan.gen 按方案产出代码骨架/透传代码。",
+  "open_source": true,
+  "agent_class": "CodePlanAgent",
+  "entry": "main.py",
+  "provides": ["plan.think", "plan.gen"],
+  "depends_on": ["taskstate.track"],
+  "inputs": ["task", "language", "domain", "files_needed", "spec"],
+  "outputs": ["plan", "assumptions", "files_needed", "constraint_chain", "questions", "files", "score"]
+}

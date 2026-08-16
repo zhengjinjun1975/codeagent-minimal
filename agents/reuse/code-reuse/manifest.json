@@ -1,0 +1,13 @@
+{
+  "name": "code-reuse",
+  "version": "0.1.0",
+  "domain": "reuse",
+  "description": "代码复用检索原子: 复用 review.py._list_code_atoms/_reuse_suggestion + atoms/19个复用库。reuse.local 本地检索, reuse.atom 列库, reuse.remote GitHub降级。",
+  "open_source": true,
+  "agent_class": "CodeReuseAgent",
+  "entry": "main.py",
+  "provides": ["reuse.local", "reuse.atom", "reuse.remote"],
+  "depends_on": [],
+  "inputs": ["content", "path", "top_k", "task"],
+  "outputs": ["suggestions", "atoms", "count"]
+}

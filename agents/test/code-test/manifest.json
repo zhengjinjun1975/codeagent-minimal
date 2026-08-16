@@ -1,0 +1,17 @@
+{
+  "name": "code-test",
+  "version": "0.1.0",
+  "domain": "test",
+  "description": "测试原子：复用 test_harness.run_all 跑冒烟/覆盖率/单元/边界/变异/稳定性，红绿回归。test.gen 从 AST 生成基本+边界测试。",
+  "open_source": true,
+  "agent_class": "CodeTestAgent",
+  "entry": "main.py",
+  "provides": [
+    "test.gen",
+    "test.run",
+    "test.tdd"
+  ],
+  "depends_on": [],
+  "inputs": ["code", "path", "target_dir", "task"],
+  "outputs": ["test_files", "smoke", "coverage", "unit", "boundary", "mutation", "stability", "red_green"]
+}

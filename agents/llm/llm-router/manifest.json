@@ -1,0 +1,16 @@
+{
+  "name": "llm-router",
+  "version": "0.1.0",
+  "domain": "llm",
+  "description": "模型路由原子：复用 model_config.json 结构。llm.generate 走云端 GLM，llm.review 走本地 ornith。local-only 开关保证敏感数据不出厂（禁云端）。",
+  "open_source": true,
+  "agent_class": "LlmRouterAgent",
+  "entry": "main.py",
+  "provides": [
+    "llm.generate",
+    "llm.review"
+  ],
+  "depends_on": [],
+  "inputs": ["messages", "temp", "max_tokens", "local_only", "config_path"],
+  "outputs": ["content", "model", "provider"]
+}

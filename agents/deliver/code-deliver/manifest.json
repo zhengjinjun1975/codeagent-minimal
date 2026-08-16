@@ -1,0 +1,13 @@
+{
+  "name": "code-deliver",
+  "version": "0.1.0",
+  "domain": "deliver",
+  "description": "交付/报告原子: 汇总组装链各原子输出为验收报告(数据不出厂)。deliver.report 聚合 think/gen/review/test/evolve 结果, deliver.package 收集产物清单。",
+  "open_source": true,
+  "agent_class": "CodeDeliverAgent",
+  "entry": "main.py",
+  "provides": ["deliver.report", "deliver.package"],
+  "depends_on": [],
+  "inputs": ["chain", "outputs", "evidence"],
+  "outputs": ["report", "artifacts", "verdict"]
+}

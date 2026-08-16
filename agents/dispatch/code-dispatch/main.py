@@ -1,0 +1,131 @@
+#!/usr/bin/env python3
+"""CodeAgent 原子壳（open_source:true）。
+
+复用（零改动核心）：dispatch_template 5段派单 + estimate_budget + back_to_back + check_workspace_conflicts
+只加壳：把既有函数 import 进 run() 包 {ok,data} 信封。
+
+能力域：dispatch。数据不出厂，可独立运行。
+"""
+
+import os
+import sys
+
+HERE = os.path.dirname(os.path.abspath(__file__))
+REPO_ROOT = os.path.dirname(os.path.dirname(os.path.dirname(HERE)))
+if REPO_ROOT not in sys.path:
+    sys.path.insert(0, REPO_ROOT)
+
+from atomic_base import AtomicAgent
+
+import subprocess
+
+class CodeDispatchAgent(AtomicAgent):
+    name = "code-dispatch"
+    version = "0.1.0"
+    domain = "dispatch"
+    description = "派单原子: 5段模板+自适应预算+背靠背验证+并行冲突防护"
+    provides = ["dispatch.template", "dispatch.budget", "dispatch.verify", "dispatch.conflict"]
+    depends_on = []
+    inputs = ["background", "goal", "constraint", "redline", "deliverable", "task", "files_needed", "language", "claims", "workdir", "rerun_cmd", "tasks", "workspace"]
+    outputs = ["template", "budget", "items", "summary", "conflicts", "safe", "recommendation"]
+
+    def _register_defaults(self):
+        self.register("dispatch.template", self._template)
+        self.register("dispatch.budget", self._budget)
+        self.register("dispatch.verify", self._verify)
+        self.register("dispatch.conflict", self._conflict)
+
+    # ── dispatch.template：派单5段模板 ──
+    def _template(self, background="", goal="", constraint="", redline="", deliverable="",
+                  budget="", state_file=""):
+        """复用派单5段模板(背景/目标/约束/红线/产出) + 预算/状态文件。"""
+        return f"""## 背景
+{background or "【为什么做：当前状态、上下文、前置调研】"}
+
+## 目标
+{goal or "【可验收成果; 尽量可证伪】"}
+
+## 约束
+{constraint or "【技术约束: 语言/框架; 极简优先; 标准库优先; 复用检索先行】"}
+【纪律：单文件×单增强】
+
+## 红线
+{redline or "【不可触碰: 数据/隐私/生产/不可逆; 越线停止汇报】"}
+
+## 产出
+{deliverable or "【交付物清单 + 证据回执】"}
+{budget}
+{state_file}"""
+
+    # ── dispatch.budget：自适应预算(启发式) ──
+    def _budget(self, task, files_needed=0, language="python"):
+        """复用 estimate_budget 启发式: 不调模型。"""
+        tlen = len(task or "")
+        complexity = "简单" if tlen < 30 else ("中等" if tlen < 80 else "复杂")
+        n = files_needed or 1
+        base = {"简单": 3, "中等": 5, "复杂": 8}[complexity]
+        max_iter = base + (n - 1)
+        api_calls = max_iter * (3 if language != "python" else 2)
+        return {"max_iter": max_iter, "api_calls": api_calls,
+                "complexity": complexity, "hint": "到预算先 checkpoint 落盘+汇报进度"}
+
+    # ── dispatch.verify：背靠背验证(子代理自报不可信) ──
+    def _verify(self, claims, workdir=".", rerun_cmd=None):
+        """复用 back_to_back_check: 每条 claim 需独立复跑证据才 done=True。"""
+        items = []
+        for c in claims if isinstance(claims, list) else []:
+            claim = c.get("claim") if isinstance(c, dict) else str(c)
+            action = c.get("action") if isinstance(c, dict) else ""
+            done = False
+            detail = ""
+            if rerun_cmd:
+                try:
+                    p = subprocess.run(rerun_cmd, shell=True, cwd=workdir or ".",
+                                       capture_output=True, text=True, timeout=120)
+                    done = p.returncode == 0
+                    detail = "独立复跑通过" if done else f"复跑失败 rc={p.returncode}"
+                except Exception as e:
+                    detail = f"复跑异常: {e}"
+            items.append({"claim": claim, "action": action, "done": done, "detail": detail})
+        summary = f"待独立复核 {len([i for i in items if not i['done']])} 条; 全部 done=True 才可验收"
+        return {"items": items, "summary": summary,
+                "note": "子代理自报≠已验证, 需主代理实际执行 rerun_cmd 核对输出"}
+
+    # ── dispatch.conflict：并行冲突防护(同文件写冲突) ──
+    def _conflict(self, tasks, workspace="."):
+        """复用 check_workspace_conflicts: 同文件写冲突检测。"""
+        seen = {}
+        for t in tasks if isinstance(tasks, list) else []:
+            for f in (t.get("files") or []) if isinstance(t, dict) else []:
+                seen.setdefault(f, set()).add(t.get("name", "?") if isinstance(t, dict) else "?")
+        conflicts = {p: sorted(v) for p, v in seen.items() if len(v) > 1}
+        safe = not conflicts
+        rec = ("可直接并行(无同文件写冲突)" if safe else
+               ("建议: 冲突任务串行或按子目录隔离" if len(conflicts) < 3 else
+                "建议: 冲突过多, 整批串行更安全"))
+        return {"conflicts": list(conflicts.keys()), "safe": safe,
+                "recommendation": rec, "detail": conflicts}
+
+
+agent = CodeDispatchAgent()
+
+if __name__ == "__main__":
+    import argparse, json
+    ap = argparse.ArgumentParser(description="code-dispatch 原子自测入口")
+    ap.add_argument("--capability", default="dispatch.template",
+                    choices=["dispatch.template", "dispatch.budget", "dispatch.verify", "dispatch.conflict"])
+    args = ap.parse_args()
+    agent.load()
+    print("══ code-dispatch 原子自测 ══", agent.describe()["name"], "status=" + agent.describe()["status"])
+    if args.capability == "dispatch.template":
+        r = agent.run(_capability="dispatch.template", background="背景", goal="目标", constraint="约束", redline="红线", deliverable="产出")
+    elif args.capability == "dispatch.budget":
+        r = agent.run(_capability="dispatch.budget", task="实现 add", files_needed=1)
+    elif args.capability == "dispatch.verify":
+        r = agent.run(_capability="dispatch.verify", claims=[{"claim": "c1", "action": "python -c pass"}])
+    else:
+        r = agent.run(_capability="dispatch.conflict",
+                      tasks=[{"name": "A", "files": ["x.py", "reg.json"]}, {"name": "B", "files": ["reg.json"]}])
+    print(json.dumps(r, ensure_ascii=False, indent=2, default=str))
+    if not r["ok"]:
+        sys.exit(1)

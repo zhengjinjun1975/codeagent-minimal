@@ -4,6 +4,20 @@
 
 格式遵循 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.0.0/)。
 
+## [0.2.0] - 2026-08-16
+
+### 新增（原子化重构 P0：agent_loader + AtomicAgent 基类 + 首批 3 原子）
+
+- **`atomic_base.py`**：原子智能体基类——统一接口 `call/run/describe`，生命周期 `discovered→loaded→ready`，能力注册 `register/capabilities`，统一 `{ok,data}` 信封，异常捕获失败降级 `{ok:false, error, degraded:true}`。零第三方依赖。
+- **`agent_loader.py`**：原子加载器——manifest schema 校验（name==目录名/version/entry 存在/依赖声明）、依赖解析（Kahn 拓扑排序）、冲突检测（重复能力/自依赖/未知依赖/依赖环/依赖方向铁律）、失败降级（任何错误不抛给上层）。含 `scan`/`build_registry`/`load_agents` 及 CLI。
+- **首批 3 原子**（放 `agents/`，规避 `atoms/` 复用库同名冲突；均为 `open_source:true`，核心零改动，加壳包 `{ok,data}`）：
+  - `dep-impact`：复用 `dep_audit.build_graph/dep_report`，`impact.analyze/circular/coupling`，零 LLM
+  - `code-test`：复用 `test_harness.run_all`，`test.gen/run/tdd`，红绿回归
+  - `llm-router`：复用 `model_config.json`，`llm.generate`（云端 GLM）/`llm.review`（本地 ornith），`local-only` 开关数据不出厂
+- **`registry.json`**：3 原子注册索引（scan 自动重建）。
+- **`tests/test_codeagent_atomic_agents.py`**：19 用例（loader 校验/拓扑/冲突/降级 + 3 原子真实 load/run）。双绿回归：与现有 `test_review.py` 一起 `27 passed`。
+- **架构依据**：`E:/code_agent/docs/CODEGENT_ATOMIC_ARCHITECTURE.md`（原子化重构设计 P0）。
+
 ## [0.1.1] - 2026-08-11
 
 ### 新增（代码原子库随仓库分发 + 方法论落地）

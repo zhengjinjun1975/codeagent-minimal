@@ -1,0 +1,13 @@
+{
+  "name": "code-review",
+  "version": "0.1.0",
+  "domain": "codereview",
+  "description": "代码审查原子(多模): 复用 review.py._static_analyze/review_file/_dep_enrich, 静态审查+依赖图感知+复用建议。code/design/layout/content 四模。",
+  "open_source": true,
+  "agent_class": "CodeReviewAgent",
+  "entry": "main.py",
+  "provides": ["codereview.review", "codereview.design", "codereview.layout", "codereview.content"],
+  "depends_on": ["impact.analyze"],
+  "inputs": ["path", "code", "mode", "use_llm", "reuse_atoms", "max_complexity"],
+  "outputs": ["score", "issues", "static_issues", "model", "reuse_suggestions"]
+}
