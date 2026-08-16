@@ -159,7 +159,7 @@ _POLICY_RULES = [
     {"type": "command", "pattern": "git *", "effect": "allow"},
     {"type": "command", "pattern": "rm -rf *", "effect": "deny"},
     {"type": "command", "pattern": "pytest *", "effect": "ask"},
-    {"type": "file", "pattern": "E:/secrets/*", "effect": "deny"},
+    {"type": "file", "pattern": "**/secrets/*", "effect": "deny"},
 ]
 
 
@@ -179,7 +179,7 @@ def test_permission_allow_ask_deny_three_levels():
                           resource_type="command", rules=_POLICY_RULES)
     assert r["data"]["decision"] == "ask" and r["data"]["granted"] is True, r["data"]
     # file 类型 deny
-    r = rt.run_capability("dispatch.permission", action="check", resource="E:/secrets/key.txt",
+    r = rt.run_capability("dispatch.permission", action="check", resource="private/secrets/key.txt",
                           resource_type="file", rules=_POLICY_RULES)
     assert r["data"]["decision"] == "deny" and r["data"]["blocked"] is True, r["data"]
 
@@ -196,8 +196,8 @@ def test_permission_deny_overrides_allow():
 
 def test_permission_wildcard_glob():
     rt = AgentRuntime()
-    r = rt.run_capability("dispatch.permission", action="check", resource="E:/secrets/a/b/token.txt",
-                          resource_type="file", rules=[{"type": "file", "pattern": "E:/secrets/*", "effect": "deny"}])
+    r = rt.run_capability("dispatch.permission", action="check", resource="private/secrets/a/b/token.txt",
+                          resource_type="file", rules=[{"type": "file", "pattern": "**/secrets/**", "effect": "deny"}])
     assert r["data"]["decision"] == "deny", f"通配 * 应匹配深层: {r['data']}"
 
 

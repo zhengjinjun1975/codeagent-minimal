@@ -130,7 +130,7 @@ class CodeDispatchAgent(AtomicAgent):
                 {"type": "command", "pattern": "rm -rf *",     "effect": "deny"},
                 {"type": "command", "pattern": "pytest *",     "effect": "ask"},
                 {"type": "tool",    "pattern": "llm.generate", "effect": "deny"},
-                {"type": "file",    "pattern": "E:/secrets/*", "effect": "deny"},
+                {"type": "file",    "pattern": "**/secrets/*", "effect": "deny"},
               ]
             }
         判定优先级：deny > allow > ask > default。通配 `*` 支持前缀/后缀/任意段。
