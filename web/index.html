@@ -1,0 +1,195 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>CodeAgent 运行前端</title>
+<style>
+  :root {
+    --bg:#f6f8fb; --card:#ffffff; --line:#e4e9f0; --text:#1f2937;
+    --muted:#6b7280; --primary:#2563eb; --primary-h:#1d4ed8;
+    --ok:#16a34a; --warn:#d97706; --err:#dc2626; --conflict:#9333ea;
+    --mono:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--text);
+       font-family:-apple-system,"Segoe UI","Microsoft YaHei",sans-serif;line-height:1.55}
+  header{padding:20px 28px;background:#fff;border-bottom:1px solid var(--line)}
+  header h1{margin:0;font-size:20px;font-weight:700}
+  header p{margin:4px 0 0;color:var(--muted);font-size:13px}
+  main{max-width:1080px;margin:0 auto;padding:24px}
+  .grid{display:grid;grid-template-columns:1fr 1fr;gap:18px}
+  @media(max-width:820px){.grid{grid-template-columns:1fr}}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:18px}
+  .card h2{margin:0 0 12px;font-size:15px;font-weight:700}
+  .row{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:8px}
+  label{font-size:13px;color:var(--muted);min-width:72px}
+  select,input[type=text],textarea{
+    flex:1;min-width:180px;padding:8px 10px;border:1px solid var(--line);
+    border-radius:6px;font-size:13px;background:#fff;font-family:inherit}
+  textarea{resize:vertical;font-family:var(--mono);font-size:12px}
+  button{padding:8px 16px;border:none;border-radius:6px;background:var(--primary);
+    color:#fff;font-size:13px;font-weight:600;cursor:pointer}
+  button:hover{background:var(--primary-h)}
+  button:disabled{opacity:.5;cursor:not-allowed}
+  button.ghost{background:#eef2f7;color:var(--text)}
+  .atoms{display:flex;flex-wrap:wrap;gap:8px;margin-top:8px}
+  .atom{padding:6px 12px;border-radius:20px;font-size:12px;border:1px solid var(--line);
+    display:inline-flex;align-items:center;gap:6px;background:#fbfcfe}
+  .dot{width:8px;height:8px;border-radius:50%;display:inline-block}
+  .ready{background:var(--ok);color:#fff;border-color:var(--ok)}
+  .ready .dot{background:#fff}
+  .degraded{background:#fff7ed;color:var(--warn);border-color:var(--warn)}
+  .degraded .dot{background:var(--warn)}
+  .conflict{background:#faf5ff;color:var(--conflict);border-color:var(--conflict)}
+  .conflict .dot{background:var(--conflict)}
+  .count{margin-left:8px;color:var(--muted);font-size:12px}
+  pre{background:#0f172a;color:#e2e8f0;padding:14px;border-radius:8px;
+      font-family:var(--mono);font-size:12px;overflow:auto;max-height:420px;
+      white-space:pre-wrap;word-break:break-word}
+  .result-wrap{display:none}
+  .result-wrap.show{display:block}
+  .meta{font-size:12px;color:var(--muted);margin-bottom:8px}
+  .hint{font-size:12px;color:var(--muted);margin-top:6px}
+  .loading{color:var(--primary);font-size:13px}
+  .error-bar{display:none;background:#fee2e2;color:#991b1b;padding:10px 14px;
+      border-radius:8px;margin:12px 0;font-size:13px}
+  .error-bar.show{display:block}
+  .full{grid-column:1/-1}
+</style>
+</head>
+<body>
+<header>
+  <h1>⚙️ CodeAgent 最小化运行前端 <span id="ver" style="font-size:13px;color:var(--muted);font-weight:400"></span></h1>
+  <p>16 原子统一运行时 · 统一入口 <code>codeagent.py</code> · 纯标准库 · 数据不出厂</p>
+</header>
+<main>
+  <div class="error-bar" id="errbar"></div>
+
+  <div class="card" style="margin-bottom:18px">
+    <h2>🔌 原子状态 <span class="count" id="atoms-count"></span>
+      <button class="ghost" style="float:right" onclick="refreshAtoms()">刷新状态</button>
+    </h2>
+    <div id="atoms" class="atoms"><span style="color:var(--muted);font-size:13px">加载中…</span></div>
+    <div class="hint" id="atoms-detail"></div>
+  </div>
+
+  <div class="grid">
+
+    <div class="card">
+      <h2>🛡️ 审查 (review)</h2>
+      <div class="row"><label>目标文件</label>
+        <select id="rv-file"></select><button class="ghost" onclick="loadFiles()">刷新</button>
+      </div>
+      <div class="row"><button onclick="runReview()">运行审查</button>
+        <span class="hint">静态审查：0–100 评分 / 语法 / 安全 / 复杂度</span></div>
+      <div class="result-wrap" id="rv-result"><pre></pre></div>
+    </div>
+
+    <div class="card">
+      <h2>🧪 测试 (test)</h2>
+      <div class="row"><label>目标文件</label>
+        <select id="ts-file"></select></div>
+      <div class="row"><label><input type="checkbox" id="ts-nomut" checked> 跳过变异</label>
+        <button onclick="runTest()">运行测试</button></div>
+      <div class="hint">冒烟 / 覆盖率 / 单元 / 变异</div>
+      <div class="result-wrap" id="ts-result"><pre></pre></div>
+    </div>
+
+    <div class="card">
+      <h2>🔗 组装链 (chain)</h2>
+      <div class="row"><label>任务</label><input type="text" id="ch-task" placeholder="例如：实现一个计算平均值的函数"></div>
+      <div class="row"><label>代码(JSON)</label><textarea id="ch-code" rows="3" placeholder='可选 {"avg.py": "def avg(xs):\n    return sum(xs)/len(xs)\n"}'></textarea></div>
+      <div class="row"><button onclick="runChain()">运行组装链</button>
+        <span class="hint">think→gen→review→test→evolve</span></div>
+      <div class="result-wrap" id="ch-result"><pre></pre></div>
+    </div>
+
+    <div class="card">
+      <h2>⛔ guard 链</h2>
+      <div class="row"><label>目标文件</label><select id="gd-file"></select></div>
+      <div class="row"><button onclick="runGuard()">运行 guard 链</button>
+        <span class="hint">review+dep-scan+fuzz 协同 · 数据不出厂</span></div>
+      <div class="result-wrap" id="gd-result"><pre></pre></div>
+    </div>
+
+    <div class="card">
+      <h2>🧠 自进化 (evolve)</h2>
+      <div class="row"><label>任务</label><input type="text" id="ev-task" placeholder="例如：审查样本任务"></div>
+      <div class="row"><label>结果(JSON)</label><input type="text" id="ev-outcome" value='{"score": 80, "issues": []}'></div>
+      <div class="row"><button onclick="runEvolve()">运行 evolve</button>
+        <span class="hint">观察→归因→精炼→校验</span></div>
+      <div class="result-wrap" id="ev-result"><pre></pre></div>
+    </div>
+
+    <div class="card">
+      <h2>🧭 状态 (status)</h2>
+      <div class="row"><button onclick="runStatus()">运行 status</button>
+        <span class="hint">运行时全貌：atoms / capabilities</span></div>
+      <div class="result-wrap" id="st-result"><pre></pre></div>
+    </div>
+
+  </div>
+</main>
+<script>
+const $ = id => document.getElementById(id);
+let running = false;
+
+async function api(url, opts){ const r = await fetch(url, opts); return r.json(); }
+
+function showErr(m){ const e=$('errbar'); e.textContent=m; e.classList.add('show'); }
+
+async function refreshAtoms(){
+  try{
+    const d = await api('/api/status');
+    if(!d.ok){ showErr(d.error||'获取状态失败'); return; }
+    const a = d.data;
+    $('atoms-count').textContent = `共 ${a.count} 原子`;
+    $('atoms').innerHTML = a.rows.map(x =>
+      `<span class="atom ${x.status}"><span class="dot"></span>${x.name}</span>`).join('');
+    $('atoms-detail').textContent =
+      `runtime: ${a.runtime} · degraded: ${(a.degraded||[]).join(',')||'无'} · 冲突: ${(a.conflicts||[]).join(',')||'无'}`;
+  }catch(e){ showErr('状态加载失败: '+e); }
+}
+
+async function loadFiles(){
+  try{
+    const d = await api('/api/files');
+    const opts = (d.data||[]).map(f=>`<option value="${f}">${f}</option>`).join('');
+    ['rv-file','ts-file','gd-file'].forEach(id=>{ $(id).innerHTML=opts||'<option value="">(无源码)</option>'; });
+  }catch(e){ showErr('文件列表加载失败: '+e); }
+}
+
+async function run(cmd, payload, resultId){
+  if(running){ showErr('已有命令在运行，请等待'); return; }
+  running = true;
+  const wrap = $(resultId); const pre = wrap.querySelector('pre');
+  wrap.classList.add('show'); pre.textContent = '⏳ 运行中…（真实调用 codeagent.py）';
+  try{
+    const d = await api('/api/run', {method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({cmd, payload})});
+    if(d.error && !d.result){ pre.textContent = '❌ '+d.error; }
+    else{
+      pre.textContent = '✅ '+d.cmd + (d.target?(' @ '+d.target):'') + '\n\n' +
+        JSON.stringify(d.result, null, 2);
+    }
+  }catch(e){ pre.textContent = '❌ 请求失败: '+e; }
+  running = false;
+}
+
+function runReview(){ const f=$('rv-file').value; if(!f){showErr('请选择文件');return;} run('review',{path:f},'rv-result'); }
+function runTest(){ const f=$('ts-file').value; if(!f){showErr('请选择文件');return;} run('test',{path:f, no_mutation:$('ts-nomut').checked},'ts-result'); }
+function runChain(){ const t=$('ch-task').value; if(!t){showErr('请填写任务');return;}
+  let code=null; const raw=$('ch-code').value.trim();
+  if(raw){ try{code=JSON.parse(raw);}catch(e){showErr('代码 JSON 解析失败');return;} }
+  run('chain',{task:t, code},'ch-result'); }
+function runGuard(){ const f=$('gd-file').value; if(!f){showErr('请选择文件');return;} run('guard',{path:f},'gd-result'); }
+function runEvolve(){ const t=$('ev-task').value; if(!t){showErr('请填写任务');return;}
+  let out; try{out=JSON.parse($('ev-outcome').value);}catch(e){showErr('结果 JSON 解析失败');return;}
+  run('evolve',{task:t, outcome:out},'ev-result'); }
+function runStatus(){ run('status',{},'st-result'); }
+
+refreshAtoms(); loadFiles();
+</script>
+</body>
+</html>
