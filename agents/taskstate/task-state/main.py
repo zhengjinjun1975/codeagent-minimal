@@ -87,10 +87,16 @@ class TaskStateAgent(AtomicAgent):
     def _register_defaults(self):
         self.register("taskstate.track", self._track)
 
-    def _track(self, task, action="set", tid=None, state="", progress="",
+    def _track(self, task, action="new", tid=None, state="", progress="",
                evidence="", gate="", status_file=None):
         """内联纯函数续跑（修复 P1-3：不再子进程调外部 E:/... 文件）。
-        action: new/set/ev/gate。返回信封，成功带 evidence（真实文件路径），失败带 error。"""
+        action: new/set/ev/gate。返回信封，成功带 evidence（真实文件路径），失败带 error。
+
+        契约修复 P2：默认 action 由 "set" 改为 "new"——与 CLI 默认(--action new)
+        及「track = 开始跟踪」语义对齐。此前裸调用 taskstate.track(task=...) 会
+        以 action="set" 落空状态(空 state/progress)，返回 data["action"]="set"，
+        与断言期望 action="new" 不符。
+        """
         tid = tid or _ts_tid(task)
         ok, path, out, err = _apply(action, tid, state, progress, evidence, gate)
         data = {"task_id": tid, "action": action, "progress": progress,

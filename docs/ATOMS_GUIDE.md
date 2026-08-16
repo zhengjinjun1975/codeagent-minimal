@@ -254,14 +254,14 @@ python codeagent.py evolve-loop --task "..." --json            # 大自进化闭
 
 - **能力**：`plan.think`、`gen`
 - **入参**：`task`、`language`、`domain`、`files_needed`、`spec`
-- **返回 `data`**（真实核实，`plan.think`）：`背景`、`目标`、`约束`、`红线`、`产出`、`files_needed`、`constraint_chain`、`assumptions`、`questions`、`language`、`domain`
+- **返回 `data`**（真实核实，`plan.think`）：`plan`（5 段方案：`背景/目标/约束/红线/产出` + `files_needed` 等）+ 顶层元数据 `task/language/domain/files_needed/constraint_chain/assumptions/questions`
 
 ```python
 from agent_runtime import AgentRuntime
 rt = AgentRuntime(local_only=True)
 res = rt.run_capability("plan.think", task="修复登录校验漏洞")
-# res["data"] keys 含中文 '背景'/'目标'/'约束'/'红线'/'产出' + constraint_chain 等
-print(res["data"]["约束"], res["data"]["constraint_chain"])
+# res["data"]["plan"] 含中文 '背景'/'目标'/'约束'/'红线'/'产出' 5 段
+print(res["data"]["plan"]["目标"], res["data"]["plan"]["constraint_chain"])
 ```
 
 ```bash

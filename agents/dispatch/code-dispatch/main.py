@@ -40,8 +40,13 @@ class CodeDispatchAgent(AtomicAgent):
     # ── dispatch.template：派单5段模板 ──
     def _template(self, background="", goal="", constraint="", redline="", deliverable="",
                   budget="", state_file=""):
-        """复用派单5段模板(背景/目标/约束/红线/产出) + 预算/状态文件。"""
-        return f"""## 背景
+        """复用派单5段模板(背景/目标/约束/红线/产出) + 预算/状态文件。
+
+        契约修复 P2：原返回裸字符串，与 outputs 声明字段 `template` 及原子
+        {ok,data} 信封不符。改为返回 {"template": <5段模板字符串>}，data["template"]
+        即派单模板，符合「原子返回 {ok,data} 信封，data 字段对齐 outputs」约定。
+        """
+        template = f"""## 背景
 {background or "【为什么做：当前状态、上下文、前置调研】"}
 
 ## 目标
@@ -58,6 +63,7 @@ class CodeDispatchAgent(AtomicAgent):
 {deliverable or "【交付物清单 + 证据回执】"}
 {budget}
 {state_file}"""
+        return {"template": template}
 
     # ── dispatch.budget：自适应预算(启发式) ──
     def _budget(self, task, files_needed=0, language="python"):

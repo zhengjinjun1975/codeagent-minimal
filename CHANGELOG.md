@@ -4,6 +4,16 @@
 
 格式遵循 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.0.0/)。
 
+## [0.3.2] - 2026-08-16
+
+### 遗留契约修复闭环（dispatch.template / plan.think / task-state.track）
+
+- **`dispatch.template` 契约对齐**：原返回裸字符串，与 `outputs` 声明的 `template` 字段不符；改为返回 `data["template"]`（5 段派单模板字符串），对齐原子 `{ok,data}` 信封 + outputs 契约。
+- **`plan.think` 契约对齐**：原返回 plan dict 置于 data 顶层（键为中文段落，无 `plan` 键）；改为返回 `data["plan"]`（5 段方案）+ 顶层元数据（assumptions/files_needed/constraint_chain/questions），对齐 outputs。
+- **`task-state.track` 契约对齐**：默认 `action` 由 `"set"` 改 `"new"`——与 CLI 默认 `--action new` 及「track=开始跟踪」语义一致；`data["action"]` 与所执行 action 一致。
+- **补测试**：新增 `tests/test_capability_contract.py`（4 项真实数据断言全绿），覆盖 3 个 capability 契约。
+- **回归全绿**：pytest 全量 **76 passed**（原 72 + 新增 4）；自审报告 `_os/codeagent-self-audit.md` 增补七节闭环记录。
+
 ## [0.3.1] - 2026-08-16
 
 ### 自审收尾：自指误报全消除 + 回归全绿 + 报告落盘

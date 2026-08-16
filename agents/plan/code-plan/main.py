@@ -34,7 +34,13 @@ class CodePlanAgent(AtomicAgent):
 
     # ── plan.think：dispatch_template 派单5段模板任务拆解 ──
     def _think(self, task, language="python", domain="general", files_needed=None):
-        """复用派单5段模板把任务拆成可派单方案。纯拼接/启发式，零 LLM。"""
+        """复用派单5段模板把任务拆成可派单方案。纯拼接/启发式，零 LLM。
+
+        契约修复 P2：原返回的 plan dict 直接置于 data 顶层，但顶层键为中文
+        段落(背景/目标/...)，无 `plan` 键，与 outputs 声明的 `plan` 字段及
+        调用方 `data["plan"]` 期望不符。改为返回 {"plan": <5段方案>} +
+        顶层元数据(assumptions/files_needed/constraint_chain/questions)。
+        """
         lang_hint = {"frontend": "响应式布局/组件拆分/状态覆盖",
                      "backend": "API路由/数据流/错误处理/权限",
                      "cli": "参数解析/输出格式化/退出码"}.get(domain, "极简优先·单文件×单增强")
@@ -52,7 +58,16 @@ class CodePlanAgent(AtomicAgent):
             "language": language,
             "domain": domain,
         }
-        return plan
+        return {
+            "plan": plan,
+            "task": task,
+            "language": language,
+            "domain": domain,
+            "files_needed": files,
+            "constraint_chain": plan["constraint_chain"],
+            "assumptions": plan["assumptions"],
+            "questions": plan["questions"],
+        }
 
     def _infer_files(self, task, language):
         ext = {"python": "main.py", "javascript": "index.js", "go": "main.go"}.get(language, "main.py")

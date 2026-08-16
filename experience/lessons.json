@@ -540,30 +540,6 @@
   "when": "2026-08-16 19:22:52"
  },
  {
-  "keywords": [],
-  "task": "",
-  "prediction": "x",
-  "when": "2026-08-16 19:22:52"
- },
- {
-  "keywords": [],
-  "task": "",
-  "prediction": "x",
-  "when": "2026-08-16 19:22:52"
- },
- {
-  "keywords": [],
-  "task": "",
-  "prediction": "x",
-  "when": "2026-08-16 19:22:52"
- },
- {
-  "keywords": [],
-  "task": "",
-  "prediction": "x",
-  "when": "2026-08-16 19:22:52"
- },
- {
   "keywords": [
    "中文经验",
    "中文",
@@ -637,5 +613,71 @@
   "prediction": "用 subprocess 参数化而非 shell=True",
   "severity": "major",
   "when": "2026-08-16 19:24:16"
+ },
+ {
+  "keywords": [
+   "补边界值",
+   "补边",
+   "边界",
+   "界值",
+   "add"
+  ],
+  "task": "add",
+  "prediction": "补边界值",
+  "severity": "info",
+  "when": "2026-08-16 19:28:32"
+ },
+ {
+  "keywords": [
+   "修复审查发现的安全缺陷",
+   "参数化而非",
+   "修复",
+   "复审",
+   "审查",
+   "查发",
+   "发现",
+   "现的",
+   "的安",
+   "安全",
+   "全缺",
+   "缺陷"
+  ],
+  "task": "修复审查发现的安全缺陷",
+  "prediction": "用 subprocess 参数化而非 shell=True",
+  "severity": "major",
+  "when": "2026-08-16 19:28:37"
+ },
+ {
+  "keywords": [
+   "补边界值",
+   "补边",
+   "边界",
+   "界值",
+   "add"
+  ],
+  "task": "add",
+  "prediction": "补边界值",
+  "severity": "info",
+  "when": "2026-08-16 19:29:23"
+ },
+ {
+  "keywords": [
+   "修复审查发现的安全缺陷",
+   "参数化而非",
+   "修复",
+   "复审",
+   "审查",
+   "查发",
+   "发现",
+   "现的",
+   "的安",
+   "安全",
+   "全缺",
+   "缺陷"
+  ],
+  "task": "修复审查发现的安全缺陷",
+  "prediction": "用 subprocess 参数化而非 shell=True",
+  "severity": "major",
+  "when": "2026-08-16 19:29:28"
  }
 ]

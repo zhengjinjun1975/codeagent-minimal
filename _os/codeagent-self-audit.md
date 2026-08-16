@@ -93,4 +93,21 @@
 ## 六、遗留项（不阻断交付）
 
 - 圈复杂度/大文件等可维护性优化（P2，建议后续迭代）；
-- 部分 capability 返回契约统一（P2）。
+- ~~部分 capability 返回契约统一（P2）~~ ✅ **已闭环**（见下节七）。
+
+---
+
+## 七、遗留契约修复闭环（dispatch.template / plan.think / task-state.track）
+
+> 自审遗留 3 个 FAIL（P2）：capability 返回与测试断言契约不匹配。现已全部对齐。
+
+| 能力 | 根因 | 修复 |
+|---|---|---|
+| `dispatch.template` | 返回裸字符串，非 `{ok,data}` 信封的 `data` dict；`outputs` 声明 `template` 字段却无此键 | 改为 `data["template"]`（5 段派单模板字符串），对齐 outputs |
+| `plan.think` | 返回 plan dict 直接置于 data 顶层，键为中文段落(背景/目标/...)，无 `plan` 键 | 改为 `data["plan"]`（5 段方案）+ 顶层元数据(assumptions/files_needed/constraint_chain/questions)，对齐 outputs |
+| `task-state.track` | 默认 `action="set"`，裸调用以空 state 落空 `set`；与 CLI 默认 `--action new` 及「track=开始跟踪」语义不符，返回 `data["action"]="set"` | 默认 `action` 改 `"new"`，裸调用即开新跟踪，`data["action"]` 与所执行 action 一致 |
+
+**补测试**：新增 `tests/test_capability_contract.py`（4 项真实数据断言全绿）——
+`dispatch.template` 返回含 `template` 键且注入背景/产出；`plan.think` 返回含 `plan` 键 5 段齐全且元数据对齐；`task-state.track` 裸调用默认 `action=new` 且状态文件真实落盘、显式 `action=set` 时 `data["action"]` 一致。
+
+**回归**：`pytest` 全量 **76 passed**（原 72 + 新增 4）全绿。
