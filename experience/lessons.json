@@ -492,54 +492,6 @@
   "when": "2026-08-16 19:22:52"
  },
  {
-  "keywords": [],
-  "task": "",
-  "prediction": "x",
-  "when": "2026-08-16 19:22:52"
- },
- {
-  "keywords": [],
-  "task": "",
-  "prediction": "x",
-  "when": "2026-08-16 19:22:52"
- },
- {
-  "keywords": [],
-  "task": "",
-  "prediction": "x",
-  "when": "2026-08-16 19:22:52"
- },
- {
-  "keywords": [],
-  "task": "",
-  "prediction": "x",
-  "when": "2026-08-16 19:22:52"
- },
- {
-  "keywords": [],
-  "task": "",
-  "prediction": "x",
-  "when": "2026-08-16 19:22:52"
- },
- {
-  "keywords": [],
-  "task": "",
-  "prediction": "x",
-  "when": "2026-08-16 19:22:52"
- },
- {
-  "keywords": [],
-  "task": "",
-  "prediction": "x",
-  "when": "2026-08-16 19:22:52"
- },
- {
-  "keywords": [],
-  "task": "",
-  "prediction": "x",
-  "when": "2026-08-16 19:22:52"
- },
- {
   "keywords": [
    "中文经验",
    "中文",
@@ -679,5 +631,142 @@
   "prediction": "用 subprocess 参数化而非 shell=True",
   "severity": "major",
   "when": "2026-08-16 19:29:28"
+ },
+ {
+  "keywords": [
+   "补边界值",
+   "补边",
+   "边界",
+   "界值",
+   "add"
+  ],
+  "task": "add",
+  "prediction": "补边界值",
+  "severity": "info",
+  "when": "2026-08-17 08:54:08"
+ },
+ {
+  "keywords": [
+   "修复审查发现的安全缺陷",
+   "参数化而非",
+   "修复",
+   "复审",
+   "审查",
+   "查发",
+   "发现",
+   "现的",
+   "的安",
+   "安全",
+   "全缺",
+   "缺陷"
+  ],
+  "task": "修复审查发现的安全缺陷",
+  "prediction": "用 subprocess 参数化而非 shell=True",
+  "severity": "major",
+  "when": "2026-08-17 08:54:15"
+ },
+ {
+  "keywords": [
+   "先走五段派单",
+   "检索路径先行",
+   "单文件",
+   "单增强",
+   "预算自适应",
+   "落盘",
+   "证据回执",
+   "先走",
+   "走五",
+   "五段",
+   "段派",
+   "派单"
+  ],
+  "task": "C:\\Users\\ASUSAI~1\\AppData\\Local\\Temp\\ca_retest_yd_o29nm\\m.py",
+  "prediction": "先走五段派单：检索路径先行→单文件×单增强→预算自适应→_task_state.md 落盘→证据回执",
+  "severity": "info",
+  "when": "2026-08-17 16:14:02"
+ },
+ {
+  "keywords": [
+   "修复除零缺陷",
+   "无除零保护",
+   "修复",
+   "复除",
+   "除零",
+   "零缺",
+   "缺陷",
+   "无除",
+   "零保",
+   "保护",
+   "div"
+  ],
+  "task": "修复除零缺陷",
+  "prediction": "div 无除零保护",
+  "when": "2026-08-17 16:16:05"
+ },
+ {
+  "keywords": [
+   "补边界值",
+   "补边",
+   "边界",
+   "界值",
+   "add"
+  ],
+  "task": "add",
+  "prediction": "补边界值",
+  "severity": "info",
+  "when": "2026-08-17 16:16:39"
+ },
+ {
+  "keywords": [
+   "修复审查发现的安全缺陷",
+   "参数化而非",
+   "修复",
+   "复审",
+   "审查",
+   "查发",
+   "发现",
+   "现的",
+   "的安",
+   "安全",
+   "全缺",
+   "缺陷"
+  ],
+  "task": "修复审查发现的安全缺陷",
+  "prediction": "用 subprocess 参数化而非 shell=True",
+  "severity": "major",
+  "when": "2026-08-17 16:16:46"
+ },
+ {
+  "keywords": [
+   "补边界值",
+   "补边",
+   "边界",
+   "界值",
+   "add"
+  ],
+  "task": "add",
+  "prediction": "补边界值",
+  "severity": "info",
+  "when": "2026-08-17 16:19:59"
+ },
+ {
+  "keywords": [
+   "修复审查发现的安全缺陷",
+   "参数化而非",
+   "修复",
+   "复审",
+   "审查",
+   "查发",
+   "发现",
+   "现的",
+   "的安",
+   "安全",
+   "全缺",
+   "缺陷"
+  ],
+  "task": "修复审查发现的安全缺陷",
+  "prediction": "用 subprocess 参数化而非 shell=True",
+  "severity": "major",
+  "when": "2026-08-17 16:20:07"
  }
 ]
