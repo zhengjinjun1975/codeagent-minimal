@@ -8,6 +8,10 @@
 
 [![License](https://img.shields.io/badge/License-Apache-2.0-blue.svg)](LICENSE)
 [![Version](https://img.shields.io/badge/version-0.3.0-blue.svg)](CHANGELOG.md)
+[![GitHub stars](https://img.shields.io/github/stars/zhengjinjun1975/codeagent-minimal)](https://github.com/zhengjinjun1975/codeagent-minimal)
+[![GitHub forks](https://img.shields.io/github/forks/zhengjinjun1975/codeagent-minimal)](https://github.com/zhengjinjun1975/codeagent-minimal)
+
+**它能帮你**：一键代码审查、自动化测试、依赖漏洞扫描、变异测试、模糊测试、回归验证——16 个原子智能体，任意组装，零第三方依赖，数据不出厂。
 
 ---
 
@@ -233,3 +237,18 @@ python codeagent.py status --json
 - **数据边界**：默认数据不出厂；云端 LLM / OSV 需显式 `--remote / --osv / --llm` 开启。
 - **兼容**：`legacy_cli.py` 保留旧命令兼容；统一入口子命令即新推荐用法。
 - **环境**：Windows / Linux / macOS，Python 3.8+。
+
+---
+
+## ⭐ 支持这个项目
+
+如果你觉得 CodeAgent Minimal 有用，请花 3 秒给我们一个 **Star**：
+
+[![GitHub stars](https://img.shields.io/github/stars/zhengjinjun1975/codeagent-minimal?style=social)](https://github.com/zhengjinjun1975/codeagent-minimal) ⬅️ 点这里
+
+**Star 的意义**：
+- 让更多做代码质量治理的人找到这个项目
+- 激励我们持续迭代（更多原子、更强组装链）
+- 开源维护者最需要的正向反馈
+
+**反馈与贡献**：有问题提 [Issue](https://github.com/zhengjinjun1975/codeagent-minimal/issues)，有想法提交 PR。
