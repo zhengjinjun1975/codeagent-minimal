@@ -2,7 +2,7 @@
   "name": "dep-scan",
   "version": "0.2.0",
   "domain": "depscan",
-  "description": "依赖漏洞SCA+污点+跨仓库断链原子：复用 dep_scan + chain_break，纯 stdlib 数据不出厂。depscan.chainbreak 检查多仓库(工厂本体/sme/solo/codeagent)联动断链。",
+  "description": "依赖漏洞SCA+污点原子：复用 dep_scan.scan_dependencies/taint_analyze/scan_all，纯 stdlib 数据不出厂。SCA 依赖漏洞 + Semgrep 级 source→sink 污点分析。",
   "open_source": true,
   "agent_class": "DepScanAgent",
   "entry": "main.py",
@@ -10,10 +10,10 @@
     "depscan.scan",
     "depscan.sca",
     "depscan.taint",
-    "depscan.osv",
-    "depscan.chainbreak"
+    "depscan.osv"
   ],
   "depends_on": [],
-  "inputs": ["target", "osv_query", "allow_remote", "repos"],
-  "outputs": ["deps", "vulns", "sca", "taint", "findings", "total_findings", "summary", "broken", "checks"]
+  "inputs": ["target", "osv_query", "allow_remote"],
+  "outputs": ["deps", "vulns", "sca", "taint", "findings", "total_findings", "summary"],
+  "path": "agents/depscan/dep-scan"
 }

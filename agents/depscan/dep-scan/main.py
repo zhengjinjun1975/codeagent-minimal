@@ -30,25 +30,17 @@ class DepScanAgent(AtomicAgent):
     name = "dep-scan"
     version = "0.1.0"
     domain = "depscan"
-    description = "依赖漏洞SCA+污点+跨仓库断链原子：复用 dep_scan + chain_break，纯 stdlib 数据不出厂"
-    provides = ["depscan.scan", "depscan.sca", "depscan.taint", "depscan.osv", "depscan.chainbreak"]
+    description = "依赖漏洞SCA+污点原子：复用 dep_scan，纯 stdlib 数据不出厂"
+    provides = ["depscan.scan", "depscan.sca", "depscan.taint", "depscan.osv"]
     depends_on = []
-    inputs = ["target", "osv_query", "allow_remote", "repos"]
-    outputs = ["deps", "vulns", "sca", "taint", "findings", "total_findings", "summary", "broken", "checks"]
+    inputs = ["target", "osv_query", "allow_remote"]
+    outputs = ["deps", "vulns", "sca", "taint", "findings", "total_findings", "summary"]
 
     def _register_defaults(self):
         self.register("depscan.scan", self._scan_all)
         self.register("depscan.sca", self._sca)
         self.register("depscan.taint", self._taint)
         self.register("depscan.osv", self._osv)
-        self.register("depscan.chainbreak", self._chainbreak)
-
-    # ── depscan.chainbreak：跨仓库联动断链（P1-6）──
-    def _chainbreak(self, repos):
-        """多仓库联动断链：factory-ontology/sme/solo/codeagent 等跨仓库 import/路径断链。
-        repos: [目录绝对路径]。返回 {ok, checks, broken, by_tier, summary}。"""
-        import chain_break as cb
-        return cb.multi_repo_break_check(repos, report=False)
 
     # ── 能力实现（复用 dep_scan，一行不改核心）────────────────
     def _scan_all(self, target, osv_query=False, allow_remote=False):
@@ -80,20 +72,16 @@ if __name__ == "__main__":
     ap = argparse.ArgumentParser(description="dep-scan 原子独立自测入口")
     ap.add_argument("target", help="目标文件或目录")
     ap.add_argument("--capability", default="depscan.scan",
-                    choices=["depscan.scan", "depscan.sca", "depscan.taint", "depscan.osv", "depscan.chainbreak"])
+                    choices=["depscan.scan", "depscan.sca", "depscan.taint", "depscan.osv"])
     ap.add_argument("--osv", action="store_true", help="启用 OSV 在线查询")
     ap.add_argument("--remote", action="store_true", help="允许联网(数据不出厂默认关)")
-    ap.add_argument("--repos", nargs="*", default=[], help="跨仓库断链的仓库目录列表(配合 --capability depscan.chainbreak)")
     args = ap.parse_args()
 
     agent.load()
     print("══ dep-scan 原子自测 ══")
     print("身份:", agent.describe()["name"], "v" + agent.describe()["version"], "status=" + agent.describe()["status"])
-    if args.capability == "depscan.chainbreak":
-        r = agent.run(_capability="depscan.chainbreak", repos=args.repos)
-    else:
-        r = agent.run(_capability=args.capability, target=args.target,
-                      osv_query=args.osv, allow_remote=args.remote)
+    r = agent.run(_capability=args.capability, target=args.target,
+                  osv_query=args.osv, allow_remote=args.remote)
     print(json.dumps(r, ensure_ascii=False, indent=2, default=str))
     if not r["ok"]:
         sys.exit(1)
