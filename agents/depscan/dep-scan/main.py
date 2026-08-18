@@ -4,13 +4,15 @@
 复用（零改动核心）：dep_scan.scan_dependencies / taint_analyze / scan_all / _osv_query。
 只加壳：把既有函数 import 进 run() 包 {ok,data} 信封。
 
-能力（SCA + 污点 一站式，纯 stdlib，数据不出厂）：
-  depscan.scan   — SCA + taint 一站式扫描（scan_all）
-  depscan.sca    — 依赖漏洞 SCA 扫描（scan_dependencies，离线默认）
-  depscan.taint  — Semgrep 级污点分析（source→sink 数据流）
-  depscan.osv    — 可选 OSV 在线查询（需 allow_remote=True，数据不出厂默认关）
+能力（SCA + 污点 + 跨仓库断链 一站式，纯 stdlib，数据不出厂）：
+  depscan.scan        — SCA + taint 一站式扫描（scan_all）
+  depscan.sca         — 依赖漏洞 SCA 扫描（scan_dependencies，离线默认）
+  depscan.taint       — Semgrep 级污点分析（source→sink 数据流）
+  depscan.osv         — 可选 OSV 在线查询（需 allow_remote=True，数据不出厂默认关）
+  depscan.chainbreak  — 跨仓库联动断链（多仓库 import/路径引用断链，chain_break.multi_repo_break_check）
 
 核心零改动，完全离线，数据不出厂。
+
 """
 
 import os
@@ -24,23 +26,35 @@ if REPO_ROOT not in sys.path:
 
 from atomic_base import AtomicAgent
 import dep_scan  # 复用核心：核心零改动
+import chain_break  # 跨仓库断链（P1-6）
 
 
 class DepScanAgent(AtomicAgent):
     name = "dep-scan"
     version = "0.1.0"
     domain = "depscan"
-    description = "依赖漏洞SCA+污点原子：复用 dep_scan，纯 stdlib 数据不出厂"
-    provides = ["depscan.scan", "depscan.sca", "depscan.taint", "depscan.osv"]
+    description = "依赖漏洞SCA+污点+跨仓库断链原子：复用 dep_scan + chain_break，纯 stdlib 数据不出厂"
+    provides = ["depscan.scan", "depscan.sca", "depscan.taint", "depscan.osv",
+                "depscan.chainbreak"]
     depends_on = []
-    inputs = ["target", "osv_query", "allow_remote"]
-    outputs = ["deps", "vulns", "sca", "taint", "findings", "total_findings", "summary"]
+    inputs = ["target", "osv_query", "allow_remote", "repos"]
+    outputs = ["deps", "vulns", "sca", "taint", "findings", "total_findings",
+               "summary", "broken", "checks", "by_tier"]
 
     def _register_defaults(self):
         self.register("depscan.scan", self._scan_all)
         self.register("depscan.sca", self._sca)
         self.register("depscan.taint", self._taint)
         self.register("depscan.osv", self._osv)
+        self.register("depscan.chainbreak", self._chainbreak)
+
+    # ── depscan.chainbreak：跨仓库联动断链（P1-6）────────────────
+    def _chainbreak(self, repos=None):
+        """多仓库联动断链：跨仓库 import / 文件路径引用断链。
+        repos: [目录绝对路径]。返回 {ok, checks, broken, by_tier, summary}。"""
+        if not repos:
+            return self._envelope(False, degraded=True, error="缺 repos 入参")
+        return chain_break.multi_repo_break_check(repos, report=False)
 
     # ── 能力实现（复用 dep_scan，一行不改核心）────────────────
     def _scan_all(self, target, osv_query=False, allow_remote=False):
@@ -72,16 +86,23 @@ if __name__ == "__main__":
     ap = argparse.ArgumentParser(description="dep-scan 原子独立自测入口")
     ap.add_argument("target", help="目标文件或目录")
     ap.add_argument("--capability", default="depscan.scan",
-                    choices=["depscan.scan", "depscan.sca", "depscan.taint", "depscan.osv"])
+                    choices=["depscan.scan", "depscan.sca", "depscan.taint",
+                             "depscan.osv", "depscan.chainbreak"])
     ap.add_argument("--osv", action="store_true", help="启用 OSV 在线查询")
     ap.add_argument("--remote", action="store_true", help="允许联网(数据不出厂默认关)")
+    ap.add_argument("--repos", nargs="*", default=[],
+                    help="跨仓库断链的仓库目录列表(配合 --capability depscan.chainbreak)")
     args = ap.parse_args()
 
     agent.load()
     print("══ dep-scan 原子自测 ══")
-    print("身份:", agent.describe()["name"], "v" + agent.describe()["version"], "status=" + agent.describe()["status"])
-    r = agent.run(_capability=args.capability, target=args.target,
-                  osv_query=args.osv, allow_remote=args.remote)
+    print("身份:", agent.describe()["name"], "v" + agent.describe()["version"],
+          "status=" + agent.describe()["status"])
+    if args.capability == "depscan.chainbreak":
+        r = agent.run(_capability="depscan.chainbreak", repos=args.repos)
+    else:
+        r = agent.run(_capability=args.capability, target=args.target,
+                      osv_query=args.osv, allow_remote=args.remote)
     print(json.dumps(r, ensure_ascii=False, indent=2, default=str))
     if not r["ok"]:
         sys.exit(1)
