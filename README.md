@@ -22,6 +22,7 @@
 | **[docs/ATOMS_GUIDE.md](docs/ATOMS_GUIDE.md)** | 16 原子逐个指南：能力 / 入参 / 返回信封 `{ok,data}` / 示例代码（真实信封核实），含独立运行 + 统一入口两种调用 |
 | **[docs/INTEGRATION_GUIDE.md](docs/INTEGRATION_GUIDE.md)** | 对接传统框架（LangChain / CrewAI / AutoGen / OpenAI Agents SDK / Claude Code）：作为 Tool / 子代理节点 / 图编排 / REST / CLI 集成，边界为本地原子 + 数据不出厂 + 开源内核闭源编排 |
 | **examples/** | 已跑通对接示例：`codeagent_toolkit.py`（统一接入层）、`langchain_integration.py`、`crewai_integration.py`、`graph_orchestration.py`（子代理节点+图编排）、`web_api_client.py`（REST） |
+| **架构总览** | ![系统架构](docs/architecture.svg) |
 
 > 用户可**独立使用**（读 ATOMS_GUIDE 直接用 16 原子）与**独立集成**（读 INTEGRATION_GUIDE + examples 接入任意框架），无需闭源编排参与。
 
@@ -187,6 +188,27 @@ cd codeagent-minimal
 ```
 
 可选（开发便利，非必需，缺失自动降级）：`pytest`、`bandit`、`pyflakes`、`coverage`。
+
+## 看看它跑起来的样子（真实输出）
+
+零第三方依赖，一条命令审查代码质量。干净文件给分，有问题的文件直接揪出漏洞：
+
+```bash
+# 1. 审查一个干净文件 → 给出质量评分
+$ python codeagent.py review sample_target.py --json
+{ "ok": true, "score": 100, "issues": [], "summary": "code 审查 1 文件, 平均分 100" }
+
+# 2. 审查一个有问题文件 → 直接揪出漏洞
+$ python codeagent.py review bug_deep.py --json
+{ "ok": true, "score": 0, "static_issues": [
+    { "severity": "critical", "title": "SQL 注入风险",
+      "suggestion": "用参数化查询，避免将变量直接拼进 SQL" },
+    { "severity": "major", "title": "不安全的 eval/exec" },
+    { "severity": "major", "title": "不安全的反序列化" },
+    { "severity": "major", "title": "圈复杂度 14 > 10" } ] }
+```
+
+一行命令跑通代码审查、依赖扫描、变异测试、模糊测试、回归验证——16 个原子智能体，任意组装，零依赖，数据不出厂。
 
 ## 快速开始
 

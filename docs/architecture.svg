@@ -1,0 +1,75 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="920" viewBox="0 0 1280 920">
+<defs>
+<linearGradient id="bg" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#f8fafc"/><stop offset="1" stop-color="#eef2f7"/></linearGradient>
+<marker id="ar" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto"><path d="M0,0 L8,3 L0,6 Z" fill="#0d9488"/></marker>
+</defs>
+<rect width="1280" height="920" fill="url(#bg)"/>
+<text x="640" y="48" fill="#0f172a" font-size="38" font-weight="bold" text-anchor="middle" font-family="Microsoft YaHei">CodeAgent Minimal 系统架构</text>
+<text x="640" y="78" fill="#64748b" font-size="18" text-anchor="middle" font-family="Microsoft YaHei">16 个原子智能体 · 统一运行时 · 任意组装 · 零依赖 · 数据不出厂</text>
+
+<!-- 组装链(顶部) -->
+<rect x="60" y="105" width="1160" height="90" rx="14" fill="#ffffff" stroke="#7c3aed" stroke-width="2"/>
+<rect x="60" y="105" width="1160" height="6" rx="3" fill="#7c3aed"/>
+<text x="90" y="132" fill="#7c3aed" font-size="20" font-weight="bold">任意组装链（示例）</text>
+<rect x="90" y="142" width="150" height="42" rx="8" fill="#f5f3ff" stroke="#ddd6fe"/><text x="165" y="168" text-anchor="middle" fill="#0f172a" font-size="18">think</text>
+<text x="252" y="168" fill="#7c3aed" font-size="20">→</text>
+<rect x="268" y="142" width="150" height="42" rx="8" fill="#f5f3ff" stroke="#ddd6fe"/><text x="343" y="168" text-anchor="middle" fill="#0f172a" font-size="18">gen</text>
+<text x="430" y="168" fill="#7c3aed" font-size="20">→</text>
+<rect x="446" y="142" width="150" height="42" rx="8" fill="#f5f3ff" stroke="#ddd6fe"/><text x="521" y="168" text-anchor="middle" fill="#0f172a" font-size="18">review</text>
+<text x="608" y="168" fill="#7c3aed" font-size="20">→</text>
+<rect x="624" y="142" width="150" height="42" rx="8" fill="#f5f3ff" stroke="#ddd6fe"/><text x="699" y="168" text-anchor="middle" fill="#0f172a" font-size="18">test</text>
+<text x="786" y="168" fill="#7c3aed" font-size="20">→</text>
+<rect x="802" y="142" width="150" height="42" rx="8" fill="#f5f3ff" stroke="#ddd6fe"/><text x="877" y="168" text-anchor="middle" fill="#0f172a" font-size="18">evolve</text>
+<rect x="970" y="142" width="220" height="42" rx="8" fill="#ede9fe" stroke="#7c3aed"/><text x="1080" y="168" text-anchor="middle" fill="#7c3aed" font-size="18">guard 一条命令</text>
+
+<!-- 运行时层 -->
+<line x1="640" y1="195" x2="640" y2="222" stroke="#0d9488" stroke-width="2.5" marker-end="url(#ar)"/>
+<rect x="60" y="228" width="1160" height="110" rx="14" fill="#ffffff" stroke="#0d9488" stroke-width="2"/>
+<rect x="60" y="228" width="1160" height="6" rx="3" fill="#0d9488"/>
+<text x="90" y="258" fill="#0d9488" font-size="22" font-weight="bold">统一运行时 · 入口 codeagent</text>
+<rect x="90" y="270" width="360" height="56" rx="8" fill="#f0fdfa" stroke="#99f6e4"/><text x="118" y="293" fill="#0f172a" font-size="19">AtomicAgent 基类</text><text x="118" y="315" fill="#64748b" font-size="15">call / run / describe · 生命周期</text>
+<rect x="470" y="270" width="360" height="56" rx="8" fill="#f0fdfa" stroke="#99f6e4"/><text x="498" y="293" fill="#0f172a" font-size="19">{ok, data} 结果信封</text><text x="498" y="315" fill="#64748b" font-size="15">失败自动降级 degraded</text>
+<rect x="850" y="270" width="340" height="56" rx="8" fill="#f0fdfa" stroke="#99f6e4"/><text x="878" y="293" fill="#0f172a" font-size="19">加载器 拓扑排序</text><text x="878" y="315" fill="#64748b" font-size="15">provides / depends_on 冲突检测</text>
+
+<!-- 原子层 -->
+<line x1="640" y1="338" x2="640" y2="365" stroke="#0d9488" stroke-width="2.5" marker-end="url(#ar)"/>
+<rect x="60" y="370" width="1160" height="330" rx="14" fill="#ffffff" stroke="#f59e0b" stroke-width="2"/>
+<rect x="60" y="370" width="1160" height="6" rx="3" fill="#f59e0b"/>
+<text x="90" y="400" fill="#d97706" font-size="22" font-weight="bold">16 个原子智能体（可独立运行 / 任意组装）</text>
+
+<!-- 原子网格 4x4 -->
+<g font-family="Microsoft YaHei">
+<rect x="90" y="415" width="260" height="68" rx="8" fill="#fffbeb" stroke="#fde68a"/><text x="220" y="442" text-anchor="middle" fill="#0f172a" font-size="19" font-weight="bold">code-review</text><text x="220" y="468" text-anchor="middle" fill="#64748b" font-size="15">代码审查</text>
+<rect x="365" y="415" width="260" height="68" rx="8" fill="#fffbeb" stroke="#fde68a"/><text x="495" y="442" text-anchor="middle" fill="#0f172a" font-size="19" font-weight="bold">code-test</text><text x="495" y="468" text-anchor="middle" fill="#64748b" font-size="15">代码测试</text>
+<rect x="640" y="415" width="260" height="68" rx="8" fill="#fffbeb" stroke="#fde68a"/><text x="770" y="442" text-anchor="middle" fill="#0f172a" font-size="19" font-weight="bold">dep-scan</text><text x="770" y="468" text-anchor="middle" fill="#64748b" font-size="15">依赖漏洞+污点</text>
+<rect x="915" y="415" width="275" height="68" rx="8" fill="#fffbeb" stroke="#fde68a"/><text x="1052" y="442" text-anchor="middle" fill="#0f172a" font-size="19" font-weight="bold">code-fuzz</text><text x="1052" y="468" text-anchor="middle" fill="#64748b" font-size="15">属性模糊测试</text>
+
+<rect x="90" y="492" width="260" height="68" rx="8" fill="#fffbeb" stroke="#fde68a"/><text x="220" y="519" text-anchor="middle" fill="#0f172a" font-size="19" font-weight="bold">code-dispatch</text><text x="220" y="545" text-anchor="middle" fill="#64748b" font-size="15">派单</text>
+<rect x="365" y="492" width="260" height="68" rx="8" fill="#fffbeb" stroke="#fde68a"/><text x="495" y="519" text-anchor="middle" fill="#0f172a" font-size="19" font-weight="bold">llm-router</text><text x="495" y="545" text-anchor="middle" fill="#64748b" font-size="15">多模型路由</text>
+<rect x="640" y="492" width="260" height="68" rx="8" fill="#fffbeb" stroke="#fde68a"/><text x="770" y="519" text-anchor="middle" fill="#0f172a" font-size="19" font-weight="bold">dep-impact</text><text x="770" y="545" text-anchor="middle" fill="#64748b" font-size="15">依赖图影响分析</text>
+<rect x="915" y="492" width="275" height="68" rx="8" fill="#fffbeb" stroke="#fde68a"/><text x="1052" y="519" text-anchor="middle" fill="#0f172a" font-size="19" font-weight="bold">code-evolve</text><text x="1052" y="545" text-anchor="middle" fill="#64748b" font-size="15">自进化</text>
+
+<rect x="90" y="569" width="260" height="68" rx="8" fill="#fffbeb" stroke="#fde68a"/><text x="220" y="596" text-anchor="middle" fill="#0f172a" font-size="19" font-weight="bold">code-plan</text><text x="220" y="622" text-anchor="middle" fill="#64748b" font-size="15">方案设计</text>
+<rect x="365" y="569" width="260" height="68" rx="8" fill="#fffbeb" stroke="#fde68a"/><text x="495" y="596" text-anchor="middle" fill="#0f172a" font-size="19" font-weight="bold">code-reuse</text><text x="495" y="622" text-anchor="middle" fill="#64748b" font-size="15">代码复用检索</text>
+<rect x="640" y="569" width="260" height="68" rx="8" fill="#fffbeb" stroke="#fde68a"/><text x="770" y="596" text-anchor="middle" fill="#0f172a" font-size="19" font-weight="bold">code-memory</text><text x="770" y="622" text-anchor="middle" fill="#64748b" font-size="15">记忆沉淀</text>
+<rect x="915" y="569" width="275" height="68" rx="8" fill="#fffbeb" stroke="#fde68a"/><text x="1052" y="596" text-anchor="middle" fill="#0f172a" font-size="19" font-weight="bold">code-skill</text><text x="1052" y="622" text-anchor="middle" fill="#64748b" font-size="15">SKILL 技能资产</text>
+
+<rect x="90" y="646" width="260" height="46" rx="8" fill="#fffbeb" stroke="#fde68a"/><text x="220" y="674" text-anchor="middle" fill="#0f172a" font-size="19" font-weight="bold">mcp-client</text>
+<rect x="365" y="646" width="260" height="46" rx="8" fill="#fffbeb" stroke="#fde68a"/><text x="495" y="674" text-anchor="middle" fill="#0f172a" font-size="19" font-weight="bold">code-project</text>
+<rect x="640" y="646" width="260" height="46" rx="8" fill="#fffbeb" stroke="#fde68a"/><text x="770" y="674" text-anchor="middle" fill="#0f172a" font-size="19" font-weight="bold">task-state</text>
+<rect x="915" y="646" width="275" height="46" rx="8" fill="#fffbeb" stroke="#fde68a"/><text x="1052" y="674" text-anchor="middle" fill="#0f172a" font-size="19" font-weight="bold">code-deliver</text>
+</g>
+
+<!-- 结果/输出层 -->
+<line x1="640" y1="700" x2="640" y2="727" stroke="#0d9488" stroke-width="2.5" marker-end="url(#ar)"/>
+<rect x="60" y="732" width="1160" height="100" rx="14" fill="#ffffff" stroke="#e11d48" stroke-width="2"/>
+<rect x="60" y="732" width="1160" height="6" rx="3" fill="#e11d48"/>
+<text x="90" y="762" fill="#be123c" font-size="22" font-weight="bold">质量治理结果（真实输出）</text>
+<rect x="90" y="774" width="1100" height="48" rx="8" fill="#fff1f2" stroke="#fecdd3"/>
+<text x="120" y="798" fill="#0f172a" font-size="18">codeagent review bug_deep.py → score 0, 揪出: SQL注入(critical) · eval/exec · 不安全反序列化 · 圈复杂度超标</text>
+<text x="120" y="818" fill="#64748b" font-size="15">干净文件 → score 100 · 零依赖纯标准库 · 云端 LLM / 远端 OSV 需显式开启（数据不出厂）</text>
+
+<!-- 底部说明 -->
+<rect x="60" y="850" width="1160" height="46" rx="10" fill="#ffffff" stroke="#e2e8f0"/>
+<text x="640" y="878" text-anchor="middle" fill="#64748b" font-size="18" font-family="Microsoft YaHei">开源内核（16原子+运行时）+ 闭源编排（assembler/orchestrator 独立工作区，不随本仓库分发）</text>
+</svg>
