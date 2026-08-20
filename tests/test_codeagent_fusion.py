@@ -28,6 +28,9 @@ import os
 import sys
 import tempfile
 
+# 闭源工作区目录(env可覆盖); 未配置则闭源联动测试跳过
+CLOSED_DIR = os.environ.get("CODEAGENT_CLOSED_DIR", "")
+
 HERE = os.path.dirname(os.path.abspath(__file__))
 REPO_ROOT = os.path.dirname(HERE)
 if REPO_ROOT not in sys.path:
@@ -223,9 +226,9 @@ def test_sediment_skill_to_standard_md():
 # ══════════ 5. 闭源 orchestrator 吸收 OpenCode 协同编排（编排层接入） ══════════
 def test_closed_orchestrator_absorbs_coop():
     """闭源编排器吸收 MCP/多模型/SKILL 协同：run_coop 统一入口真实可用，数据不出厂。"""
-    if not os.path.exists(r"E:/code_agent/orchestrator.py"):
+    if not os.path.exists(os.path.join(CLOSED_DIR, "orchestrator.py")):
         return  # 闭源侧不存在则跳过
-    sys.path.insert(0, r"E:/code_agent")
+    sys.path.insert(0, CLOSED_DIR)
     from orchestrator import Orchestrator
     orc = Orchestrator()
     r = orc.run_coop(os.path.join(REPO_ROOT, "bad_sample.py"), task="协同编排验收")

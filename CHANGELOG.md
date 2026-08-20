@@ -48,7 +48,7 @@
   - `llm-router`：复用 `model_config.json`，`llm.generate`（云端 GLM）/`llm.review`（本地 ornith），`local-only` 开关数据不出厂
 - **`registry.json`**：3 原子注册索引（scan 自动重建）。
 - **`tests/test_codeagent_atomic_agents.py`**：19 用例（loader 校验/拓扑/冲突/降级 + 3 原子真实 load/run）。双绿回归：与现有 `test_review.py` 一起 `27 passed`。
-- **架构依据**：`E:/code_agent/docs/CODEGENT_ATOMIC_ARCHITECTURE.md`（原子化重构设计 P0）。
+- **架构依据**：独立原子化重构设计文档（原子化重构设计 P0）。
 
 ### 吸收 OpenCode 能力升维收尾（LSP 诊断修复 + 六能力回归验证）
 

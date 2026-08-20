@@ -247,7 +247,7 @@ python codeagent.py status --json
 - **借鉴 MIT 项目（自实现，未复制）**：FSoft CodeWiki、OpenCode（MCP/SKILL/CodeMode 概念）、CodeReview/测试 harness 方法论等；Semgrep 思路（LGPL）仅借鉴 source→sink 污点分析**思路**，自实现为纯 stdlib 污点引擎。
 - **MIT 兼容 Apache-2.0**：由于未复制任何 MIT 源码，不触发 MIT 通知包含或衍生作品义务。
 - **零第三方运行时依赖**：纯标准库；`bandit/pyflakes/coverage/pytest` 为可选开发便利，缺失自动跳过，不构成对交付物任何许可义务。
-- **边界**：本仓库开源 16 原子 + 统一运行时/入口；**闭源编排**（assembler / orchestrator / CodeMode）位于独立工作区 `E:/code_agent`，不随本仓库分发、不链接、非必需。
+- **边界**：本仓库开源 16 原子 + 统一运行时/入口；**闭源编排**（assembler / orchestrator / CodeMode）位于独立闭源工作区，不随本仓库分发、不链接、非必需。
 
 **合规结论：Apache-2.0 合规**（借鉴 MIT 均为自实现 + NOTICE 标注 + 零第三方运行时依赖）。
 

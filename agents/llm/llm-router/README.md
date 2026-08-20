@@ -16,7 +16,7 @@
 
 ## 配置来源
 
-按顺序查找 `model_config.json`：仓库 `config/` → 原子本地 `config/` → `E:/code_agent/config/` → 内置默认。key 走 env（`ZHIPU_API_KEY`）。
+按顺序查找 `model_config.json`：仓库 `config/` → 原子本地 `config/` → 闭源工作区 `config/` → 内置默认。key 走 env（`ZHIPU_API_KEY`）。
 
 ## 独立自测
 

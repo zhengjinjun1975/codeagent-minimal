@@ -18,6 +18,9 @@ import os
 import sys
 import json
 
+# 闭源工作区目录(env可覆盖); 未配置则闭源联动测试跳过
+CLOSED_DIR = os.environ.get("CODEAGENT_CLOSED_DIR", "")
+
 HERE = os.path.dirname(os.path.abspath(__file__))
 REPO_ROOT = os.path.dirname(HERE)
 if REPO_ROOT not in sys.path:
@@ -102,7 +105,7 @@ def test_sediment_skill_to_standard_md():
 
 # ══════════ 4. CodeMode 编排（闭源 codemode.py）══════════
 def _load_codemode():
-    orc_path = r"E:/code_agent"
+    orc_path = CLOSED_DIR
     if not os.path.exists(os.path.join(orc_path, "codemode.py")):
         return None, None
     if orc_path not in sys.path:

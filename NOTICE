@@ -67,5 +67,5 @@ Open-source kernel / closed-source orchestration boundary
 The 16 atomic agents, the unified runtime (agent_runtime.py) and the unified
 entry (codeagent.py) shipped in THIS repository are open source under
 Apache-2.0. The closed-source assembler / orchestrator and CodeMode live in
-the SEPARATE workspace E:/code_agent and are NOT part of this repository and
+the SEPARATE closed-source workspace and are NOT part of this repository and
 are NOT shipped, linked, or required here.

@@ -5,7 +5,8 @@ from subprocess import Popen
 import websocket
 
 CHROME = r"C:\Program Files\Google\Chrome\Application\chrome.exe"
-PROFILE = r"C:\Users\ASUS Air\AppData\Local\Temp\cdp_codeagent_profile"
+import tempfile
+PROFILE = os.path.join(tempfile.gettempdir(), "cdp_codeagent_profile")
 PORT = 9223
 URL = "http://127.0.0.1:8099/"
 
@@ -108,7 +109,7 @@ shot = send("Page.captureScreenshot", {"format": "png"})
 data = shot.get("result", {}).get("data")
 if data:
     import base64
-    open(r"E:\open-source\codeagent-minimal\web\_verify_frontend.png", "wb").write(
+    open(os.path.join(os.path.dirname(os.path.abspath(__file__)), "_verify_frontend.png"), "wb").write(
         base64.b64decode(data))
     print("SCREENSHOT_SAVED: web/_verify_frontend.png")
 

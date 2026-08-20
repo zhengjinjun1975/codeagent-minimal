@@ -5,7 +5,7 @@
 1. 12 原子 load（registry 全加载，status=ready）
 2. 每个原子 run 真实数据（12 原子真实执行）
 3. 组装链验收（think→gen→review→test→evolve，真实代码任务，test 跑真实文件）
-4. assembler（闭源，在 E:/code_agent）按需组装 DAG + 冲突检测
+4. assembler（闭源，在闭源工作区）按需组装 DAG + 冲突检测
 5. 存量迁移兼容（legacy_cli 经原子调用）
 
 双绿目标：本文件绿 + 现有 test_review.py + P0 test 不破坏。
@@ -14,6 +14,9 @@
 import os
 import sys
 import json
+
+# 闭源工作区目录(env可覆盖); 未配置则闭源联动测试跳过
+CLOSED_DIR = os.environ.get("CODEAGENT_CLOSED_DIR", "")
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 REPO_ROOT = os.path.dirname(HERE)
@@ -101,9 +104,9 @@ def test_code_test_real_run():
 
 # ══════════ 3. 组装链验收（闭源 orchestrator） ══════════
 def test_assembly_chain_real_run():
-    if not os.path.exists(r"E:/code_agent/orchestrator.py"):
+    if not os.path.exists(os.path.join(CLOSED_DIR, "orchestrator.py")):
         return  # 闭源侧不存在则跳过（P1 验收仍可独立跑）
-    sys.path.insert(0, r"E:/code_agent")
+    sys.path.insert(0, CLOSED_DIR)
     from orchestrator import Orchestrator
     orc = Orchestrator()
     real_code = {"calc.py": 'def add(a, b):\n    return a + b\n\ndef mul(a, b):\n    return a * b\n\nif __name__ == "__main__":\n    print(add(2, 3), mul(2, 3))\n'}
@@ -123,9 +126,9 @@ def test_assembly_chain_real_run():
 
 # ══════════ 4. assembler（闭源）按需组装 + 冲突检测 ══════════
 def test_assembler_dag_and_conflicts():
-    if not os.path.exists(r"E:/code_agent/assembler.py"):
+    if not os.path.exists(os.path.join(CLOSED_DIR, "assembler.py")):
         return
-    sys.path.insert(0, r"E:/code_agent")
+    sys.path.insert(0, CLOSED_DIR)
     import assembler
     r = assembler.assemble(["plan.think", "plan.gen", "codereview.review", "test.run", "evolve.refine"])
     assert r["ok"]
