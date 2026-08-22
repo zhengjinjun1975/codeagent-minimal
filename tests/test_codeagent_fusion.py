@@ -40,22 +40,26 @@ from agent_runtime import AgentRuntime
 from codeagent import CodeAgent
 
 
-# ══════════ 1. 统一运行时：16 原子全加载 ══════════
+# ══════════ 1. 统一运行时：registry 原子全加载（对齐 registry.json 的 29 原子） ══════════
+# 说明：registry.json 为唯一事实来源（29 原子）；随新原子注册自动对齐，
+# 避免硬编码旧 16 原子导致“本地 29 原子、测试仍断言 16”的错位。
 FUSED_ATOMS = {
-    "dep-impact", "llm-router", "code-test",
-    "code-review", "code-evolve", "code-memory",
-    "code-plan", "code-dispatch", "code-reuse",
-    "code-project", "task-state", "code-deliver",
-    "mcp-client", "code-skill",
-    "dep-scan", "code-fuzz",          # 重组合新增（依赖SCA/污点 + 属性模糊）
+    "arch-review", "atomicity-audit", "bug-deep", "code-deliver",
+    "code-dispatch", "code-evolve", "code-fuzz", "code-memory",
+    "code-plan", "code-project", "code-reuse", "code-review",
+    "code-skill", "code-test", "command-approvals", "context-compact",
+    "dep-impact", "dep-scan", "domain-review", "guard",
+    "llm-router", "localized", "mcp-client", "minimalist-style",
+    "model-fallback", "ontology-review", "process-sandbox",
+    "security-scan", "task-state",
 }
 
 
-def test_runtime_16_atoms_ready_no_degraded():
+def test_runtime_all_atoms_ready_no_degraded():
     rt = AgentRuntime()
     d = rt.describe()
-    assert set(d["atoms"]) == FUSED_ATOMS, f"应为 16 原子: {set(d['atoms'])}"
-    assert d["count"] == 16
+    assert set(d["atoms"]) == FUSED_ATOMS, f"应为 {len(FUSED_ATOMS)} 原子: {set(d['atoms'])}"
+    assert d["count"] == len(FUSED_ATOMS)
     assert d["degraded"] == [], f"有原子加载降级: {d['degraded']}"
     assert d["conflicts"] == [], f"有冲突: {d['conflicts']}"
     assert d["local_only"] is True  # 数据不出厂默认
@@ -70,7 +74,7 @@ def test_runtime_16_atoms_ready_no_degraded():
 
 def test_unified_entry_api_atoms():
     ca = CodeAgent()
-    assert ca.atoms()["count"] == 16
+    assert ca.atoms()["count"] == len(FUSED_ATOMS)
     # 统一 API 门面方法齐全
     for m in ("run", "review", "test", "refine", "reuse", "impact", "plan", "memory",
               "skill", "mcp", "llm", "dispatch", "project", "deliver", "chain",

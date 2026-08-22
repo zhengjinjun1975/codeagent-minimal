@@ -26,14 +26,18 @@ if REPO_ROOT not in sys.path:
 import agent_loader
 
 
-# ══════════ 1. 16 原子全加载（重组合整体：14 原子 + dep-scan + code-fuzz） ══════════
+# ══════════ 1. registry 原子全加载（对齐 registry.json 的 29 个已提交开源原子） ══════════
+# 说明：registry.json 为唯一事实来源（29 原子）；此集合随新原子注册自动对齐，
+# 避免硬编码旧 16 原子导致“本地 29 原子、测试仍断言 16”的错位。
 EXPECTED_ATOMS = {
-    "dep-impact", "llm-router", "code-test",          # P0
-    "code-review", "code-evolve", "code-memory",      # P1
-    "code-plan", "code-dispatch", "code-reuse",       # P1
-    "code-project", "task-state", "code-deliver",     # P1
-    "mcp-client", "code-skill",                       # 融合新增（吸收 OpenCode）
-    "dep-scan", "code-fuzz",                          # 重组合新增（SCA/污点 + 属性模糊）
+    "arch-review", "atomicity-audit", "bug-deep", "code-deliver",
+    "code-dispatch", "code-evolve", "code-fuzz", "code-memory",
+    "code-plan", "code-project", "code-reuse", "code-review",
+    "code-skill", "code-test", "command-approvals", "context-compact",
+    "dep-impact", "dep-scan", "domain-review", "guard",
+    "llm-router", "localized", "mcp-client", "minimalist-style",
+    "model-fallback", "ontology-review", "process-sandbox",
+    "security-scan", "task-state",
 }
 
 def _agents():
@@ -43,10 +47,10 @@ def _agents():
     return r["data"]["agents"]
 
 
-def test_sixteen_atoms_load_ready():
+def test_all_atoms_load_ready():
     agents = _agents()
-    assert set(agents) == EXPECTED_ATOMS, f"原子集合不符(应为 16): {set(agents)}"
-    assert len(agents) == 16, f"重组合后应为 16 原子，实得 {len(agents)}"
+    assert set(agents) == EXPECTED_ATOMS, f"原子集合不符: {set(agents)}"
+    assert len(agents) == len(EXPECTED_ATOMS), f"应为 {len(EXPECTED_ATOMS)} 原子，实得 {len(agents)}"
     for name, a in agents.items():
         assert a.status == "ready", f"{name} 状态非 ready: {a.status}"
 
