@@ -9,9 +9,19 @@
 被 bug_deep.py / security_scan.py / 各原子壳复用，单点统一防护。
 """
 import os
+import re
 from pathlib import Path
 
 __all__ = ["safe_resolve", "safe_read_text", "assert_within"]
+
+# Windows 绝对路径盘符(如 C:/ 或 C:\)；在 Linux 上反斜杠/盘符不被视为路径分隔符，
+# 会被当成普通相对路径而逃逸检测，故必须显式识别并按"绝对路径逃逸"拒绝。
+_WIN_DRIVE_RE = re.compile(r"^[A-Za-z]:[/\\]")
+
+
+def _normalize(path: str) -> str:
+    """把 Windows 反斜杠统一为平台分隔符，使反斜杠形式的 ../.. 在 Linux 也能被 normpath 正确解析。"""
+    return path.replace("\\", "/")
 
 
 def safe_resolve(path, base=None):
@@ -29,6 +39,12 @@ def safe_resolve(path, base=None):
     p = str(path)
     if not isinstance(p, str) or not p.strip():
         raise ValueError("无效路径")
+    p = _normalize(p)
+    # 非 Windows 平台上，Windows 盘符绝对路径(C:/、C:\)本应是"绝对路径逃逸"，
+    # 但 Linux 把 `C:/` 当普通相对目录名而逃逸检测，故显式按逃逸拒绝。
+    # Windows 上 `C:/` 是合法绝对路径，交由下方 normpath/realpath 包含性校验处理。
+    if os.name != "nt" and _WIN_DRIVE_RE.match(p):
+        raise ValueError(f"绝对路径逃逸被拒绝: {p!r}")
     if base is None:
         # 无根约束：仅做绝对化 + 归一化（防相对遍历把裸 ``../x`` 当可读目标）
         return Path(os.path.abspath(os.path.normpath(os.path.expanduser(p))))
