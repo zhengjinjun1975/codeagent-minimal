@@ -34,7 +34,7 @@
         "matched_keywords",
         "pending"
       ],
-      "path": "agents\\approval\\command-approvals"
+      "path": "agents/approval/command-approvals"
     },
     "arch-review": {
       "name": "arch-review",
@@ -63,7 +63,7 @@
         "missing",
         "summary"
       ],
-      "path": "agents\\archreview\\arch-review"
+      "path": "agents/archreview/arch-review"
     },
     "atomicity-audit": {
       "name": "atomicity-audit",
@@ -91,7 +91,7 @@
         "breaks",
         "verdict"
       ],
-      "path": "agents\\atomic\\atomicity-audit"
+      "path": "agents/atomic/atomicity-audit"
     },
     "bug-deep": {
       "name": "bug-deep",
@@ -123,7 +123,7 @@
         "rule",
         "summary"
       ],
-      "path": "agents\\bugdeep\\bug-deep"
+      "path": "agents/bugdeep/bug-deep"
     },
     "code-review": {
       "name": "code-review",
@@ -175,7 +175,7 @@
         "adversarial",
         "changed_files"
       ],
-      "path": "agents\\codereview\\code-review"
+      "path": "agents/codereview/code-review"
     },
     "minimalist-style": {
       "name": "minimalist-style",
@@ -204,7 +204,7 @@
         "signals",
         "verdict"
       ],
-      "path": "agents\\codereview\\minimalist-style"
+      "path": "agents/codereview/minimalist-style"
     },
     "context-compact": {
       "name": "context-compact",
@@ -236,7 +236,7 @@
         "budget",
         "overshoot"
       ],
-      "path": "agents\\context\\context-compact"
+      "path": "agents/context/context-compact"
     },
     "code-deliver": {
       "name": "code-deliver",
@@ -261,7 +261,7 @@
         "artifacts",
         "verdict"
       ],
-      "path": "agents\\deliver\\code-deliver"
+      "path": "agents/deliver/code-deliver"
     },
     "dep-scan": {
       "name": "dep-scan",
@@ -297,7 +297,7 @@
         "checks",
         "by_tier"
       ],
-      "path": "agents\\depscan\\dep-scan"
+      "path": "agents/depscan/dep-scan"
     },
     "code-dispatch": {
       "name": "code-dispatch",
@@ -345,7 +345,7 @@
         "decision",
         "policy"
       ],
-      "path": "agents\\dispatch\\code-dispatch"
+      "path": "agents/dispatch/code-dispatch"
     },
     "domain-review": {
       "name": "domain-review",
@@ -374,7 +374,7 @@
         "rules",
         "verdict"
       ],
-      "path": "agents\\domain\\domain-review"
+      "path": "agents/domain/domain-review"
     },
     "code-evolve": {
       "name": "code-evolve",
@@ -411,7 +411,7 @@
         "prompt",
         "tdd"
       ],
-      "path": "agents\\evolve\\code-evolve"
+      "path": "agents/evolve/code-evolve"
     },
     "code-fuzz": {
       "name": "code-fuzz",
@@ -449,7 +449,7 @@
         "ok",
         "details"
       ],
-      "path": "agents\\fuzz\\code-fuzz"
+      "path": "agents/fuzz/code-fuzz"
     },
     "guard": {
       "name": "guard",
@@ -480,7 +480,7 @@
         "summary",
         "total"
       ],
-      "path": "agents\\guard\\guard"
+      "path": "agents/guard/guard"
     },
     "dep-impact": {
       "name": "dep-impact",
@@ -510,7 +510,7 @@
         "circular_imports",
         "impact"
       ],
-      "path": "agents\\impact\\dep-impact"
+      "path": "agents/impact/dep-impact"
     },
     "llm-router": {
       "name": "llm-router",
@@ -545,7 +545,7 @@
         "models",
         "registry"
       ],
-      "path": "agents\\llm\\llm-router"
+      "path": "agents/llm/llm-router"
     },
     "localized": {
       "name": "localized",
@@ -577,7 +577,7 @@
         "verdict",
         "fallback"
       ],
-      "path": "agents\\locality\\localized"
+      "path": "agents/locality/localized"
     },
     "mcp-client": {
       "name": "mcp-client",
@@ -610,7 +610,7 @@
         "result",
         "server"
       ],
-      "path": "agents\\mcp\\mcp-client"
+      "path": "agents/mcp/mcp-client"
     },
     "code-memory": {
       "name": "code-memory",
@@ -638,7 +638,7 @@
         "prompt",
         "skills"
       ],
-      "path": "agents\\memory\\code-memory"
+      "path": "agents/memory/code-memory"
     },
     "model-fallback": {
       "name": "model-fallback",
@@ -674,7 +674,7 @@
         "candidates",
         "errors"
       ],
-      "path": "agents\\model\\model-fallback"
+      "path": "agents/model/model-fallback"
     },
     "ontology-review": {
       "name": "ontology-review",
@@ -702,7 +702,7 @@
         "quality",
         "verdict"
       ],
-      "path": "agents\\ontology\\ontology-review"
+      "path": "agents/ontology/ontology-review"
     },
     "code-plan": {
       "name": "code-plan",
@@ -735,7 +735,7 @@
         "files",
         "score"
       ],
-      "path": "agents\\plan\\code-plan"
+      "path": "agents/plan/code-plan"
     },
     "code-project": {
       "name": "code-project",
@@ -763,7 +763,7 @@
         "issues",
         "summary"
       ],
-      "path": "agents\\project\\code-project"
+      "path": "agents/project/code-project"
     },
     "code-reuse": {
       "name": "code-reuse",
@@ -790,7 +790,7 @@
         "atoms",
         "count"
       ],
-      "path": "agents\\reuse\\code-reuse"
+      "path": "agents/reuse/code-reuse"
     },
     "process-sandbox": {
       "name": "process-sandbox",
@@ -831,7 +831,7 @@
         "safe",
         "path"
       ],
-      "path": "agents\\sandbox\\process-sandbox"
+      "path": "agents/sandbox/process-sandbox"
     },
     "security-scan": {
       "name": "security-scan",
@@ -863,7 +863,7 @@
         "summary",
         "files"
       ],
-      "path": "agents\\security\\security-scan"
+      "path": "agents/security/security-scan"
     },
     "code-skill": {
       "name": "code-skill",
@@ -899,7 +899,7 @@
         "added",
         "path"
       ],
-      "path": "agents\\skill\\code-skill"
+      "path": "agents/skill/code-skill"
     },
     "task-state": {
       "name": "task-state",
@@ -929,7 +929,7 @@
         "file",
         "progress"
       ],
-      "path": "agents\\taskstate\\task-state"
+      "path": "agents/taskstate/task-state"
     },
     "code-test": {
       "name": "code-test",
@@ -970,7 +970,7 @@
         "coverage_analysis",
         "human_review"
       ],
-      "path": "agents\\test\\code-test"
+      "path": "agents/test/code-test"
     }
   },
   "order": [

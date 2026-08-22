@@ -218,11 +218,13 @@ def scan(agents_dir: str = AGENTS_DIR) -> dict:
             domain = rel.split(os.sep)[0] if os.sep in rel else "generic"
             try:
                 m = _load_manifest(root)
-                # 跨盘(Windows C:/E:)时 relpath 会抛 ValueError → 失败降级用绝对路径
+                # 跨盘(Windows C:/E:)时 relpath 抛 ValueError → 失败降级用绝对路径
                 try:
-                    m["path"] = os.path.relpath(root, REPO_ROOT)
+                    # 统一用正斜杠，保证 registry.json 路径跨平台可解析（Linux CI 上
+                    # 反斜杠会被当成字面量字符，导致 os.path.join 拼出不存在的单一文件名）
+                    m["path"] = os.path.relpath(root, REPO_ROOT).replace(os.sep, "/")
                 except ValueError:
-                    m["path"] = root
+                    m["path"] = str(root).replace(os.sep, "/")
                 m.setdefault("domain", domain)
                 manifests[m["name"]] = m
             except ValueError as e:
@@ -293,6 +295,9 @@ def load_agents(agents_dir: str = AGENTS_DIR, registry_path: str = REGISTRY_PATH
             degraded.append(name)
             continue
         agent_dir = os.path.join(REPO_ROOT, m.get("path", os.path.join("agents", name)))
+        # 兼容历史 registry 里可能残留的 Windows 反斜杠路径：
+        # 反斜杠在 Linux 是合法文件名符、os.path.normpath 不会转换，故显式替换为平台分隔符
+        agent_dir = os.path.normpath(agent_dir.replace("\\", os.sep))
         r = load_agent(agent_dir)
         if r["ok"]:
             loaded[name] = r["data"]["agent"]
