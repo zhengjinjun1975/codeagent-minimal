@@ -16,5 +16,6 @@ jobs:
           python-version: '3.11'
       - name: 安装 pytest
         run: python -m pip install pytest
-      - name: 运行单测(纯标准库零依赖)
-        run: python -m pytest test_review.py -v --tb=short
+      - name: 运行全量单测(纯标准库零依赖)
+        # P1-2 修复：CI 从 test_review.py 单文件扩到 tests/ 全量，让云端回归 = 本地回归
+        run: python -m pytest tests/ -v --tb=short

@@ -1,0 +1,29 @@
+{
+  "name": "domain-review",
+  "version": "0.1.0",
+  "domain": "domain",
+  "description": "领域代码审查原子（P2）: 跨仓库import依赖拓扑断链(复用chain_break) + 工业阀门领域规则审查。纯 stdlib 数据不出厂。",
+  "open_source": true,
+  "agent_class": "DomainReviewAgent",
+  "entry": "main.py",
+  "provides": [
+    "domain.imports",
+    "domain.valve"
+  ],
+  "depends_on": [],
+  "inputs": [
+    "repos",
+    "target",
+    "rules",
+    "data"
+  ],
+  "outputs": [
+    "ok",
+    "broken",
+    "topology",
+    "violations",
+    "rules",
+    "verdict"
+  ],
+  "path": "agents/domain/domain-review"
+}

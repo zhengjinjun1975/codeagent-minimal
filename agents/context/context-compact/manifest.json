@@ -1,0 +1,32 @@
+{
+  "name": "context-compact",
+  "version": "0.1.0",
+  "domain": "context",
+  "description": "上下文压缩原子（P2，借鉴Codex context_manager/compaction）: token估算 + 链结果压缩(保留summary/score/verdict丢弃大payload) + max_tokens预算裁剪。防组装链上下文膨胀。纯stdlib。",
+  "open_source": true,
+  "agent_class": "ContextCompactAgent",
+  "entry": "main.py",
+  "provides": [
+    "context.estimate",
+    "context.compact",
+    "context.budget"
+  ],
+  "depends_on": [],
+  "inputs": [
+    "data",
+    "text",
+    "steps",
+    "max_tokens",
+    "keep",
+    "cap"
+  ],
+  "outputs": [
+    "tokens",
+    "compact",
+    "_compact",
+    "used_tokens",
+    "budget",
+    "overshoot"
+  ],
+  "path": "agents/context/context-compact"
+}

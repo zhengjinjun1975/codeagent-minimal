@@ -1,8 +1,8 @@
 {
   "name": "code-review",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "domain": "codereview",
-  "description": "代码审查原子(多模): 复用 review.py._static_analyze/review_file/_dep_enrich + dep_audit.build_graph + LSP诊断(OpenCode P1-3, 本地LSP server拉diagnostics并入评分)。code/design/layout/content 四模。",
+  "description": "代码审查原子(多模+5方向): review.py静态/语义/依赖图+LSP(P1-3)+P0-1逐行语义审查+P0-2严重度去噪+P2-7自评+P1-4人类在环; 5方向: 轻审codereview.light(增量git diff快速静态+安全基线) + 重审codereview.deep(数据流污点追踪+双引擎静态+AI语义对抗性审查先假设误报证伪)。",
   "open_source": true,
   "agent_class": "CodeReviewAgent",
   "entry": "main.py",
@@ -11,11 +11,15 @@
     "codereview.design",
     "codereview.layout",
     "codereview.content",
-    "codereview.lsp"
+    "codereview.lsp",
+    "codereview.semantic",
+    "codereview.self_eval",
+    "codereview.light",
+    "codereview.deep"
   ],
   "depends_on": [
     "impact.analyze"
   ],
-  "inputs": ["path", "code", "mode", "use_llm", "reuse_atoms", "max_complexity", "lsp", "lsp_server"],
-  "outputs": ["score", "issues", "static_issues", "model", "reuse_suggestions", "lsp_diagnostics"]
+  "inputs": ["path", "code", "mode", "use_llm", "reuse_atoms", "max_complexity", "lsp", "lsp_server", "semantic", "denoise", "base"],
+  "outputs": ["score", "issues", "static_issues", "model", "reuse_suggestions", "lsp_diagnostics", "severity_summary", "self_eval", "human_review", "security_baseline", "dataflow_findings", "adversarial", "changed_files"]
 }

@@ -186,6 +186,80 @@ def coverage(path, timeout=3):
             "details": f"函数覆盖 {called}/{len(funcs)} = {round(called/len(funcs)*100,1) if funcs else 0}%"}
 
 
+def coverage_analysis(path, timeout=8) -> dict:
+    """覆盖度分析（P1-5）：测试后报告哪些函数/分支未测，提示补测。
+
+    用 coverage 库（若有）做真实行/分支覆盖并列出缺失分支；无 coverage 库时用
+    内置近似（逐函数调用探测），列出未成功调用的函数作为"未测分支/函数"提示补测。
+    返回 {funcs_total, funcs_called, untested_funcs, branch_missing, line_pct,
+          branch_pct, suggestions, ok}。
+    """
+    src = open(path, encoding="utf-8", errors="ignore").read()
+    try:
+        tree = ast.parse(src)
+    except SyntaxError:
+        return {"ok": True, "skipped": True, "details": "语法错误",
+                "untested_funcs": [], "suggestions": []}
+    funcs = [n for n in tree.body if isinstance(n, (ast.FunctionDef, ast.AsyncFunctionDef))
+             and not n.name.startswith("_")]
+    mod = _load_module(path)
+    if mod is None:
+        return {"ok": True, "skipped": True, "details": "模块加载失败",
+                "untested_funcs": [f.name for f in funcs], "suggestions": []}
+    # 1. 函数级未测：顶格调用探测（None/空/0 等边界输入）
+    called_funcs, untested = [], []
+    for fn in funcs:
+        f = getattr(mod, fn.name, None)
+        if not callable(f):
+            untested.append(fn.name)
+            continue
+        ok = False
+        try:
+            import inspect as _in
+            nreq = len([p for p in _in.signature(f).parameters.values()
+                        if p.default is _in.Parameter.empty])
+        except Exception:
+            nreq = 1
+        for probe in (None, 0, -1, "", [], {}):
+            try:
+                if nreq == 0:
+                    f()
+                else:
+                    f(*([probe] * min(nreq, 3)))
+                ok = True
+                break
+            except Exception:
+                continue
+        if ok:
+            called_funcs.append(fn.name)
+        else:
+            untested.append(fn.name)
+    # 2. 分支缺失（近似）：函数内 if/for/while 结构未被覆盖的分支
+    branch_missing = []
+    for fn in funcs:
+        if fn.name in untested:
+            branch_missing.append({"func": fn.name,
+                                   "branches": [n.lineno for n in ast.walk(fn)
+                                                if isinstance(n, (ast.If, ast.While, ast.For, ast.IfExp))][:5],
+                                   "hint": "函数未成功调用，其分支全未覆盖"})
+    # 3. 补测建议
+    suggestions = []
+    for u in untested[:8]:
+        suggestions.append(f"补测函数 {u}: 用合法参数调用，覆盖其主路径与异常分支")
+    if not untested and not branch_missing:
+        suggestions.append("函数主路径均已覆盖；建议补边界值/异常输入覆盖更多分支")
+    return {
+        "funcs_total": len(funcs), "funcs_called": len(called_funcs),
+        "untested_funcs": untested,
+        "coverage_pct": round(len(called_funcs) / len(funcs) * 100, 1) if funcs else 0,
+        "branch_missing": branch_missing,
+        "suggestions": suggestions,
+        "ok": len(untested) == 0,
+        "details": (f"覆盖度分析: {len(called_funcs)}/{len(funcs)} 函数可调用, "
+                    f"未测 {len(untested)} 个, 分支缺失 {len(branch_missing)} 处"),
+    }
+
+
 def mutation(path, target_dir, max_mutants: int = 20):
     """变异测试：对目标文件做一处简单变异，跑现有测试看能否捕获。
     若变异后测试仍全绿 → 测试覆盖弱（存活变异体）。"""

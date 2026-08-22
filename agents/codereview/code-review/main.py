@@ -11,6 +11,7 @@ import os
 import sys
 import json
 import subprocess
+import ast
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 REPO_ROOT = os.path.dirname(os.path.dirname(os.path.dirname(HERE)))
@@ -24,14 +25,19 @@ import dep_audit as da
 
 class CodeReviewAgent(AtomicAgent):
     name = "code-review"
-    version = "0.2.0"
+    version = "0.2.1"
     domain = "codereview"
-    description = "代码审查原子(多模): review.py静态+依赖图感知+复用建议+LSP诊断(OpenCode P1-3)"
+    description = ("代码审查原子(多模+5方向): review.py静态+语义+依赖图+LSP(P1-3)+P0/P1/P2去噪+"
+                   "人类在环; 5方向: 轻审light(增量git diff)+重审deep(数据流+双引擎对抗)")
     provides = ["codereview.review", "codereview.design", "codereview.layout", "codereview.content",
-                "codereview.lsp"]
+                "codereview.lsp", "codereview.semantic", "codereview.self_eval",
+                "codereview.light", "codereview.deep"]
     depends_on = ["impact.analyze"]
-    inputs = ["path", "code", "mode", "use_llm", "reuse_atoms", "max_complexity", "lsp", "lsp_server"]
-    outputs = ["score", "issues", "static_issues", "model", "reuse_suggestions", "lsp_diagnostics"]
+    inputs = ["path", "code", "mode", "use_llm", "reuse_atoms", "max_complexity", "lsp", "lsp_server",
+              "semantic", "denoise", "base"]
+    outputs = ["score", "issues", "static_issues", "model", "reuse_suggestions", "lsp_diagnostics",
+               "severity_summary", "self_eval", "security_baseline", "dataflow_findings",
+               "adversarial", "changed_files"]
 
     def _register_defaults(self):
         self.register("codereview.review", self._review)
@@ -39,9 +45,97 @@ class CodeReviewAgent(AtomicAgent):
         self.register("codereview.layout", lambda **kw: self._review(mode="layout", **kw))
         self.register("codereview.content", lambda **kw: self._review(mode="content", **kw))
         self.register("codereview.lsp", self._lsp_diag)
+        self.register("codereview.semantic", self._semantic_review)
+        self.register("codereview.self_eval", self._self_eval)
+        self.register("codereview.light", self._light_review)
+        self.register("codereview.deep", self._deep_review)
+
+    # ── 5方向: codereview.light 轻审（增量扫描 git diff，快速静态+安全基线）──
+    def _light_review(self, path, base="HEAD", max_complexity=10):
+        """轻审: git diff 只扫变更文件, 快速静态 + 安全基线(CI 增量门禁)。"""
+        if not path:
+            return self._envelope(False, degraded=True, error="缺 path 入参")
+        return rv.light_review(str(path), base=base, max_complexity=max_complexity)
+
+    # ── 5方向: codereview.deep 重审（数据流污点追踪 + 双引擎静态+对抗验证）──
+    def _deep_review(self, path=None, code=None, max_complexity=10, denoise=True):
+        """重审: 数据流分析(变量传播/污点追踪) + 双引擎(静态+AI语义对抗性审查先假设误报证伪)。"""
+        if path:
+            return rv.deep_review(str(path), max_complexity=max_complexity, denoise=denoise)
+        if code:
+            # code 字典 → 逐文件 deep_review 到临时文件（保持信封结构）
+            import tempfile
+            name = list(code.keys())[0]
+            c = code[name]
+            content = c.get("content", c) if isinstance(c, dict) else c
+            with tempfile.NamedTemporaryFile("w", suffix=".py", delete=False,
+                                             encoding="utf-8") as f:
+                f.write(content)
+                tmp = f.name
+            try:
+                r = rv.deep_review(tmp, max_complexity=max_complexity, denoise=denoise)
+                r["file"] = name
+                return r
+            finally:
+                try: os.remove(tmp)
+                except OSError: pass
+        return self._envelope(False, degraded=True, error="缺 path 或 code 入参")
+
+    # ── codereview.semantic：纯逐行语义审查（P0-1 深度模式）──
+    def _semantic_review(self, path=None, code=None, denoise=True):
+        """只跑逐行语义审查 + 缺陷根因库，定位高影响 bug/边界/断链（非静态规则）。
+        返回 {issues, severity_summary, semantic_count, summary}。"""
+        issues = []
+        if path:
+            content = open(str(path), encoding="utf-8", errors="ignore").read()
+            try:
+                tree = ast.parse(content)
+                issues = rv._static_check_semantic(tree) + rv._check_known_defects(content, content.split("\n"))
+            except SyntaxError:
+                issues = [{"severity": "critical", "title": "语法错误", "line": 0,
+                           "suggestion": "先修语法", "semantic": True}]
+        elif code and isinstance(code, dict):
+            for name, content in code.items():
+                if not isinstance(content, str):
+                    content = content.get("content", str(content))
+                try:
+                    tree = ast.parse(content)
+                    issues += [dict(i, file=name) for i in
+                               (rv._static_check_semantic(tree) + rv._check_known_defects(content, content.split("\n")))]
+                except SyntaxError:
+                    issues.append({"severity": "critical", "title": f"语法错误 {name}", "file": name,
+                                   "line": 0, "semantic": True})
+        else:
+            return self._envelope(False, degraded=True, error="缺 path 或 code 入参")
+        if denoise:
+            issues = [rv._classify_tier(i) for i in issues]
+        by_tier = {"P0": 0, "P1": 0, "P2": 0}
+        for i in issues:
+            by_tier[i.get("tier", rv.SEVERITY_TIER.get(i.get("severity", "minor"), "P2"))] += 1
+        return {"issues": issues, "severity_summary": by_tier,
+                "semantic_count": len(issues),
+                "summary": f"逐行语义审查 {len(issues)} 项 (P0={by_tier['P0']}/P1={by_tier['P1']}/P2={by_tier['P2']})",
+                # P1-4 人类在环：语义审查结论为 AI 生成，需人工复核后再放行（渐进式，不自动放行）
+                "human_review": {
+                    "needs_review": True,
+                    "reason": "逐行语义审查结论由 AI 生成，P0/P1/P2 分级仅供初筛，需人工复核高影响/边界/断链项真实性后再放行",
+                    "progressive": True,
+                    "auto_pass": False,
+                }}
+
+    # ── codereview.self_eval：审查质量自评（P2-7）──
+    def _self_eval(self, file=None, findings=None, missed=None, fp=None, stats_only=False):
+        """记录/查看审查自评（漏bug/误报率），迭代优化 review 原子。
+        stats_only=True 只读累计统计；否则记录一次。"""
+        if stats_only:
+            return rv.self_eval_stats()
+        if file is None:
+            return self._envelope(False, degraded=True, error="需传 file 记录自评")
+        return rv.self_eval_record(file, findings or [], missed=missed, extra_fp=fp)
 
     def _review(self, path=None, code=None, mode="code", use_llm=False,
-                reuse_atoms=True, max_complexity=10, lsp=False, lsp_server=None):
+                reuse_atoms=True, max_complexity=10, lsp=False, lsp_server=None,
+                semantic=True, denoise=True):
         lsp_diags = []
         if lsp:
             lsp_diags = self._run_lsp(path=path, code=code, lsp_server=lsp_server)
@@ -51,7 +145,8 @@ class CodeReviewAgent(AtomicAgent):
             p = str(path)
             content = open(p, encoding="utf-8", errors="ignore").read()
             fr = rv.review_file(p, use_llm=use_llm,
-                                max_complexity=max_complexity, reuse_atoms=reuse_atoms)
+                                max_complexity=max_complexity, reuse_atoms=reuse_atoms,
+                                semantic=semantic, denoise=denoise)
             if mode == "code":
                 try:
                     graph = da.build_graph([p])
@@ -62,12 +157,16 @@ class CodeReviewAgent(AtomicAgent):
                  "score": fr.get("static_score", fr.get("score", 0)),
                  "static_issues": fr["static_issues"],
                  "issues": fr["issues"]}   # 已带 file=p 与依赖图增强
+            if fr.get("severity_summary"):
+                r["severity_summary"] = fr["severity_summary"]
             if reuse_atoms and fr.get("reuse_suggestions"):
                 r["reuse_suggestions"] = fr["reuse_suggestions"]
             if mode in ("design", "layout", "content"):
                 extra = self._mode_rules(p, content, mode)
                 r["issues"].extend(extra)
                 r["mode_issues"] = extra
+                if denoise:
+                    extra = [rv._classify_tier(i) for i in extra]
                 penalty = sum(rv.SEVERITY_WEIGHTS.get(i["severity"], 3) for i in extra)
                 r["score"] = max(0, r["score"] - penalty)
             results, issues = [r], r["issues"]
@@ -76,16 +175,20 @@ class CodeReviewAgent(AtomicAgent):
             for name, content in code.items():
                 if not isinstance(content, str):
                     content = content.get("content", str(content))
-                static = rv._static_analyze(content, max_complexity=max_complexity)
+                static = rv._static_analyze(content, max_complexity=max_complexity,
+                                            semantic=semantic, denoise=denoise)
                 r = {"file": name, "score": static["score"],
                      "static_issues": static["all_issues"],
-                     "issues": [dict(i, file=name) for i in static["all_issues"]]}
+                     "issues": [dict(i, file=name) for i in static["all_issues"]],
+                     "severity_summary": static.get("severity_summary", {})}
                 if reuse_atoms:
                     r["reuse_suggestions"] = rv._reuse_suggestion(content)
                 if mode in ("design", "layout", "content"):
                     extra = self._mode_rules(name, content, mode)
                     r["issues"].extend(extra)
                     r["mode_issues"] = extra
+                    if denoise:
+                        extra = [rv._classify_tier(i) for i in extra]
                     penalty = sum(rv.SEVERITY_WEIGHTS.get(i["severity"], 3) for i in extra)
                     r["score"] = max(0, r["score"] - penalty)
                 results.append(r)
@@ -94,6 +197,12 @@ class CodeReviewAgent(AtomicAgent):
             return self._envelope(False, degraded=True, error="缺 path 或 code 入参")
 
         score = int(round(sum(r["score"] for r in results) / len(results))) if results else 0
+        # P0-2 严重度去噪：全量聚合 P0/P1/P2 分级计数
+        by_tier = {"P0": 0, "P1": 0, "P2": 0}
+        for r in results:
+            for i in r.get("issues", []):
+                t = i.get("tier", rv.SEVERITY_TIER.get(i.get("severity", "minor"), "P2"))
+                by_tier[t] = by_tier.get(t, 0) + 1
         # LSP 诊断并入评分（OpenCode P1-3）：severity 1=error→重罚, 2=warn→中罚, 3=info→轻罚
         if lsp_diags:
             lsp_issues = [{"severity": _sev_map(d.get("severity", 3)),
@@ -105,10 +214,18 @@ class CodeReviewAgent(AtomicAgent):
             score = max(0, score - penalty)
             issues = list(issues) + lsp_issues
         return {"files": results, "score": score, "issues": issues,
+                "severity_summary": by_tier,
                 "lsp_diagnostics": lsp_diags,
                 "static_issues": [i for r in results for i in r["static_issues"]],
                 "summary": f"{mode} 审查 {len(results)} 文件, 平均分 {score}"
-                           + (f", LSP 诊断 {len(lsp_diags)} 项" if lsp_diags else "")}
+                           + (f", LSP 诊断 {len(lsp_diags)} 项" if lsp_diags else ""),
+                # P1-4 人类在环：审查结论为 AI 生成，需人工复核后再放行（渐进式，不自动放行）
+                "human_review": {
+                    "needs_review": True,
+                    "reason": "审查结论由 AI 静态+语义分析生成，P0/P1/P2 分级仅供初筛，需人工复核每条 issue 的真实性/影响面/修复建议后再放行",
+                    "progressive": True,
+                    "auto_pass": False,
+                }}
 
     # ── LSP 诊断客户端（OpenCode P1-3）：连本地 LSP server 拉 diagnostics ──
     def _run_lsp(self, path=None, code=None, lsp_server=None, timeout=30):

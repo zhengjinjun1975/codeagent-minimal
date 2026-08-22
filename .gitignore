@@ -13,3 +13,7 @@ nul
 
 # 外置状态跟踪
 .taskstate/
+
+# 待定/不入库原子（本地保留，不入库）
+_pending_atoms/
+.registry_staging/

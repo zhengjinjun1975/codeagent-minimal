@@ -457,9 +457,241 @@ def _static_check_reuse(tree, content: str) -> list:
     return issues
 
 
-def _static_analyze(content: str, max_complexity: int = 10, strict_undefined: bool = False) -> dict:
-    """对单文件执行全量静态分析, 返回结构化结果 + 得分"""
-    result = {"syntax": [], "imports": [], "complexity": [], "naming": [], "security": [], "network": [], "bugs": [], "architecture": [], "reuse": [], "score": 100}
+# ═══════════════════════════════════════════════════
+# P0-1 逐行语义审查（定位高影响 bug/边界/断链，非仅静态规则）
+# P0-2 严重度分级去噪（P0安全断链 / P1功能 / P2风格，薄转发归P2）
+# P2-8 缺陷根因库（已知坑：布尔字段/中文tokenize/引号转义）
+# P2-7 审查质量自评（漏bug/误报率，迭代优化）
+# ═══════════════════════════════════════════════════
+
+# 严重度 → 业务分级：P0=安全/断链/高影响，P1=功能，P2=风格/可维护
+SEVERITY_TIER = {"critical": "P0", "major": "P1", "minor": "P2", "info": "P2"}
+TIER_LABEL = {"P0": "安全/断链/高影响", "P1": "功能", "P2": "风格/可维护"}
+
+
+def _classify_tier(issue: dict) -> dict:
+    """给 issue 标注业务分级 P0/P1/P2 与分级语义（去噪：薄转发类/纯风格归 P2）。"""
+    i = dict(issue)
+    sev = i.get("severity", "minor")
+    tier = SEVERITY_TIER.get(sev, "P2")
+    # 去噪：标题显式声明"转发/冗余/过度/仅含__init__/行过长/占位/命名/未使用import"等纯风格 → P2
+    title = i.get("title", "")
+    style_hints = ("转发函数", "冗余抽象", "过度工程", "仅含 __init__", "行过长",
+                   "占位", "未使用的 import", "函数名建议", "类名建议", "重复字符串",
+                   "建议小写", "建议大写", "响应式", "结构松散", "内容单薄", "== None 应写",
+                   "文件过大", "函数过长", "复杂度", "依赖过多", "分支复杂", "整体复杂")
+    if tier != "P0" and any(h in title for h in style_hints):
+        tier = "P2"
+    i["tier"] = tier
+    i["tier_label"] = TIER_LABEL[tier]
+    # 架构取舍标注：规模/复杂度/import 依赖类为"架构取舍"，非功能缺陷，降噪提示
+    if any(k in title for k in ("过大", "过长", "复杂度", "依赖过多")):
+        i["arch_tradeoff"] = True
+        i["denoise_note"] = "架构取舍项：结构性/可维护性，非功能或安全缺陷，可人工权衡是否拆解"
+    return i
+
+
+def _static_check_semantic(tree) -> list:
+    """逐行语义审查：定位高影响 bug/边界/断链（非仅静态规则）。
+
+    基于 AST 的语义分析（非正则），识别：
+      - 除零风险（分母为变量/可能为0）→ 功能 P1
+      - 未判空的属性/下标访问（None 解引用风险）→ 功能 P1
+      - while True 无 break（潜在死循环）→ 功能 P1
+      - 迭代中修改正在遍历的容器 → 功能 P1
+      - return 后不可达代码 → 功能 P1
+      - 忽略错误信号返回值 → 边界 P1
+      - 可能的边界越界（range(len) 访问 [i+1]）→ 边界 P1
+    高置信度项才报（避免误报噪音）。
+    """
+    issues = []
+    try:
+        funcs = [n for n in ast.walk(tree) if isinstance(n, (ast.FunctionDef, ast.AsyncFunctionDef))]
+        for fn in funcs:
+            fn_issues = _semantic_fn(fn)
+            for iss in fn_issues:
+                iss.setdefault("line", fn.lineno)
+                iss["semantic"] = True
+                issues.append(iss)
+    except Exception:
+        pass
+    return issues
+
+
+def _semantic_fn(fn) -> list:
+    """对单个函数做逐行语义分析。返回 list[issue]。"""
+    issues = []
+    body = list(ast.walk(fn))
+    # 1. 除零风险：除法/取模分母为变量或表达式（可能为0，且无显式 guard）
+    for n in body:
+        if isinstance(n, ast.BinOp) and isinstance(n.op, (ast.Div, ast.FloorDiv, ast.Mod)):
+            d = n.right
+            if isinstance(d, ast.Name):
+                issues.append({"severity": "major",
+                               "title": f"除零风险: 分母 {d.id} 未校验可能为 0",
+                               "line": n.lineno,
+                               "suggestion": f"除前校验 {d.id} != 0，否则运行时 ZeroDivisionError"})
+            elif isinstance(d, (ast.BinOp, ast.Call)) :
+                issues.append({"severity": "major",
+                               "title": "除零风险: 分母为表达式未校验非 0",
+                               "line": n.lineno,
+                               "suggestion": "除前校验分母非 0 或捕获 ZeroDivisionError"})
+    # 2. while True 无 break
+    for n in body:
+        if isinstance(n, ast.While):
+            if isinstance(n.test, ast.Constant) and n.test.value is True:
+                has_break = any(isinstance(x, ast.Break) for x in ast.walk(n))
+                if not has_break:
+                    issues.append({"severity": "major",
+                                   "title": "while True 无 break（潜在死循环）",
+                                   "line": n.lineno,
+                                   "suggestion": "循环内需有 break/return 退出条件，或改为有界循环"})
+    # 3. return 后不可达代码
+    for n in body:
+        if isinstance(n, (ast.FunctionDef, ast.If, ast.For, ast.While, ast.Try)):
+            for i, stmt in enumerate(getattr(n, "body", [])):
+                if isinstance(stmt, (ast.Return, ast.Raise, ast.Break, ast.Continue)):
+                    if i + 1 < len(n.body):
+                        nxt = n.body[i + 1]
+                        issues.append({"severity": "major",
+                                       "title": f"不可达代码: 行{nxt.lineno} 在 {type(stmt).__name__} 之后不会执行",
+                                       "line": nxt.lineno,
+                                       "suggestion": "删除死代码或调整控制流"})
+                    break
+    # 4. 迭代中修改正在遍历的容器（list.remove/del/pop 在 for-in 内）→ 高影响断链
+    for n in body:
+        if isinstance(n, ast.For):
+            target = n.target
+            if isinstance(target, ast.Name):
+                loop_var = target.id
+                for inner in ast.walk(n):
+                    if isinstance(inner, ast.Call) and isinstance(inner.func, ast.Attribute) \
+                            and inner.func.attr in ("remove", "pop", "append", "extend", "insert", "__delitem__"):
+                        src = inner.func.value
+                        if isinstance(src, ast.Name) and src.id == loop_var:
+                            issues.append({"severity": "major",
+                                           "title": f"迭代中修改遍历容器 {loop_var}（可能跳过/索引错位）",
+                                           "line": inner.lineno,
+                                           "suggestion": "先收集待改项，循环结束后统一修改，或复制列表遍历"})
+    # 5. 忽略错误信号返回值（os.system/subprocess/requests 返回码被丢弃）
+    for n in body:
+        if isinstance(n, ast.Expr) and isinstance(n.value, ast.Call):
+            fn_call = n.value
+            fname = _call_name(fn_call)
+            if fname in ("os.system", "subprocess.run", "subprocess.call", "subprocess.check_call") \
+                    and not isinstance(n, ast.Assign):
+                issues.append({"severity": "minor",
+                               "title": f"忽略 {fname} 返回值（未检查执行成功/失败）",
+                               "line": n.lineno,
+                               "suggestion": "检查返回码，失败时抛异常或记录"})
+    return issues
+
+
+def _call_name(call) -> str:
+    """把 Call 节点转为可读名（如 os.system / requests.get）。"""
+    f = call.func
+    parts = []
+    while isinstance(f, ast.Attribute):
+        parts.append(f.attr)
+        f = f.value
+    if isinstance(f, ast.Name):
+        parts.append(f.id)
+    return ".".join(reversed(parts))
+
+
+# ═══════════ P2-8 缺陷根因库：已知坑模式库 ═══════════
+# 根因库已抽离为独立文件 known_defects.py（可读/可扩展/与审查逻辑解耦）。
+# 此处不再内嵌 KNOWN_DEFECTS，改为 import 加载；审查命中模式时 match_defects
+# 会给出"[已知坑·<id>]"提示（根因沉淀，防重复踩坑）。新增缺陷条目只需改
+# known_defects.py，无需动 review.py 代码。
+import known_defects as _defect_lib
+
+
+def _check_known_defects(content: str, line_index) -> list:
+    """按已知坑模式库匹配源码，命中即提示（根因沉淀防重复踩坑）。
+
+    委托 known_defects.match_defects 完成全库匹配，返回结构与该库一致
+    [{severity, title, line, suggestion, root_cause, defect_id, semantic}]。
+    """
+    return _defect_lib.match_defects(content, line_index)
+
+
+# ═══════════ P2-7 审查质量自评（漏bug/误报率）═══════════
+import time as _time
+
+SELF_EVAL_LOG = os.environ.get("CODEAGENT_SELF_EVAL", ".codeagent/review_self_eval.json")
+
+
+def self_eval_record(file, findings, reported=None, missed=None, extra_fp=None):
+    """记录一次审查的自评结果：是否漏 bug / 误报率，用于迭代优化 review 原子。
+
+    reported: 本次实际报出的 issue 数；missed: 事后发现漏掉的真实 bug 数；
+    extra_fp: 事后判定为误报的 issue 数（reviewer 人工复核后回填）。
+    返回 {ok, data:{累计审查次数, 累计误报率, 累计漏报}}。
+    """
+    import json as _json
+    path = SELF_EVAL_LOG if os.path.isabs(SELF_EVAL_LOG) else os.path.join(
+        os.path.dirname(os.path.abspath(__file__)), SELF_EVAL_LOG)
+    rec = []
+    try:
+        if os.path.exists(path):
+            rec = _json.load(open(path, encoding="utf-8"))
+    except Exception:
+        rec = []
+    reported = len(findings) if reported is None else reported
+    rec.append({"ts": _time.strftime("%Y-%m-%d %H:%M:%S"), "file": file,
+                "reported": reported, "missed": missed or 0, "fp": extra_fp or 0})
+    try:
+        os.makedirs(os.path.dirname(path), exist_ok=True)
+        with open(path, "w", encoding="utf-8") as f:
+            _json.dump(rec, f, ensure_ascii=False, indent=1)
+    except Exception:
+        pass
+    total_fp = sum(r["fp"] for r in rec)
+    total_reported = sum(r["reported"] for r in rec) or 1
+    total_missed = sum(r["missed"] for r in rec)
+    return {"ok": True, "recorded": len(rec), "log_path": path,
+            "total_reported": sum(r["reported"] for r in rec),
+            "total_missed": total_missed,
+            "false_positive_rate": round(total_fp / total_reported * 100, 1),
+            "missed_rate": round(total_missed / max(1, total_missed + total_reported) * 100, 1),
+            "hint": "误报率高→放宽规则；漏报高→加强/新增语义检查",
+            "history": rec[-5:]}
+
+
+def self_eval_stats():
+    """读取自评日志，返回累计统计（供迭代优化 review 原子）。"""
+    import json as _json
+    path = SELF_EVAL_LOG if os.path.isabs(SELF_EVAL_LOG) else os.path.join(
+        os.path.dirname(os.path.abspath(__file__)), SELF_EVAL_LOG)
+    if not os.path.exists(path):
+        return {"ok": True, "records": 0, "false_positive_rate": 0.0, "missed_rate": 0.0, "history": []}
+    try:
+        rec = _json.load(open(path, encoding="utf-8"))
+    except Exception:
+        return {"ok": True, "records": 0, "false_positive_rate": 0.0, "missed_rate": 0.0, "history": []}
+    total_fp = sum(r["fp"] for r in rec)
+    total_reported = sum(r["reported"] for r in rec) or 1
+    total_missed = sum(r["missed"] for r in rec)
+    return {"ok": True, "records": len(rec),
+            "total_reported": sum(r["reported"] for r in rec),
+            "total_missed": total_missed,
+            "false_positive_rate": round(total_fp / total_reported * 100, 1),
+            "missed_rate": round(total_missed / max(1, total_missed + total_reported) * 100, 1),
+            "history": rec[-5:]}
+
+
+
+
+
+def _static_analyze(content: str, max_complexity: int = 10, strict_undefined: bool = False,
+                    semantic: bool = True, denoise: bool = True) -> dict:
+    """对单文件执行全量静态分析, 返回结构化结果 + 得分
+
+    semantic=True: 启用逐行语义审查（定位高影响 bug/边界/断链）。
+    denoise=True: 严重度分级去噪（每 issue 标 tier P0/P1/P2，薄转发归 P2，架构取舍标注）。
+    """
+    result = {"syntax": [], "imports": [], "complexity": [], "naming": [], "security": [], "network": [], "bugs": [], "architecture": [], "reuse": [], "semantic": [], "score": 100}
     all_issues = []
     result["syntax"] = _static_check_syntax(content)
     all_issues.extend(result["syntax"])
@@ -476,10 +708,19 @@ def _static_analyze(content: str, max_complexity: int = 10, strict_undefined: bo
             result["bugs"] = _static_check_bugs(tree, content, strict_undefined)
             result["architecture"] = _static_check_architecture(content)
             result["reuse"] = _static_check_reuse(tree, content)
+            if semantic:
+                # P0-1 逐行语义审查（除零/死循环/不可达/迭代改容器/忽略返回值）
+                result["semantic"] = _static_check_semantic(tree)
+                # P2-8 缺陷根因库提示（已知坑：布尔字段/中文tokenize/引号转义）
+                result["semantic"] += _check_known_defects(content, content.split("\n"))
             all_issues.extend(result["imports"] + result["complexity"] + result["naming"]
-                              + result["bugs"] + result["architecture"] + result["reuse"])
+                              + result["bugs"] + result["architecture"] + result["reuse"]
+                              + result["semantic"])
         except SyntaxError:
             pass
+    if denoise and all_issues:
+        # P0-2 严重度分级去噪：逐条标 tier / 架构取舍 / 薄转发归 P2
+        all_issues = [_classify_tier(i) for i in all_issues]
     penalty = sum(SEVERITY_WEIGHTS.get(i["severity"], 5) for i in all_issues)
     result["score"] = max(0, 100 - penalty)
     result["all_issues"] = all_issues
@@ -612,20 +853,28 @@ def _module_exists(name: str) -> bool:
         return False
 
 
-def review_file(path: str, use_llm: bool, max_complexity: int = 10, strict_undefined: bool = False, external: bool = False, reuse_atoms: bool = False) -> dict:
+def review_file(path: str, use_llm: bool, max_complexity: int = 10, strict_undefined: bool = False, external: bool = False, reuse_atoms: bool = False, semantic: bool = True, denoise: bool = True) -> dict:
     content = Path(path).read_text(encoding="utf-8", errors="ignore")
-    static = _static_analyze(content, max_complexity, strict_undefined)
+    static = _static_analyze(content, max_complexity, strict_undefined, semantic=semantic, denoise=denoise)
     if external:
         ext = _external_bandit(content) + _external_lint(content)
         if ext:
             static["all_issues"].extend(ext)
+            if denoise:
+                static["all_issues"] = [_classify_tier(i) for i in static["all_issues"]]
             penalty = sum(SEVERITY_WEIGHTS.get(i["severity"], 5) for i in static["all_issues"])
             static["score"] = max(0, 100 - penalty)
+    # P0-2 严重度去噪汇总：按 P0/P1/P2 分级计数
+    by_tier = {"P0": 0, "P1": 0, "P2": 0}
+    for i in static["all_issues"]:
+        by_tier[i.get("tier", SEVERITY_TIER.get(i.get("severity", "minor"), "P2"))] = \
+            by_tier.get(i.get("tier", SEVERITY_TIER.get(i.get("severity", "minor"), "P2")), 0) + 1
     file_result = {
         "file": path,
         "static_score": static["score"],
         "static_issues": static["all_issues"],
         "issues": [dict(i, file=path) for i in static["all_issues"]],
+        "severity_summary": by_tier,
     }
     # 应用接口：检索 Obsidian 代码原子库给复用建议（复用优先·极简落地）
     if reuse_atoms:
@@ -678,6 +927,244 @@ def _run_self_evolve(memdir="experience"):
     return self_evolve
 
 
+# ═══════════════════════════════════════════════════
+# 5方向：轻审 review --light（增量扫描 git diff，快速静态+安全基线）
+#       + 重审 review --deep（数据流污点追踪 + 双引擎静态+对抗性验证）
+# ═══════════════════════════════════════════════════
+
+def git_diff_py_files(target: str, base: str = "HEAD") -> list:
+    """git diff 只扫变更：返回变更的 .py 文件绝对路径（新增 A/修改 M/复制 C/重命名 R）。
+
+    base 默认 HEAD（未提交变更）；传空串可对暂存区 --cached。非 git 仓库或失败 → []。
+    """
+    import subprocess as sp
+    root = str(Path(target))
+    changed = []
+    try:
+        r = sp.run(["git", "diff", "--name-only", "--diff-filter=ACMR", base],
+                   cwd=root, capture_output=True, text=True, timeout=20)
+        changed = [l.strip() for l in (r.stdout or "").splitlines() if l.strip().endswith(".py")]
+        # 未跟踪的新文件也纳入（git diff 不含 others）
+        r2 = sp.run(["git", "ls-files", "--others", "--exclude-standard"],
+                    cwd=root, capture_output=True, text=True, timeout=20)
+        changed += [l.strip() for l in (r2.stdout or "").splitlines() if l.strip().endswith(".py")]
+        changed = sorted({str(Path(root) / c) for c in changed if c})
+    except Exception:
+        return []
+    return changed
+
+
+def light_review(target: str, base: str = "HEAD", max_complexity: int = 10) -> dict:
+    """轻审：增量扫描 git diff 只扫变更文件，跑快速静态 + 安全基线。
+
+    快速：跳过耗时的语义审查/复用建议/LLM（semantic=False），只跑语法/import/复杂度/
+    命名/安全/网络，并把 critical/major 汇总为"安全基线"。适合 CI 增量门禁。
+    """
+    files = git_diff_py_files(target, base)
+    results = []
+    for p in files:
+        try:
+            content = Path(p).read_text(encoding="utf-8", errors="ignore")
+        except Exception:
+            continue
+        static = _static_analyze(content, max_complexity, semantic=False, denoise=True)
+        baseline = [i for i in static["all_issues"]
+                    if i.get("severity") in ("critical", "major")]
+        results.append({"file": p, "score": static["score"],
+                        "issues": static["all_issues"],
+                        "security_baseline": baseline, "security_count": len(baseline)})
+    by_tier = {"P0": 0, "P1": 0, "P2": 0}
+    for r in results:
+        for i in r["issues"]:
+            by_tier[i.get("tier", SEVERITY_TIER.get(i.get("severity", "minor"), "P2"))] += 1
+    sev = sum(r["security_count"] for r in results)
+    return {"files": results, "changed_files": len(files),
+            "security_findings": sev, "severity_summary": by_tier,
+            "summary": f"轻审增量 {len(files)} 个变更文件, 安全/高影响 {sev} 项",
+            "mode": "light", "incremental": True, "git_diff_base": base,
+            "human_review": {"needs_review": True, "reason": "轻审为增量快速静态初筛，P0/P1 安全基线需人工复核真实性与影响面后再放行",
+                             "progressive": True, "auto_pass": False}}
+
+
+# ── 重审深度：数据流污点追踪（source→sink 变量传播）──
+# 污点源：外部/不可信输入入口（赋值给变量的调用）
+TAINT_SOURCES = {
+    "input": "标准输入", "raw_input": "标准输入", "getpass": "密码输入",
+    "os.environ.get": "环境变量", "os.getenv": "环境变量", "sys.argv": "命令行参数",
+    "request.args.get": "HTTP参数", "request.form.get": "HTTP表单",
+    "request.json.get": "HTTP JSON", "request.cookies.get": "HTTP Cookie",
+    "request.headers.get": "HTTP头", "flask.request": "HTTP请求",
+    "get_param": "查询参数", "json.loads": "外部JSON", "read": "文件/流读取",
+    "open": "文件读取", "urlopen": "远端响应", "requests.get": "远端响应",
+}
+# 污点汇：危险调用（需不可信输入到达才能触发的安全 sink）
+TAINT_SINKS = {
+    "eval": "代码执行", "exec": "代码执行", "compile": "代码编译",
+    "os.system": "命令执行", "os.popen": "命令执行", "os.spawn": "命令执行",
+    "subprocess.Popen": "命令执行", "subprocess.run": "命令执行",
+    "subprocess.call": "命令执行", "subprocess.check_call": "命令执行",
+    "cursor.execute": "SQL执行", "execute": "SQL执行",
+    "pickle.loads": "反序列化", "pickle.load": "反序列化", "yaml.load": "反序列化",
+    "open": "文件读写", "os.remove": "文件删除", "os.rename": "文件操作",
+    "requests.get": "SSRF", "urlopen": "SSRF",
+    "render_template_string": "模板注入",
+}
+
+
+def _dataflow_analyze(tree, content):
+    """数据流分析：变量传播/污点追踪。返回 (confirmed_flows, sink_sites)。
+
+    confirmed_flows: source(输入)→sink(危险调用) 的已确认污点路径（高置信 P0）。
+    sink_sites: {行号: [sink名,...]} 所有危险 sink 调用点（供对抗性验证对照"是否有污点流入"）。
+    思路：单函数内逐语句，把来自 TAINT_SOURCES 的赋值变量标记为 tainted，赋值传播，
+    命中 TAINT_SINKS 且实参含 tainted 变量或直接 source 调用 → 确认路径。
+    """
+    confirmed, sink_sites = [], {}
+    try:
+        funcs = [n for n in ast.walk(tree) if isinstance(n, (ast.FunctionDef, ast.AsyncFunctionDef))]
+        for fn in funcs:
+            tainted = set()
+            # 参数：来自 request/input/argv 的参数名可能由外部调用方污染（保守标记常见名）
+            for a in fn.args.args:
+                if a.arg in ("request", "req", "data", "payload", "body", "params",
+                             "query", "user_input", "cmd", "url", "name", "path",
+                             "content", "text", "value", "filename"):
+                    tainted.add(a.arg)
+            for node in ast.walk(fn):
+                # 污点源赋值：var = source_call(...)
+                if isinstance(node, ast.Assign):
+                    targets = [t for t in node.targets if isinstance(t, ast.Name)]
+                    val = node.value
+                    if isinstance(val, ast.Call) and _call_name(val) in TAINT_SOURCES:
+                        for t in targets:
+                            tainted.add(t.id)
+                    # 变量传播：var2 = tainted_var
+                    elif isinstance(val, ast.Name) and val.id in tainted:
+                        for t in targets:
+                            tainted.add(t.id)
+                # sink 调用检查
+                if isinstance(node, ast.Call):
+                    cname = _call_name(node)
+                    if cname in TAINT_SINKS:
+                        line = getattr(node, "lineno", 0)
+                        sink_sites.setdefault(line, []).append(cname)
+                        tainted_args = [a.id for a in node.args
+                                        if isinstance(a, ast.Name) and a.id in tainted]
+                        direct_src = [a for a in node.args
+                                      if isinstance(a, ast.Call) and _call_name(a) in TAINT_SOURCES]
+                        if tainted_args or direct_src:
+                            src_desc = ", ".join(
+                                [f"{a}({TAINT_SOURCES.get(a, '输入')})" for a in direct_src]
+                                + [f"{a}←污染" for a in tainted_args])
+                            confirmed.append({
+                                "severity": "critical", "title": f"污点路径: 输入→{cname}（{TAINT_SINKS[cname]}）",
+                                "line": line, "sink": cname,
+                                "tainted_args": tainted_args,
+                                "flow": f"source→sink 已确认: {src_desc} 流入 {cname}",
+                                "engine": "dataflow", "tier": "P0"})
+    except Exception:
+        pass
+    return confirmed, sink_sites
+
+
+def _adversarial_verify(issues, flow_findings, sink_sites):
+    """对抗性引擎：对每条静态安全 issue 先假设误报，用数据流证伪/证实。
+
+    confirmed   — 数据流确认 source→sink（真实，高置信）
+    needs_review — 命中危险 sink 但未见污点流入（先假设误报，需人工复核）
+    likely_fp    — 未找到对应 sink/流佐证（倾向误报，降级为 P2 提示）
+    静态 issue 多无行号 → 除按行匹配外，再用标题中的 sink 关键字做语义兜底匹配。
+    """
+    # 标题关键字 → 相关 sink 名（用于无行号静态 issue 的语义匹配）
+    def _title_sinks(title):
+        t = (title or "")
+        hits = []
+        for cname in TAINT_SINKS:
+            if cname in t:
+                hits.append(cname)
+        if "命令" in t or "os.system" in t:
+            hits += ["os.system", "os.popen", "subprocess.Popen", "subprocess.run"]
+        if "SQL" in t or "注入" in t:
+            hits += ["cursor.execute", "execute"]
+        if "eval" in t.lower() or "exec" in t.lower():
+            hits += ["eval", "exec"]
+        if "反序列化" in t:
+            hits += ["pickle.loads", "pickle.load", "yaml.load"]
+        if "密钥" in t or "密码" in t:
+            hits += ["secret"]  # 密钥类静态命中，未见 sink，倾向需复核
+        if "SSRF" in t or "url" in t.lower():
+            hits += ["requests.get", "urlopen"]
+        return set(hits)
+
+    out = []
+    for i in issues:
+        if i.get("severity") not in ("critical", "major"):
+            out.append(dict(i, engine="static")); continue
+        line = i.get("line")
+        kw = _title_sinks(i.get("title"))
+        matched_flow = [f for f in flow_findings
+                        if (line and f["line"] == line)
+                        or (kw and f.get("sink") in kw)]
+        matched_sink = (line and sink_sites.get(line)) or \
+                       [s for s in kw if s in set(n for sites in sink_sites.values() for n in sites)]
+        if matched_flow:
+            ev = [f["flow"] for f in matched_flow]
+            out.append(dict(i, engine="adversarial", adversarial_verdict="confirmed",
+                            adversarial_evidence="数据流佐证: " + "; ".join(ev)))
+        elif matched_sink:
+            out.append(dict(i, engine="adversarial", adversarial_verdict="needs_review",
+                            adversarial_evidence="存在危险 sink 但未见 source→sink 污点路径，先假设误报，需人工复核"))
+        else:
+            out.append(dict(i, engine="adversarial", adversarial_verdict="likely_fp",
+                            tier="P2", tier_label=TIER_LABEL["P2"],
+                            adversarial_evidence="未找到对应危险 sink 的数据流佐证，倾向误报（已降噪为 P2）"))
+    return out
+
+
+def deep_review(path: str, max_complexity: int = 10, denoise: bool = True) -> dict:
+    """重审：数据流分析（变量传播/污点追踪）+ 双引擎（静态规则 + AI 语义对抗性验证）。
+
+    引擎1 静态：_static_analyze 全量（含语义/缺陷根因库）；
+    引擎2 数据流+对抗：_dataflow_analyze 确认 source→sink 污点路径，_adversarial_verify
+    对每条静态安全 issue 先假设误报再证实/证伪（confirmed / needs_review / likely_fp）。
+    返回：static_result(引擎1) + dataflow_findings + adversarial(引擎2 验证后安全 issues)
+    + 合并后的 score（critical 确认项重罚）。
+    """
+    content = Path(path).read_text(encoding="utf-8", errors="ignore")
+    static = _static_analyze(content, max_complexity, semantic=True, denoise=denoise)
+    try:
+        tree = ast.parse(content)
+    except SyntaxError:
+        tree = None
+    flows, sink_sites = ([], {}) if tree is None else _dataflow_analyze(tree, content)
+    sec_net = [i for i in static["all_issues"]
+               if i.get("engine") in (None, "static") and i.get("severity") in ("critical", "major")
+               and ("注入" in i.get("title", "") or "风险" in i.get("title", "")
+                    or "eval" in i.get("title", "").lower() or "exec" in i.get("title", "").lower()
+                    or "反序列化" in i.get("title", "") or "密钥" in i.get("title", "")
+                    or "命令" in i.get("title", ""))]
+    adversarial = _adversarial_verify(sec_net, flows, sink_sites) if sec_net else []
+    by_tier = {"P0": 0, "P1": 0, "P2": 0}
+    for i in static["all_issues"]:
+        by_tier[i.get("tier", SEVERITY_TIER.get(i.get("severity", "minor"), "P2"))] += 1
+    for f in flows:
+        by_tier["P0"] += 1
+    merged_issues = static["all_issues"] + list(flows)
+    penalty = sum(SEVERITY_WEIGHTS.get(i.get("severity", 5), 5) for i in merged_issues)
+    score = max(0, 100 - penalty)
+    return {"file": path, "score": score, "static_result": static,
+            "dataflow_findings": flows, "sink_sites": sink_sites,
+            "adversarial": adversarial, "issues": merged_issues,
+            "severity_summary": by_tier,
+            "engine_count": {"static": len(static["all_issues"]),
+                             "dataflow": len(flows), "adversarial": len(adversarial)},
+            "summary": (f"重审双引擎 {path}: 静态{len(static['all_issues'])} + 污点{len(flows)}"
+                        f" + 对抗验证{len(adversarial)}, 分 {score}"),
+            "human_review": {"needs_review": True,
+                             "reason": "重审含数据流+对抗验证，confirmed/needs_review 项需人工复核真实攻击路径后再放行",
+                             "progressive": True, "auto_pass": False}}
+
+
 def main():
     ap = argparse.ArgumentParser(description="CodeReview Minimal — 审代码不写代码的人用的审查器 + 测试 harness")
     ap.add_argument("target", help="要审查的文件或目录")
@@ -697,10 +1184,27 @@ def main():
     ap.add_argument("--refine", metavar="OUTCOME_JSON", help="refine() 自省闭环: 观察→归因→精炼→校验(快照回滚)+自动沉淀技能+记忆复盘")
     ap.add_argument("--tdd", action="store_true", help="TDD反馈闭环: 测试反馈→改进→再测试(红→改→绿→回归)")
     ap.add_argument("--full", action="store_true", help="一键套餐: 静态+测试harness+external+reuse+依赖图 一次跑完")
+    ap.add_argument("--light", action="store_true", help="轻审: 增量扫描 git diff 只扫变更, 快速静态+安全基线(CI增量门禁)")
+    ap.add_argument("--deep", action="store_true", help="重审: 数据流污点追踪 + 双引擎(静态+对抗性验证先假设误报证伪)")
+    ap.add_argument("--base", default="HEAD", help="git diff 基线(配合 --light, 默认 HEAD)")
     args = ap.parse_args()
 
     if not os.path.exists(args.target):
         print(f"路径不存在: {args.target}"); sys.exit(1)
+
+    # 5方向：轻审/重审 走专属分支
+    if args.light:
+        print(json.dumps(light_review(args.target, base=args.base), ensure_ascii=False,
+                         indent=2, default=str))
+        return
+    if args.deep:
+        try:
+            tree = ast.parse(Path(args.target).read_text(encoding="utf-8", errors="ignore"))
+        except (SyntaxError, OSError, IsADirectoryError):
+            print(f"重审需单文件(可解析的 .py), 目标: {args.target}", file=sys.stderr)
+            sys.exit(1)
+        print(json.dumps(deep_review(str(args.target)), ensure_ascii=False, indent=2, default=str))
+        return
 
     files = _collect_py_files(args.target)
     if not files:

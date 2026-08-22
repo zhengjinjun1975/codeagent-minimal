@@ -126,6 +126,69 @@ def snapshot_store(target, funcs, args_by_func=None, snapshot_dir=DEFAULT_SNAP_D
             "summary": f"快照 {len(results)} 函数，回归变化 {sum(1 for r in results.values() if r.get('changed'))}"}
 
 
+def git_changed_py(repo_root=".") -> list:
+    """用 git diff 找出改动/新增/删除的 .py 文件（智能测试选择的数据源）。
+
+    回退链：git diff --name-only HEAD → 若失败（非 git 仓库）返回 []。
+    只返回存在且 .py 结尾的文件（删除的不再需要测试）。
+    返回 [绝对路径]。
+    """
+    import subprocess as sp
+    changed = []
+    try:
+        base = os.path.abspath(repo_root)
+        r = sp.run(["git", "-C", base, "diff", "--name-only", "HEAD"],
+                   capture_output=True, text=True, timeout=15)
+        if r.returncode == 0:
+            for line in (r.stdout or "").splitlines():
+                line = line.strip()
+                if not line.endswith(".py"):
+                    continue
+                p = os.path.join(base, line)
+                if os.path.isfile(p):
+                    changed.append(p)
+        # 未跟踪的新文件（git diff --name-only 不含未跟踪）
+        r2 = sp.run(["git", "-C", base, "ls-files", "--others", "--exclude-standard"],
+                    capture_output=True, text=True, timeout=15)
+        if r2.returncode == 0:
+            for line in (r2.stdout or "").splitlines():
+                line = line.strip()
+                if line.endswith(".py"):
+                    p = os.path.join(base, line)
+                    if os.path.isfile(p):
+                        changed.append(p)
+    except Exception:
+        return []
+    # 去重保持顺序
+    seen, out = set(), []
+    for c in changed:
+        if c not in seen:
+            seen.add(c)
+            out.append(c)
+    return out
+
+
+def select_affected_tests_git(project_root=".", test_map=None, transitive=True) -> dict:
+    """git diff → 受影响测试选择（P0-3 智能测试选择）。
+
+    自动用 git 分析改动文件，再走依赖图影响选择，只返回需要重跑的测试。
+    无改动 → 返回全部(all_tests=True, 提示全量)；无 git → 退化全量。
+    返回 select_affected_tests 的结构 + git 上下文。
+    """
+    changed = git_changed_py(project_root)
+    if not changed:
+        return {"affected_tests": [], "affected_modules": [],
+                "rationale": "git 无改动 .py 文件（或非 git 仓库）→ 建议全量回归",
+                "all_tests": True, "git_changed": [], "source": "git"}
+    r = select_affected_tests(changed, project_root=project_root,
+                              test_map=test_map, transitive=transitive)
+    r["git_changed"] = [os.path.basename(c) for c in changed]
+    r["source"] = "git"
+    r["rationale"] = (f"git 改动 {len(changed)} 文件 → 影响 {len(r['affected_modules'])} 模块 "
+                      f"→ 需重跑 {len(r['affected_tests'])} 测试（省时，非全量）")
+    return r
+
+
 # ── 依赖图影响测试选择（增量回归）────────────
 def select_affected_tests(changed_files, project_root=".", test_map=None,
                           transitive=True) -> dict:
@@ -153,21 +216,32 @@ def select_affected_tests(changed_files, project_root=".", test_map=None,
     except Exception:
         graph = {"entities": {}, "edges": []}
     entities = graph.get("entities", {})
-    # 找受影响的模块：直接改 + 反向可达（谁 import 了被改模块）
+    module_deps = graph.get("module_deps", {})  # mod(依赖方) → set(被依赖模块名)
+    # 模块名(不含路径后缀) → 文件路径 映射（用于模块级传递影响解析）
+    mod_to_file = {}
+    for e, meta in entities.items():
+        f = meta.get("file")
+        m = meta.get("module")
+        if f and m:
+            mod_to_file.setdefault(m, f)
+    # 受影响的模块：直接改 + 反向可达（谁 import 了被改模块）
     affected = set(os.path.abspath(c) for c in changed)
+    changed_stems = {os.path.splitext(os.path.basename(c))[0] for c in changed}
     if transitive:
-        changed_keys = set(changed)
+        # 模块级传递：被改模块 stem 出现在谁 module_deps → 该依赖方受影响
         for _ in range(10):  # 收敛
-            new = set()
-            for e, meta in entities.items():
-                deps = meta.get("imports", []) if isinstance(meta, dict) else []
-                if any(os.path.abspath(d) in changed_keys for d in deps) or \
-                        any(d in affected for d in deps):
-                    new.add(e)
-            before = len(affected)
-            affected |= new
-            changed_keys |= new
-            if len(affected) == before:
+            new_stems = set()
+            for depender, dep_on in module_deps.items():
+                if dep_on & changed_stems:
+                    new_stems.add(depender)
+            added = False
+            for stem in new_stems:
+                fp = mod_to_file.get(stem)
+                if fp and os.path.abspath(fp) not in affected:
+                    affected.add(os.path.abspath(fp))
+                    changed_stems.add(stem)
+                    added = True
+            if not added:
                 break
     affected = {a for a in affected if a.endswith(".py")}
 

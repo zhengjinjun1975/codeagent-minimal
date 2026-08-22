@@ -1,0 +1,29 @@
+{
+  "name": "minimalist-style",
+  "version": "0.1.0",
+  "domain": "codereview",
+  "description": "极简风格审查原子（P0）: 解析 AST 审查代码是否纯标准库/不过度依赖/不炫技/可独立部署。纯 stdlib 数据不出厂。",
+  "open_source": true,
+  "agent_class": "MinimalistStyleAgent",
+  "entry": "main.py",
+  "provides": [
+    "minimal.style",
+    "minimal.deps",
+    "minimal.independent"
+  ],
+  "depends_on": [],
+  "inputs": [
+    "path",
+    "code",
+    "strict"
+  ],
+  "outputs": [
+    "ok",
+    "score",
+    "issues",
+    "third_party",
+    "signals",
+    "verdict"
+  ],
+  "path": "agents/codereview/minimalist-style"
+}

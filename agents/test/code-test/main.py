@@ -32,8 +32,9 @@ class CodeTestAgent(AtomicAgent):
     name = "code-test"
     version = "0.2.0"
     domain = "test"
-    description = "测试原子：复用 test_harness 红绿回归 + reg_guard 回归快照/增量测试选择"
-    provides = ["test.gen", "test.run", "test.tdd", "test.snapshot", "test.affected"]
+    description = "测试原子：复用 test_harness 红绿回归 + reg_guard 回归快照/增量测试选择 + P0-3智能测试选择(git diff) + P1-4人类在环 + P1-5覆盖度分析"
+    provides = ["test.gen", "test.run", "test.tdd", "test.snapshot", "test.affected",
+                "test.select", "test.coverage_analysis"]
     depends_on = []
     inputs = ["code", "path", "target_dir", "task"]
     outputs = ["test_files", "smoke", "coverage", "unit", "boundary", "mutation", "stability", "red_green"]
@@ -44,13 +45,43 @@ class CodeTestAgent(AtomicAgent):
         self.register("test.tdd", self._tdd)
         self.register("test.snapshot", self._snapshot)
         self.register("test.affected", self._affected)
+        self.register("test.select", self._select)
+        self.register("test.coverage_analysis", self._coverage_analysis)
+
+    # ── test.select：智能测试选择（P0-3）git diff → 受影响测试 ──
+    def _select(self, project_root=".", test_map=None, transitive=True, run=False):
+        """按 git diff 分析受影响原子/文件，只选相关测试（省时非全量）。
+        run=True 时把选出的测试跑起来并聚合红绿。返回 {affected_tests, ...}。"""
+        sel = rg.select_affected_tests_git(project_root=project_root,
+                                           test_map=test_map, transitive=transitive)
+        if run and sel.get("affected_tests"):
+            import test_harness as th
+            per_file, ggs = [], []
+            for t in sel["affected_tests"]:
+                rep = th.run_all(t, os.path.dirname(t) or project_root,
+                                 do_mutation=False, do_stability=False, do_boundary=True)
+                ok = rep["unit"].get("ok", True) and rep.get("boundary", {}).get("ok", True)
+                ggs.append(ok)
+                per_file.append({"file": t, "ok": ok, "red_green": {
+                    "red": not ok, "green": ok}})
+            sel["run_results"] = per_file
+            sel["run_green"] = all(ggs) if ggs else None
+            sel["run_summary"] = (f"智能选择重跑 {len(per_file)} 测试, "
+                                  f"全绿={sel['run_green']}" if per_file else "无测试可跑(建议全量)")
+        return sel
+
+    # ── test.coverage_analysis：覆盖度分析（P1-5）──
+    def _coverage_analysis(self, path):
+        import test_harness as th
+        return th.coverage_analysis(path)
 
     # ── test.gen：从 AST 生成基本 + 边界测试 ────────────────
     def _gen(self, code, path=None):
         """code: {文件名: 代码内容}。生成 {test_files: {测试名: 测试代码}}。
         path 可选：已落盘的目标文件路径（用于复用 _find_functions）。
         修复 P2-6：按函数签名（AST args）生成对应参数，避免多参/关键字函数生成低价值用例；
-        产出前用 ast.parse 校验合法性，非法则回退为 import-only 测试。"""
+        产出前用 ast.parse 校验合法性，非法则回退为 import-only 测试。
+        P1-4 人类在环：AI 生成的测试标注 needs_human_review（渐进式，不自动放行）。"""
         test_files = {}
         if isinstance(code, str):
             code = {path or "target.py": code}
@@ -110,8 +141,10 @@ class CodeTestAgent(AtomicAgent):
 
     # ── test.run：复用 test_harness.run_all ────────────────
     def _run(self, path, target_dir=".", do_mutation=False, do_stability=False,
-             do_boundary=True):
-        """对目标文件跑完整测试闭环。返回 {ok, data:{...}}（数据含 red_green 推导）。"""
+             do_boundary=True, human_review=True):
+        """对目标文件跑完整测试闭环。返回 {ok, data:{...}}（数据含 red_green 推导）。
+        P1-4 人类在环：AI 生成的测试/结论默认标注需人工复核（渐进式，不自动放行）；
+        P1-5 覆盖度分析并入报告，指出未测函数/分支提示补测。"""
         if not os.path.exists(path):
             raise FileNotFoundError(f"目标不存在: {path}")
         report = th.run_all(path, target_dir,
@@ -124,6 +157,19 @@ class CodeTestAgent(AtomicAgent):
             "red": not (unit_ok and bnd_ok),
             "green": bool(unit_ok and bnd_ok),
         }
+        # P1-5 覆盖度分析：报告哪些函数/分支未测，提示补测
+        try:
+            report["coverage_analysis"] = th.coverage_analysis(path)
+        except Exception as e:
+            report["coverage_analysis"] = {"ok": False, "error": str(e)}
+        # P1-4 人类在环：渐进式，AI 结论不自动放行
+        if human_review:
+            report["human_review"] = {
+                "needs_review": True,
+                "reason": "测试为 AI 生成/自动运行，红绿结论仅供初筛，需人工复核断言正确性与覆盖充分性后再放行",
+                "progressive": True,
+                "auto_pass": False,
+            }
         report["summary"] = ("全绿" if report["red_green"]["green"] else "红（存在失败项，见边界/单元）")
         return report
 
@@ -177,7 +223,8 @@ if __name__ == "__main__":
     ap.add_argument("path", help="目标 Python 文件")
     ap.add_argument("--dir", default=".", help="测试文件所在目录")
     ap.add_argument("--capability", default="test.run",
-                    choices=["test.gen", "test.run", "test.tdd", "test.snapshot", "test.affected"])
+                    choices=["test.gen", "test.run", "test.tdd", "test.snapshot", "test.affected",
+                             "test.select", "test.coverage_analysis"])
     args = ap.parse_args()
 
     agent.load()
