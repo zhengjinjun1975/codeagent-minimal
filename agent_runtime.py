@@ -167,8 +167,15 @@ class AgentRuntime:
                     inputs.setdefault("task", task)
                 # 组装链真实执行：test.run 环节若上游 gen 产出文件 dict，落盘到临时
                 # 工作区并传 path（test 跑真实文件，红绿闭环非空壳）。
+                # 修复 P0：不硬编码上游产文件步骤名为 "gen"。gen 步骤可叫 "gen"/"plan.gen"/
+                # 任意自定义名，故扫描已产出 data，取第一个「files 为非空 dict(文件名->内容)」
+                # 的步骤结果作为被测代码，避免 test.run 无 path → degraded。
                 if cap == "test.run" and "path" not in inputs:
-                    gen_files = data.get("gen", {}).get("files") or {}
+                    gen_files = {}
+                    for _k, _v in data.items():
+                        if isinstance(_v, dict) and isinstance(_v.get("files"), dict) and _v["files"]:
+                            gen_files = _v["files"]
+                            break
                     if gen_files:
                         tmp = tempfile.mkdtemp(prefix="codeagent_flow_")
                         paths = []

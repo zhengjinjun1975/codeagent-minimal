@@ -5,7 +5,7 @@
 > 所有示例参考 `examples/` 已跑通代码，并遵守两条硬边界：
 >
 > - **本地原子 / 数据不出厂**：默认 `local_only=True`，不注入任何云端密钥；云端 LLM / 远端 OSV 需显式开启。
-> - **开源内核 / 闭源编排**：本仓库开源 16 原子 + 统一运行时/入口；重型闭源编排（assembler / orchestrator / CodeMode）位于独立工作区，不随本仓库分发、不链接、非必需。
+> - **开源内核 / 闭源编排**：本仓库开源 29 原子 + 统一运行时/入口；重型闭源编排（assembler / orchestrator / CodeMode）位于独立工作区，不随本仓库分发、不链接、非必需。
 
 ---
 
@@ -258,7 +258,7 @@ python examples/graph_orchestration.py
 | 端点 | 方法 | 说明 |
 |------|------|------|
 | `/api/health` | GET | 探活（不泄露本机绝对路径） |
-| `/api/status` | GET | 16 原子状态（ready/degraded/冲突） |
+| `/api/status` | GET | 29 原子状态（ready/degraded/冲突） |
 | `/api/files` | GET | 可作审查/测试目标的白名单源码文件 |
 | `/api/run` | POST | `{cmd: review|test|chain|guard|evolve|status, payload:{...}}` |
 
@@ -289,7 +289,7 @@ python examples/web_api_client.py
 ## 集成边界与最佳实践
 
 1. **本地原子 / 数据不出厂**：默认 `local_only=True`；`_env()` 剥离云端密钥；`depscan` 默认不查远端 OSV；LLM/MCP 远端需显式 `allow_remote`/`--remote`。
-2. **开源内核 / 闭源编排**：本仓库只分发 16 原子 + 运行时/入口。重型编排（assembler/orchestrator/CodeMode）在独立工作区，不随本仓库分发、不链接、非必需。你在框架内自行编排原子即「开源内核 + 开源编排」。
+2. **开源内核 / 闭源编排**：本仓库只分发 29 原子 + 运行时/入口。重型编排（assembler/orchestrator/CodeMode）在独立工作区，不随本仓库分发、不链接、非必需。你在框架内自行编排原子即「开源内核 + 开源编排」。
 3. **统一信封**：所有原子返回 `{ok, data}` JSON 字符串，任何框架 `json.loads` 后按 `data` 字段取用；失败自动 `{ok:false, degraded:true}`，下游需做降级判断。
 4. **权限最小化**：`dispatch.permission` 提供 allow/ask/deny 细粒度策略，可拦截工具/命令/文件三类资源，接入高风险动作时建议启用。
 5. **目标白名单**：REST `/api/run` 仅允许 `web/server.py` 白名单内的项目源码文件，防任意文件读取。

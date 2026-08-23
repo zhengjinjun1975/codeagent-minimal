@@ -71,5 +71,5 @@
 
 <!-- 底部说明 -->
 <rect x="60" y="850" width="1160" height="46" rx="10" fill="#ffffff" stroke="#e2e8f0"/>
-<text x="640" y="878" text-anchor="middle" fill="#64748b" font-size="18" font-family="Microsoft YaHei">开源内核（16原子+运行时）+ 闭源编排（assembler/orchestrator 独立工作区，不随本仓库分发）</text>
+<text x="640" y="878" text-anchor="middle" fill="#64748b" font-size="18" font-family="Microsoft YaHei">开源内核（29原子+运行时）+ 闭源编排（assembler/orchestrator 独立工作区，不随本仓库分发）</text>
 </svg>

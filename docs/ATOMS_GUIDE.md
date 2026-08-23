@@ -1,4 +1,4 @@
-# CodeAgent Atoms 指南（16 原子）
+# CodeAgent Atoms 指南（核心 16 原子）
 
 > 本指南逐个说明 16 个原子智能体：**能力（provides）/ 入参（inputs）/ 返回信封（`{ok, data}`）/ 示例代码**。
 > 所有示例均基于**已核实的真实信封输出**（`ok=true` + 真实 `data` 字段），可用两种方式运行：
@@ -33,7 +33,7 @@
 | 15 | `task-state` | `taskstate` | （无 CLI 子命令） | `taskstate.track` |
 | 16 | `code-deliver` | `deliver` | `deliver` | `deliver.report/package` |
 
-> 注册索引见 `registry.json`；运行时用 `python codeagent.py status --json` 查看 16 原子 ready/degraded/冲突状态。
+> 注册索引见 `registry.json`；运行时用 `python codeagent.py status --json` 查看 29 原子 ready/degraded/冲突状态。本指南深入讲解核心 16 原子；完整 29 原子清单见 [README](../README.md) 的「29 原子清单」。
 
 ---
 
@@ -421,7 +421,7 @@ python codeagent.py deliver --chain "think,gen,review,test,evolve" --json
 
 ## 组装链与护栏
 
-16 原子经统一运行时按能力依赖（`depends_on`）做拓扑排序 + 冲突检测，可任意组装成链：
+29 原子经统一运行时按能力依赖（`depends_on`）做拓扑排序 + 冲突检测，可任意组装成链：
 
 ```bash
 # 安全·质量组装链：review + dep-scan + fuzz 协同
@@ -430,7 +430,7 @@ python codeagent.py guard sample_target.py --json
 # 通用组装链：think→gen→review→test→evolve
 python codeagent.py chain --task "修复登录校验漏洞" --code '<code>' --language python --json
 
-# 运行时全貌（16 原子 ready/degraded/冲突）
+# 运行时全貌（29 原子 ready/degraded/冲突）
 python codeagent.py status --json
 ```
 

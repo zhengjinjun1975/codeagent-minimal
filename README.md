@@ -3,15 +3,15 @@
 > ⭐ **觉得有用就给我们一个 Star** —— 你的 Star 让这个项目被更多人看见，支持我们持续迭代。
 > [![GitHub stars](https://img.shields.io/github/stars/zhengjinjun1975/codeagent-minimal?style=social)](https://github.com/zhengjinjun1975/codeagent-minimal)
 
-> **v0.3.0 · 原子化重构** — 把代码审查 / 测试 / 依赖漏洞 / 变异 / 模糊 / 回归 / 自进化等能力拆成 **16 个可独立运行、可任意组装的原子智能体**，由统一运行时编排、统一入口 `codeagent` 驱动。
-> **开源内核 + 闭源编排**：本仓库开源 16 原子 + 统一运行时/入口（Apache-2.0）；重型闭源编排（assembler / orchestrator / CodeMode）位于独立工作区，不随本仓库分发。
+> **v0.3.0 · 原子化重构** — 把代码审查 / 测试 / 依赖漏洞 / 变异 / 模糊 / 回归 / 自进化等能力拆成 **29 个可独立运行、可任意组装的原子智能体**，由统一运行时编排、统一入口 `codeagent` 驱动。
+> **开源内核 + 闭源编排**：本仓库开源 29 原子 + 统一运行时/入口（Apache-2.0）；重型闭源编排（assembler / orchestrator / CodeMode）位于独立工作区，不随本仓库分发。
 
 [![License](https://img.shields.io/badge/License-Apache-2.0-blue.svg)](LICENSE)
 [![Version](https://img.shields.io/badge/version-0.3.0-blue.svg)](CHANGELOG.md)
 [![GitHub stars](https://img.shields.io/github/stars/zhengjinjun1975/codeagent-minimal)](https://github.com/zhengjinjun1975/codeagent-minimal)
 [![GitHub forks](https://img.shields.io/github/forks/zhengjinjun1975/codeagent-minimal)](https://github.com/zhengjinjun1975/codeagent-minimal)
 
-**它能帮你**：一键代码审查、自动化测试、依赖漏洞扫描、变异测试、模糊测试、回归验证——16 个原子智能体，任意组装，零第三方依赖，数据不出厂。
+**它能帮你**：一键代码审查、自动化测试、依赖漏洞扫描、变异测试、模糊测试、回归验证——29 个原子智能体，任意组装，零第三方依赖，数据不出厂。
 
 ---
 
@@ -21,12 +21,12 @@
 |------|------|
 | **[docs/PROMOTION.md](docs/PROMOTION.md)** | 开源宣传文案：场景痛点 / 方法论 / 诚实边界（为什么是「极简 + 本地 + 原子化」） |
 | **[docs/CAPABILITY.md](docs/CAPABILITY.md)** | 能力域与优势：8 大能力域 + 5 大优势 + 定位一句话 |
-| **[docs/ATOMS_GUIDE.md](docs/ATOMS_GUIDE.md)** | 16 原子逐个指南：能力 / 入参 / 返回信封 `{ok,data}` / 示例代码（真实信封核实），含独立运行 + 统一入口两种调用 |
+| **[docs/ATOMS_GUIDE.md](docs/ATOMS_GUIDE.md)** | 29 原子逐个指南：能力 / 入参 / 返回信封 `{ok,data}` / 示例代码（真实信封核实），含独立运行 + 统一入口两种调用 |
 | **[docs/INTEGRATION_GUIDE.md](docs/INTEGRATION_GUIDE.md)** | 对接传统框架（LangChain / CrewAI / AutoGen / OpenAI Agents SDK / Claude Code）：作为 Tool / 子代理节点 / 图编排 / REST / CLI 集成，边界为本地原子 + 数据不出厂 + 开源内核闭源编排 |
 | **examples/** | 已跑通对接示例：`codeagent_toolkit.py`（统一接入层）、`langchain_integration.py`、`crewai_integration.py`、`graph_orchestration.py`（子代理节点+图编排）、`web_api_client.py`（REST） |
 | **架构总览** | ![系统架构](docs/architecture.svg) |
 
-> 用户可**独立使用**（读 ATOMS_GUIDE 直接用 16 原子）与**独立集成**（读 INTEGRATION_GUIDE + examples 接入任意框架），无需闭源编排参与。
+> 用户可**独立使用**（读 ATOMS_GUIDE 直接用 29 原子）与**独立集成**（读 INTEGRATION_GUIDE + examples 接入任意框架），无需闭源编排参与。
 
 ---
 
@@ -48,7 +48,7 @@
 | **测试** | 测试选择（精确函数名）+ 测试覆盖分析 |
 | **审批与权限** | 高危命令审批（细粒度权限）+ 命令执行策略 |
 | **沙箱安全执行** | 进程降权沙箱 + 路径守卫（跨平台防穿越/盘符逃逸） |
-| **会话与上下文** | 会话生命周期（持久化/resume）+ 上下文压缩（预算裁剪） |
+| **会话与上下文** | 上下文压缩（预算裁剪）；会话持久化/resume 为**待定(pending)不入库**，运行时不可达 |
 | **模型降级链** | 本地 ↔ 云端切换 + 本地优先（数据不出厂） |
 | **领域审查** | 原子化断链（跨仓库 import/依赖拓扑）+ 本体数据质量 + 工业阀门规则 + 极简风格 |
 
@@ -80,9 +80,9 @@
         │  manifest 校验 / 依赖解析(Kahn拓扑) / 冲突检测   │
         │  / 失败降级                                    │
         └───────────────────────┬────────────────────────┘
-                                │ 16 原子
+                                │ 29 原子
    ┌───────┬───────┬───────┬────┴────┬───────┬───────┬───────┐
-   │review │  test │ dep-  │  fuzz   │impact │ llm-  │ mcp-  │ ... 16 atoms
+   │review │  test │ dep-  │  fuzz   │impact │ llm-  │ mcp-  │ ... 29 atoms
    │       │       │ scan  │         │       │ router│ client│
    └───────┴───────┴───────┴─────────┴───────┴───────┴───────┘
         │ 组装链示例：
@@ -90,12 +90,12 @@
         │  guard  review + dep-scan + fuzz 协同（安全·质量）
 ```
 
-### 16 原子清单
+### 29 原子清单
 
 | 原子 | 版本 | 能力 (provides) | 复用内核 |
 |------|------|-----------------|----------|
-| `code-review` | 0.2.0 | `codereview.review/design/layout/content/lsp` | `review.py` 静态审查 + LSP 诊断 + `dep_audit` 依赖图 |
-| `code-test` | 0.2.0 | `test.gen/run/tdd` | `test_harness.py` 冒烟/单元/边界/变异/稳定性 |
+| `code-review` | 0.2.1 | `codereview.review/design/layout/content/lsp` | `review.py` 静态审查 + LSP 诊断 + `dep_audit` 依赖图 |
+| `code-test` | 0.2.1 | `test.gen/run/tdd` | `test_harness.py` 冒烟/单元/边界/变异/稳定性 |
 | `dep-scan` | 0.2.0 | `depscan.scan/sca/taint/osv` | `dep_scan.py` 依赖漏洞 SCA + 污点分析 |
 | `code-fuzz` | 0.2.0 | `fuzz.*` | `fuzz_engine.py` 覆盖率驱动属性模糊 |
 | `code-dispatch` | 0.2.0 | `dispatch.*` | 派单 + 自适应预算 + allow/ask/deny 细粒度权限 |
@@ -110,8 +110,22 @@
 | `code-project` | 0.1.0 | `project.*` | 项目分析 |
 | `task-state` | 0.1.0 | `taskstate.*` | 跨会话任务状态跟踪 |
 | `code-deliver` | 0.1.0 | `deliver.report/package` | 交付验收报告（数据不出厂） |
+| `command-approvals` | 0.1.0 | `approval.check/classify/resolve/policy` | `approval_policy.py` 高危命令/工具 allow/ask/deny 细粒度审批 |
+| `security-scan` | 0.1.0 | `security.scan/secret/govern` | `security_scan.py` 10 维度漏洞 + 密钥模式 |
+| `process-sandbox` | 0.1.0 | `sandbox.poc/exec/validate` | 进程降权沙箱 + 路径守卫跨平台防穿越 |
+| `guard` | 0.1.0 | `guard.pre/post/pipeline/check` | 代码变更前后安全审查门禁钩子 |
+| `arch-review` | 0.1.0 | `archreview.layers/boundary/surface/intent` | 分层/依赖方向/边界/攻击面审查 |
+| `atomicity-audit` | 0.1.0 | `atomicity.manifest/registry/breaks` | 原子壳库 manifest/registry 一致性与断链审计 |
+| `bug-deep` | 0.1.0 | `bugdeep.model/adv/poc/rule` | 威胁建模 + 对抗性审查 + PoC 沙箱跑证据 |
+| `domain-review` | 0.1.0 | `domain.imports/valve` | 跨仓库 import 断链 + 工业阀门规则审查 |
+| `ontology-review` | 0.1.0 | `ontology.chain/quality` | 本体数据质量审查 |
+| `localized` | 0.1.0 | `local.audit/chain/route` | 本地化数据不出厂路由 |
+| `minimalist-style` | 0.1.0 | `minimal.style/deps/independent` | AST 极简风格/纯标准库审查 |
+| `model-fallback` | 0.1.0 | `model.chain/route/candidates` | 本地 ↔ 云端降级链 |
+| `context-compact` | 0.1.0 | `context.estimate/compact/budget` | token 估算 + 链结果压缩（预算裁剪） |
 
 > 全部 `open_source: true`。注册索引见 `registry.json`（`agent_loader.build_registry()` 可自动重建）。
+> **原子状态（与运行时一致）**：本仓库注册 **29 原子**；`approval-orchestrator` / `secret-vault` / `session` / `threebody-bridge` 4 个原子为**待定（pending）不入库**（存于本地 `_pending_atoms/`，未注册 registry、运行时不可达），因三体内部耦合 / 弱加密 / 未通用化，开源边界内不随本仓库分发——如需使用请先完成通用化与入库注册。
 
 ---
 
@@ -138,7 +152,7 @@
 
 ## 用法
 
-统一入口：`python codeagent.py <子命令>`。16 原子皆可通过子命令独立运行，也可经组装链协同。
+统一入口：`python codeagent.py <子命令>`。29 原子皆可通过子命令独立运行，也可经组装链协同。
 
 ### 子命令一览
 
@@ -189,7 +203,7 @@ python codeagent.py review sample_target.py --json
 
 ### 对接传统框架
 
-把 16 原子作为 **Tool / 子代理节点 / 图编排 / REST / CLI** 接入 **LangChain · CrewAI · AutoGen · OpenAI Agents SDK · Claude Code** 的完整示例与边界见 **[docs/INTEGRATION_GUIDE.md](docs/INTEGRATION_GUIDE.md)**，可运行代码在 **examples/**：
+把 29 原子作为 **Tool / 子代理节点 / 图编排 / REST / CLI** 接入 **LangChain · CrewAI · AutoGen · OpenAI Agents SDK · Claude Code** 的完整示例与边界见 **[docs/INTEGRATION_GUIDE.md](docs/INTEGRATION_GUIDE.md)**，可运行代码在 **examples/**：
 
 ```bash
 python examples/langchain_integration.py     # LangChain Tool（需 pip install langchain-core）
@@ -233,7 +247,7 @@ $ python codeagent.py review bug_deep.py --json
     { "severity": "major", "title": "圈复杂度 14 > 10" } ] }
 ```
 
-一行命令跑通代码审查、依赖扫描、变异测试、模糊测试、回归验证——16 个原子智能体，任意组装，零依赖，数据不出厂。
+一行命令跑通代码审查、依赖扫描、变异测试、模糊测试、回归验证——29 个原子智能体，任意组装，零依赖，数据不出厂。
 
 ## 快速开始
 
@@ -258,7 +272,7 @@ python codeagent.py status --json
 
 ## 回归
 
-- `pytest tests/ test_review.py`：**64 passed**（16 原子加载/ready、组装链 DAG、真实数据逐原子执行、guard 协同）。
+- `pytest tests/ test_review.py`：**64 passed**（29 原子加载/ready、组装链 DAG、真实数据逐原子执行、guard 协同）。
 - 闭源 `verify_chain.py` 组装链（think→gen→review→test→evolve）独立可运行验证通过。
 
 ---
@@ -272,7 +286,7 @@ python codeagent.py status --json
 - **借鉴 MIT 项目（自实现，未复制）**：FSoft CodeWiki、OpenCode（MCP/SKILL/CodeMode 概念）、CodeReview/测试 harness 方法论等；Semgrep 思路（LGPL）仅借鉴 source→sink 污点分析**思路**，自实现为纯 stdlib 污点引擎。
 - **MIT 兼容 Apache-2.0**：由于未复制任何 MIT 源码，不触发 MIT 通知包含或衍生作品义务。
 - **零第三方运行时依赖**：纯标准库；`bandit/pyflakes/coverage/pytest` 为可选开发便利，缺失自动跳过，不构成对交付物任何许可义务。
-- **边界**：本仓库开源 16 原子 + 统一运行时/入口；**闭源编排**（assembler / orchestrator / CodeMode）位于独立闭源工作区，不随本仓库分发、不链接、非必需。
+- **边界**：本仓库开源 29 原子 + 统一运行时/入口；**闭源编排**（assembler / orchestrator / CodeMode）位于独立闭源工作区，不随本仓库分发、不链接、非必需。
 
 **合规结论：Apache-2.0 合规**（借鉴 MIT 均为自实现 + NOTICE 标注 + 零第三方运行时依赖）。
 
@@ -280,7 +294,7 @@ python codeagent.py status --json
 
 ## 边界与兼容
 
-- **开源边界**：本仓库 = 开源内核（16 原子 + agent_runtime + codeagent 统一入口）。重型闭源编排不在此。
+- **开源边界**：本仓库 = 开源内核（29 原子 + agent_runtime + codeagent 统一入口）。重型闭源编排不在此。
 - **数据边界**：默认数据不出厂；云端 LLM / OSV 需显式 `--remote / --osv / --llm` 开启。
 - **兼容**：`legacy_cli.py` 保留旧命令兼容；统一入口子命令即新推荐用法。
 - **环境**：Windows / Linux / macOS，Python 3.8+。
