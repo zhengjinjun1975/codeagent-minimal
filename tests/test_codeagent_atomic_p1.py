@@ -37,7 +37,9 @@ EXPECTED_ATOMS = {
     "dep-impact", "dep-scan", "domain-review", "guard",
     "llm-router", "localized", "mcp-client", "minimalist-style",
     "model-fallback", "ontology-review", "process-sandbox",
-    "security-scan", "task-state",
+    "security-scan", "task-state", "method-impact", "deadcode", "doc-freshness",
+    # 通用工具原子(省重复 P1-3, 纯 stdlib 文件/数据/文本/git 工具): 频率分析后纳入统一集
+    "batch-fs", "data-tools", "json-io", "text-clean", "git-ops",
 }
 
 def _agents():

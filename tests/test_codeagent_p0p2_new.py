@@ -37,7 +37,7 @@ def test_new_atoms_registered_and_ready():
     for name in NEW_ATOMS:
         assert name in agents, f"新原子 {name} 未注册"
         assert agents[name].status == "ready", f"{name} 非 ready"
-    assert len(agents) == 29, f"应为 29 原子，实得 {len(agents)}"
+    assert len(agents) == 37, f"应为 37 原子（32 基础 + 4 工具原子 + git-ops），实得 {len(agents)}"
 
 
 # ══════════ P0 极简风格审查 ══════════
