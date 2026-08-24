@@ -1,1267 +1,1099 @@
 {
-  "schema": "codeagent-registry-v1",
-  "agents_dir": "agents",
-  "agents": {
-    "command-approvals": {
-      "name": "command-approvals",
-      "version": "0.1.0",
-      "domain": "approval",
-      "description": "高危命令/工具审批原子（P0，借鉴Codex approvals.rs/execpolicy）: 命令/工具/文件/网络 allow/ask/deny 细粒度判定+高危命令表+人工确认。复用code-dispatch权限模型, 算法进开源approval_policy.py。",
-      "open_source": true,
-      "agent_class": "CommandApprovalsAgent",
-      "entry": "main.py",
-      "provides": [
-        "approval.check",
-        "approval.classify",
-        "approval.resolve",
-        "approval.policy"
-      ],
-      "depends_on": [],
-      "inputs": [
-        "resource",
-        "resource_type",
-        "policy",
-        "decision",
-        "user_choice"
-      ],
-      "outputs": [
-        "decision",
-        "reason",
-        "rule",
-        "tier",
-        "verdict",
-        "granted",
-        "matched_keywords",
-        "pending"
-      ],
-      "path": "agents/approval/command-approvals"
-    },
-    "arch-review": {
-      "name": "arch-review",
-      "version": "0.1.0",
-      "domain": "archreview",
-      "description": "架构审查原子: 分层/依赖方向/边界/攻击面清单/设计意图比对(声明vs实现)。纯 stdlib 数据不出厂。",
-      "open_source": true,
-      "agent_class": "ArchReviewAgent",
-      "entry": "main.py",
-      "provides": [
-        "archreview.layers",
-        "archreview.boundary",
-        "archreview.surface",
-        "archreview.intent"
-      ],
-      "depends_on": [],
-      "inputs": [
-        "path"
-      ],
-      "outputs": [
-        "layers",
-        "by_layer",
-        "violations",
-        "boundaries",
-        "inventory",
-        "missing",
-        "summary"
-      ],
-      "path": "agents/archreview/arch-review"
-    },
-    "atomicity-audit": {
-      "name": "atomicity-audit",
-      "version": "0.1.0",
-      "domain": "atomic",
-      "description": "原子化审查原子（P0，覆盖 codeagent-minimal 自身）: 复用 agent_loader 审查 manifest(name==目录/字段/entry)/registry 一致性/能力断链。纯 stdlib 数据不出厂。",
-      "open_source": true,
-      "agent_class": "AtomicityAuditAgent",
-      "entry": "main.py",
-      "provides": [
-        "atomicity.manifest",
-        "atomicity.registry",
-        "atomicity.breaks"
-      ],
-      "depends_on": [],
-      "inputs": [
-        "agents_dir",
-        "registry_path"
-      ],
-      "outputs": [
-        "ok",
-        "issues",
-        "agents",
-        "registry_mismatch",
-        "breaks",
-        "verdict"
-      ],
-      "path": "agents/atomic/atomicity-audit"
-    },
-    "bug-deep": {
-      "name": "bug-deep",
-      "version": "0.1.0",
-      "domain": "bugdeep",
-      "description": "深挖 bug 原子: 威胁建模先建攻击面 + 对抗性审查 + 自动化PoC沙箱跑证据 + AI规则反哺闭环(验证漏洞沉淀规则)。纯 stdlib 数据不出厂。",
-      "open_source": true,
-      "agent_class": "BugDeepAgent",
-      "entry": "main.py",
-      "provides": [
-        "bugdeep.model",
-        "bugdeep.adv",
-        "bugdeep.poc",
-        "bugdeep.rule"
-      ],
-      "depends_on": [],
-      "inputs": [
-        "path",
-        "code",
-        "sink",
-        "title",
-        "rules_file"
-      ],
-      "outputs": [
-        "attack_surface",
-        "findings",
-        "confirmed",
-        "evidence",
-        "rule",
-        "summary"
-      ],
-      "path": "agents/bugdeep/bug-deep"
-    },
-    "code-review": {
-      "name": "code-review",
-      "version": "0.2.1",
-      "domain": "codereview",
-      "description": "代码审查原子(多模+5方向): review.py静态/语义/依赖图+LSP(P1-3)+P0-1逐行语义审查+P0-2严重度去噪+P2-7自评+P1-4人类在环; 5方向: 轻审codereview.light(增量git diff快速静态+安全基线) + 重审codereview.deep(数据流污点追踪+双引擎静态+AI语义对抗性审查先假设误报证伪)。",
-      "open_source": true,
-      "agent_class": "CodeReviewAgent",
-      "entry": "main.py",
-      "provides": [
-        "codereview.review",
-        "codereview.design",
-        "codereview.layout",
-        "codereview.content",
-        "codereview.lsp",
-        "codereview.semantic",
-        "codereview.self_eval",
-        "codereview.light",
-        "codereview.deep"
-      ],
-      "depends_on": [
-        "impact.analyze"
-      ],
-      "inputs": [
-        "path",
-        "code",
-        "mode",
-        "use_llm",
-        "reuse_atoms",
-        "max_complexity",
-        "lsp",
-        "lsp_server",
-        "semantic",
-        "denoise",
-        "base"
-      ],
-      "outputs": [
-        "score",
-        "issues",
-        "static_issues",
-        "model",
-        "reuse_suggestions",
-        "lsp_diagnostics",
-        "severity_summary",
-        "self_eval",
-        "human_review",
-        "security_baseline",
-        "dataflow_findings",
-        "adversarial",
-        "changed_files"
-      ],
-      "path": "agents/codereview/code-review"
-    },
-    "minimalist-style": {
-      "name": "minimalist-style",
-      "version": "0.1.0",
-      "domain": "codereview",
-      "description": "极简风格审查原子（P0）: 解析 AST 审查代码是否纯标准库/不过度依赖/不炫技/可独立部署。纯 stdlib 数据不出厂。",
-      "open_source": true,
-      "agent_class": "MinimalistStyleAgent",
-      "entry": "main.py",
-      "provides": [
-        "minimal.style",
-        "minimal.deps",
-        "minimal.independent"
-      ],
-      "depends_on": [],
-      "inputs": [
-        "path",
-        "code",
-        "strict"
-      ],
-      "outputs": [
-        "ok",
-        "score",
-        "issues",
-        "third_party",
-        "signals",
-        "verdict"
-      ],
-      "path": "agents/codereview/minimalist-style"
-    },
-    "context-compact": {
-      "name": "context-compact",
-      "version": "0.1.0",
-      "domain": "context",
-      "description": "上下文压缩原子（P2，借鉴Codex context_manager/compaction）: token估算 + 链结果压缩(保留summary/score/verdict丢弃大payload) + max_tokens预算裁剪。防组装链上下文膨胀。纯stdlib。",
-      "open_source": true,
-      "agent_class": "ContextCompactAgent",
-      "entry": "main.py",
-      "provides": [
-        "context.estimate",
-        "context.compact",
-        "context.budget"
-      ],
-      "depends_on": [],
-      "inputs": [
-        "data",
-        "text",
-        "steps",
-        "max_tokens",
-        "keep",
-        "cap"
-      ],
-      "outputs": [
-        "tokens",
-        "compact",
-        "_compact",
-        "used_tokens",
-        "budget",
-        "overshoot"
-      ],
-      "path": "agents/context/context-compact"
-    },
-    "code-deliver": {
-      "name": "code-deliver",
-      "version": "0.1.0",
-      "domain": "deliver",
-      "description": "交付/报告原子: 汇总组装链各原子输出为验收报告(数据不出厂)。deliver.report 聚合 think/gen/review/test/evolve 结果, deliver.package 收集产物清单。",
-      "open_source": true,
-      "agent_class": "CodeDeliverAgent",
-      "entry": "main.py",
-      "provides": [
-        "deliver.report",
-        "deliver.package"
-      ],
-      "depends_on": [],
-      "inputs": [
-        "chain",
-        "outputs",
-        "evidence"
-      ],
-      "outputs": [
-        "report",
-        "artifacts",
-        "verdict"
-      ],
-      "path": "agents/deliver/code-deliver"
-    },
-    "dep-scan": {
-      "name": "dep-scan",
-      "version": "0.2.0",
-      "domain": "depscan",
-      "description": "依赖漏洞SCA+污点+跨仓库断链原子：复用 dep_scan.scan_dependencies/taint_analyze/scan_all + chain_break.multi_repo_break_check，纯 stdlib 数据不出厂。SCA 依赖漏洞 + Semgrep 级 source→sink 污点分析 + 多仓库联动断链。",
-      "open_source": true,
-      "agent_class": "DepScanAgent",
-      "entry": "main.py",
-      "provides": [
-        "depscan.scan",
-        "depscan.sca",
-        "depscan.taint",
-        "depscan.osv",
-        "depscan.chainbreak"
-      ],
-      "depends_on": [],
-      "inputs": [
-        "target",
-        "osv_query",
-        "allow_remote",
-        "repos"
-      ],
-      "outputs": [
-        "deps",
-        "vulns",
-        "sca",
-        "taint",
-        "findings",
-        "total_findings",
-        "summary",
-        "broken",
-        "checks",
-        "by_tier"
-      ],
-      "path": "agents/depscan/dep-scan"
-    },
-    "code-dispatch": {
-      "name": "code-dispatch",
-      "version": "0.2.0",
-      "domain": "dispatch",
-      "description": "派单原子: 复用 dispatch_template 派单5段 + estimate_budget 自适应预算 + back_to_back 背靠背验证 + check_workspace_conflicts 并行冲突防护 + allow/ask/deny 三级细粒度权限(OpenCode P1-2)。纯启发式/规则。",
-      "open_source": true,
-      "agent_class": "CodeDispatchAgent",
-      "entry": "main.py",
-      "provides": [
-        "dispatch.template",
-        "dispatch.budget",
-        "dispatch.verify",
-        "dispatch.conflict",
-        "dispatch.permission"
-      ],
-      "depends_on": [],
-      "inputs": [
-        "background",
-        "goal",
-        "constraint",
-        "redline",
-        "deliverable",
-        "task",
-        "files_needed",
-        "language",
-        "claims",
-        "workdir",
-        "rerun_cmd",
-        "tasks",
-        "workspace",
-        "policy",
-        "action",
-        "resource",
-        "resource_type"
-      ],
-      "outputs": [
-        "template",
-        "budget",
-        "items",
-        "summary",
-        "conflicts",
-        "safe",
-        "recommendation",
-        "decision",
-        "policy"
-      ],
-      "path": "agents/dispatch/code-dispatch"
-    },
-    "doc-freshness": {
-      "name": "doc-freshness",
-      "version": "0.1.0",
-      "domain": "docs",
-      "description": "文档新鲜度审计：代码锚点确定性校验（repo://path#L-L 行区间哈希/符号存在性），输出 stale/unresolved。复用 doc_freshness。借鉴 OpenWiki 证据版本化。零 LLM。",
-      "open_source": true,
-      "agent_class": "DocFreshnessAgent",
-      "entry": "main.py",
-      "provides": [
-        "doc.anchor",
-        "doc.stale"
-      ],
-      "depends_on": [],
-      "inputs": [
-        "path",
-        "root"
-      ],
-      "outputs": [
-        "file",
-        "anchors",
-        "ok_count",
-        "stale",
-        "unresolved",
-        "total_anchors",
-        "stale_count",
-        "unresolved_count"
-      ],
-      "path": "agents/docs/doc-freshness"
-    },
-    "domain-review": {
-      "name": "domain-review",
-      "version": "0.1.0",
-      "domain": "domain",
-      "description": "领域代码审查原子（P2）: 跨仓库import依赖拓扑断链(复用chain_break) + 工业阀门领域规则审查。纯 stdlib 数据不出厂。",
-      "open_source": true,
-      "agent_class": "DomainReviewAgent",
-      "entry": "main.py",
-      "provides": [
-        "domain.imports",
-        "domain.valve"
-      ],
-      "depends_on": [],
-      "inputs": [
-        "repos",
-        "target",
-        "rules",
-        "data"
-      ],
-      "outputs": [
-        "ok",
-        "broken",
-        "topology",
-        "violations",
-        "rules",
-        "verdict"
-      ],
-      "path": "agents/domain/domain-review"
-    },
-    "code-evolve": {
-      "name": "code-evolve",
-      "version": "0.1.0",
-      "domain": "evolve",
-      "description": "自进化原子: 复用 self_evolve.refine(观察→归因→精炼→校验四步闭环)/self_prompt/tdd_loop/_sediment_skill。evolve.refine 四步闭环+技能沉淀, evolve.tdd 红绿闭环。",
-      "open_source": true,
-      "agent_class": "CodeEvolveAgent",
-      "entry": "main.py",
-      "provides": [
-        "evolve.refine",
-        "evolve.skill",
-        "evolve.self_prompt",
-        "evolve.tdd"
-      ],
-      "depends_on": [
-        "memory.recall"
-      ],
-      "inputs": [
-        "task",
-        "outcome",
-        "snapshot",
-        "memdir",
-        "auto_sediment",
-        "top_k"
-      ],
-      "outputs": [
-        "observation",
-        "attribution",
-        "refinement",
-        "kept",
-        "verdict",
-        "skills",
-        "prompt",
-        "tdd"
-      ],
-      "path": "agents/evolve/code-evolve"
-    },
-    "code-fuzz": {
-      "name": "code-fuzz",
-      "version": "0.2.0",
-      "domain": "fuzz",
-      "description": "属性模糊测试原子：复用 fuzz_engine.coverage_driven_gen/fuzz_function/property_test/fuzz_project，纯 stdlib 子进程隔离执行。覆盖率驱动用例生成 + 属性/模糊测试捕获未处理异常。",
-      "open_source": true,
-      "agent_class": "CodeFuzzAgent",
-      "entry": "main.py",
-      "provides": [
-        "fuzz.gen",
-        "fuzz.run",
-        "fuzz.property",
-        "fuzz.project"
-      ],
-      "depends_on": [],
-      "inputs": [
-        "path",
-        "funcname",
-        "iterations",
-        "timeout",
-        "seed",
-        "max_cases",
-        "properties",
-        "max_funcs"
-      ],
-      "outputs": [
-        "func",
-        "cases",
-        "coverage_hint",
-        "runs",
-        "crashed",
-        "unhandled",
-        "failures",
-        "ok",
-        "details"
-      ],
-      "path": "agents/fuzz/code-fuzz"
-    },
-    "guard": {
-      "name": "guard",
-      "version": "0.1.0",
-      "domain": "guard",
-      "description": "护栏钩子原子（P2，借鉴Codex guardian）: code变更前置/后置安全审查钩子流水线, 复用security_scan 10维度+secret+误报治理做门禁(pre/post/pipeline/check)。纯stdlib数据不出厂。",
-      "open_source": true,
-      "agent_class": "GuardAgent",
-      "entry": "main.py",
-      "provides": [
-        "guard.pre",
-        "guard.post",
-        "guard.pipeline",
-        "guard.check"
-      ],
-      "depends_on": [],
-      "inputs": [
-        "path",
-        "code",
-        "paths",
-        "govern"
-      ],
-      "outputs": [
-        "issues",
-        "secrets",
-        "verdict",
-        "files",
-        "summary",
-        "total"
-      ],
-      "path": "agents/guard/guard"
-    },
-    "deadcode": {
-      "name": "deadcode",
-      "version": "0.1.0",
-      "domain": "impact",
-      "description": "死代码检测：入口点正向可达 BFS，报不可达死符号。复用 deadcode。借鉴 code-graph-rag。零 LLM。",
-      "open_source": true,
-      "agent_class": "DeadCodeAgent",
-      "entry": "main.py",
-      "provides": [
-        "deadcode.scan",
-        "deadcode.stats"
-      ],
-      "depends_on": [],
-      "inputs": [
-        "path",
-        "threshold"
-      ],
-      "outputs": [
-        "total",
-        "live",
-        "dead_count",
-        "ratio",
-        "roots",
-        "dead",
-        "dead_by_file"
-      ],
-      "path": "agents/impact/deadcode"
-    },
-    "dep-impact": {
-      "name": "dep-impact",
-      "version": "0.1.0",
-      "domain": "impact",
-      "description": "依赖图影响分析原子：复用 dep_audit.build_graph/dep_report，零 LLM。分析改符号/模块波及谁、循环依赖、模块耦合。",
-      "open_source": true,
-      "agent_class": "DepImpactAgent",
-      "entry": "main.py",
-      "provides": [
-        "impact.analyze",
-        "impact.circular",
-        "impact.coupling"
-      ],
-      "depends_on": [],
-      "inputs": [
-        "path",
-        "symbol",
-        "impact",
-        "transitive"
-      ],
-      "outputs": [
-        "files",
-        "entities",
-        "edges",
-        "coupling",
-        "circular_imports",
-        "impact"
-      ],
-      "path": "agents/impact/dep-impact"
-    },
-    "method-impact": {
-      "name": "method-impact",
-      "version": "0.1.0",
-      "domain": "impact",
-      "description": "方法级影响分析：复用 method_impact，CALLS 传递反向可达 + 传播路径 + 边类型分类。借鉴 code-graph-rag 方法级 CALLS。零 LLM。",
-      "open_source": true,
-      "agent_class": "MethodImpactAgent",
-      "entry": "main.py",
-      "provides": [
-        "impact.method",
-        "impact.kind"
-      ],
-      "depends_on": [],
-      "inputs": [
-        "path",
-        "symbol",
-        "transitive",
-        "max_depth",
-        "caller",
-        "to"
-      ],
-      "outputs": [
-        "symbol",
-        "impact",
-        "paths",
-        "kind",
-        "entities",
-        "edges"
-      ],
-      "path": "agents/impact/method-impact"
-    },
-    "llm-router": {
-      "name": "llm-router",
-      "version": "0.2.0",
-      "domain": "llm",
-      "description": "多模型 provider 注册表原子: 本地 ornith/Ollama + 云端 DeepSeek/GLM 等热扩展(改config即加模型)。llm.generate 云端按provider路由, llm.review 本地。llm.list_models/registry 模型目录。local-only 默认 True 数据不出厂。",
-      "open_source": true,
-      "agent_class": "LlmRouterAgent",
-      "entry": "main.py",
-      "provides": [
-        "llm.generate",
-        "llm.review",
-        "llm.list_models",
-        "llm.registry"
-      ],
-      "depends_on": [],
-      "inputs": [
-        "messages",
-        "temp",
-        "max_tokens",
-        "local_only",
-        "config_path",
-        "provider",
-        "model",
-        "api_key"
-      ],
-      "outputs": [
-        "content",
-        "model",
-        "provider",
-        "type",
-        "models",
-        "registry"
-      ],
-      "path": "agents/llm/llm-router"
-    },
-    "localized": {
-      "name": "localized",
-      "version": "0.1.0",
-      "domain": "locality",
-      "description": "本地化原子（P1）: 数据不出厂审计(网络/云端调用信号) + 模型降级链本地主(本地可用绝不外发) + 本地路由审查。纯 stdlib 数据不出厂。",
-      "open_source": true,
-      "agent_class": "LocalizedAgent",
-      "entry": "main.py",
-      "provides": [
-        "local.audit",
-        "local.chain",
-        "local.route"
-      ],
-      "depends_on": [],
-      "inputs": [
-        "target",
-        "code",
-        "local_only",
-        "candidates",
-        "config_path",
-        "timeout"
-      ],
-      "outputs": [
-        "ok",
-        "signals",
-        "route",
-        "local_up",
-        "verdict",
-        "fallback"
-      ],
-      "path": "agents/locality/localized"
-    },
-    "mcp-client": {
-      "name": "mcp-client",
-      "version": "0.1.0",
-      "domain": "mcp",
-      "description": "MCP 客户端原子(新原子): 连外部 MCP server(local stdio + remote http), tools/list + tools/call 接入生态工具。默认 local_only 白名单, 远程需显式 allow_remote。零依赖纯标准库。",
-      "open_source": true,
-      "agent_class": "McpClientAgent",
-      "entry": "main.py",
-      "provides": [
-        "mcp.list",
-        "mcp.connect",
-        "mcp.tools",
-        "mcp.call"
-      ],
-      "depends_on": [],
-      "inputs": [
-        "server",
-        "endpoint",
-        "command",
-        "tools",
-        "timeout",
-        "local_only",
-        "allow_remote",
-        "allow_tools"
-      ],
-      "outputs": [
-        "servers",
-        "tools",
-        "result",
-        "server"
-      ],
-      "path": "agents/mcp/mcp-client"
-    },
-    "code-memory": {
-      "name": "code-memory",
-      "version": "0.1.0",
-      "domain": "memory",
-      "description": "记忆/经验原子: 复用 self_evolve.remember/_load/_save + OptMem 思路。memory.save 经验沉淀, memory.recall 跨会话召回, memory.sediment 技能沉淀。落 experience/*.json。",
-      "open_source": true,
-      "agent_class": "CodeMemoryAgent",
-      "entry": "main.py",
-      "provides": [
-        "memory.save",
-        "memory.recall",
-        "memory.sediment"
-      ],
-      "depends_on": [],
-      "inputs": [
-        "findings",
-        "task",
-        "memdir",
-        "top_k"
-      ],
-      "outputs": [
-        "added",
-        "lessons",
-        "prompt",
-        "skills"
-      ],
-      "path": "agents/memory/code-memory"
-    },
-    "model-fallback": {
-      "name": "model-fallback",
-      "version": "0.1.0",
-      "domain": "model",
-      "description": "模型降级链原子（P2，借鉴Codex model-provider fallback）: 按候选链尝试provider, 失败自动降级(cloud→local), local_only剔除云端数据不出厂。复用llm-router provider注册表概念。",
-      "open_source": true,
-      "agent_class": "ModelFallbackAgent",
-      "entry": "main.py",
-      "provides": [
-        "model.chain",
-        "model.route",
-        "model.candidates"
-      ],
-      "depends_on": [
-        "llm.list_models"
-      ],
-      "inputs": [
-        "messages",
-        "call_model",
-        "purpose",
-        "preference",
-        "local_only",
-        "candidates"
-      ],
-      "outputs": [
-        "ok",
-        "verdict",
-        "provider",
-        "type",
-        "result",
-        "fell_back",
-        "candidates",
-        "errors"
-      ],
-      "path": "agents/model/model-fallback"
-    },
-    "ontology-review": {
-      "name": "ontology-review",
-      "version": "0.1.0",
-      "domain": "ontology",
-      "description": "本体审查原子（P0+P2）: factory-ontology 链路断链审查(Web↔套件↔CSV↔NT) + 本体数据质量(CSV/NT/lexicon)。纯 stdlib 数据不出厂。",
-      "open_source": true,
-      "agent_class": "OntologyReviewAgent",
-      "entry": "main.py",
-      "provides": [
-        "ontology.chain",
-        "ontology.quality"
-      ],
-      "depends_on": [],
-      "inputs": [
-        "web_dir",
-        "kit_dir",
-        "data_dir",
-        "target"
-      ],
-      "outputs": [
-        "ok",
-        "links",
-        "issues",
-        "quality",
-        "verdict"
-      ],
-      "path": "agents/ontology/ontology-review"
-    },
-    "code-plan": {
-      "name": "code-plan",
-      "version": "0.1.0",
-      "domain": "plan",
-      "description": "方案设计原子: 复用 dispatch_template 派单5段模板任务拆解。plan.think 输出5段方案+文件清单, plan.gen 按方案产出代码骨架/透传代码。",
-      "open_source": true,
-      "agent_class": "CodePlanAgent",
-      "entry": "main.py",
-      "provides": [
-        "plan.think",
-        "plan.gen"
-      ],
-      "depends_on": [
-        "taskstate.track"
-      ],
-      "inputs": [
-        "task",
-        "language",
-        "domain",
-        "files_needed",
-        "spec"
-      ],
-      "outputs": [
-        "plan",
-        "assumptions",
-        "files_needed",
-        "constraint_chain",
-        "questions",
-        "files",
-        "score"
-      ],
-      "path": "agents/plan/code-plan"
-    },
-    "code-project": {
-      "name": "code-project",
-      "version": "0.1.0",
-      "domain": "project",
-      "description": "项目加载/分析原子: 复用 load_project/scan_issues/analyze_project 思路, 产出项目快照+问题清单。project.load 快照, project.scan 扫描问题, project.analyze 分析。",
-      "open_source": true,
-      "agent_class": "CodeProjectAgent",
-      "entry": "main.py",
-      "provides": [
-        "project.load",
-        "project.scan",
-        "project.analyze"
-      ],
-      "depends_on": [],
-      "inputs": [
-        "path",
-        "file_pattern",
-        "max_complexity",
-        "impact"
-      ],
-      "outputs": [
-        "files",
-        "snapshot",
-        "issues",
-        "summary"
-      ],
-      "path": "agents/project/code-project"
-    },
-    "code-reuse": {
-      "name": "code-reuse",
-      "version": "0.1.0",
-      "domain": "reuse",
-      "description": "代码复用检索原子: 复用 review.py._list_code_atoms/_reuse_suggestion + atoms/19个复用库。reuse.local 本地检索, reuse.atom 列库, reuse.remote GitHub降级。",
-      "open_source": true,
-      "agent_class": "CodeReuseAgent",
-      "entry": "main.py",
-      "provides": [
-        "reuse.local",
-        "reuse.atom",
-        "reuse.remote"
-      ],
-      "depends_on": [],
-      "inputs": [
-        "content",
-        "path",
-        "top_k",
-        "task"
-      ],
-      "outputs": [
-        "suggestions",
-        "atoms",
-        "count"
-      ],
-      "path": "agents/reuse/code-reuse"
-    },
-    "process-sandbox": {
-      "name": "process-sandbox",
-      "version": "0.1.0",
-      "domain": "sandbox",
-      "description": "进程沙箱原子（P0，借鉴Codex sandboxing）: 安全执行不可信PoC/命令, 隔离+超时+资源限制+输出封顶+白名单+env净化+路径防护。纯stdlib数据不出厂。",
-      "open_source": true,
-      "agent_class": "ProcessSandboxAgent",
-      "entry": "main.py",
-      "provides": [
-        "sandbox.poc",
-        "sandbox.exec",
-        "sandbox.validate",
-        "sandbox.interpreter",
-        "sandbox.guard"
-      ],
-      "depends_on": [],
-      "inputs": [
-        "code",
-        "cmd",
-        "timeout",
-        "max_output",
-        "base_dir",
-        "path",
-        "base"
-      ],
-      "outputs": [
-        "ran",
-        "verdict",
-        "rc",
-        "wall_s",
-        "evidence",
-        "out_tail",
-        "err_tail",
-        "timed_out",
-        "overflow",
-        "rejected",
-        "safe",
-        "path"
-      ],
-      "path": "agents/sandbox/process-sandbox"
-    },
-    "security-scan": {
-      "name": "security-scan",
-      "version": "0.1.0",
-      "domain": "security",
-      "description": "安全扫描原子: 10安全维度(注入/认证/授权/反序列化/文件/SSRF/加密/配置/业务/供应链) + 危险函数库 + secret检测 + 误报治理。纯 stdlib 数据不出厂。",
-      "open_source": true,
-      "agent_class": "SecurityScanAgent",
-      "entry": "main.py",
-      "provides": [
-        "security.scan",
-        "security.secret",
-        "security.govern",
-        "security.dim",
-        "security.project"
-      ],
-      "depends_on": [],
-      "inputs": [
-        "path",
-        "code",
-        "dimension"
-      ],
-      "outputs": [
-        "issues",
-        "by_dimension",
-        "by_tier",
-        "secrets",
-        "total",
-        "summary",
-        "files"
-      ],
-      "path": "agents/security/security-scan"
-    },
-    "code-skill": {
-      "name": "code-skill",
-      "version": "0.1.0",
-      "domain": "skill",
-      "description": "SKILL.md 技能标准原子(新原子): 兼容 .opencode/.claude/.agents/skills 搜索路径, skill.load 按需加载省上下文, skill.export 把自进化沉淀技能转 SKILL.md 标准可交换资产。",
-      "open_source": true,
-      "agent_class": "CodeSkillAgent",
-      "entry": "main.py",
-      "provides": [
-        "skill.list",
-        "skill.load",
-        "skill.export",
-        "skill.sediment"
-      ],
-      "depends_on": [
-        "memory.recall"
-      ],
-      "inputs": [
-        "paths",
-        "name",
-        "content",
-        "task",
-        "action",
-        "bucket",
-        "memdir",
-        "frontmatter"
-      ],
-      "outputs": [
-        "skills",
-        "skill",
-        "exported",
-        "added",
-        "path"
-      ],
-      "path": "agents/skill/code-skill"
-    },
-    "task-state": {
-      "name": "task-state",
-      "version": "0.1.0",
-      "domain": "taskstate",
-      "description": "任务状态原子: 复用外置任务状态模块(做到哪/下一步/证据/决策点), 跨会话续跑不丢进度。taskstate.track 跟踪状态。",
-      "open_source": true,
-      "agent_class": "TaskStateAgent",
-      "entry": "main.py",
-      "provides": [
-        "taskstate.track"
-      ],
-      "depends_on": [],
-      "inputs": [
-        "task",
-        "action",
-        "tid",
-        "state",
-        "progress",
-        "evidence",
-        "gate",
-        "status_file"
-      ],
-      "outputs": [
-        "status",
-        "task_id",
-        "file",
-        "progress"
-      ],
-      "path": "agents/taskstate/task-state"
-    },
-    "code-test": {
-      "name": "code-test",
-      "version": "0.2.1",
-      "domain": "test",
-      "description": "测试原子：复用 test_harness 红绿回归 + reg_guard 回归快照/增量测试选择 + P0-3智能测试选择(git diff→受影响测试省时非全量) + P1-4人类在环(AI结论需人工复核渐进式不自动放行) + P1-5覆盖度分析(报告未测函数/分支提示补测)。",
-      "open_source": true,
-      "agent_class": "CodeTestAgent",
-      "entry": "main.py",
-      "provides": [
-        "test.gen",
-        "test.run",
-        "test.tdd",
-        "test.snapshot",
-        "test.affected",
-        "test.select",
-        "test.coverage_analysis"
-      ],
-      "depends_on": [],
-      "inputs": [
-        "code",
-        "path",
-        "target_dir",
-        "task",
-        "project_root",
-        "test_map",
-        "human_review"
-      ],
-      "outputs": [
-        "test_files",
-        "smoke",
-        "coverage",
-        "unit",
-        "boundary",
-        "mutation",
-        "stability",
-        "red_green",
-        "coverage_analysis",
-        "human_review"
-      ],
-      "path": "agents/test/code-test"
-    },
-    "batch-fs": {
-      "name": "batch-fs",
-      "version": "0.1.0",
-      "domain": "tools",
-      "description": "通用工具原子(省重复 P1-3): 批量文件操作(列文件/哈希/去重/重命名/按扩展名整理), 包装 pycommon + E:/scripts/fs。纯 stdlib 数据不出厂。",
-      "open_source": true,
-      "agent_class": "BatchFsAgent",
-      "entry": "main.py",
-      "provides": [
-        "fs.list",
-        "fs.hash",
-        "fs.dedup",
-        "fs.rename",
-        "fs.organize"
-      ],
-      "depends_on": [],
-      "inputs": [
-        "action",
-        "d",
-        "p",
-        "prefix",
-        "suffix",
-        "dry",
-        "recursive"
-      ],
-      "outputs": [
-        "result",
-        "error",
-        "duplicates",
-        "pairs",
-        "changed",
-        "moved"
-      ],
-      "path": "agents/tools/batch-fs"
-    },
-    "data-tools": {
-      "name": "data-tools",
-      "version": "0.1.0",
-      "domain": "tools",
-      "description": "通用工具原子(省重复 P1-3): 数据集统计/CSV 读写/行去重/固定种子抽样/字段中文清洗, 包装 pycommon + E:/scripts/data。纯 stdlib 数据不出厂。",
-      "open_source": true,
-      "agent_class": "DataToolsAgent",
-      "entry": "main.py",
-      "provides": [
-        "data.stats",
-        "data.csv.read",
-        "data.csv.write",
-        "data.dedup_lines",
-        "data.sample",
-        "data.clean_fields"
-      ],
-      "depends_on": [],
-      "inputs": [
-        "action",
-        "p",
-        "p_in",
-        "p_out",
-        "rows",
-        "fields",
-        "n",
-        "seed",
-        "delimiter",
-        "remove_ai_talk"
-      ],
-      "outputs": [
-        "result",
-        "error",
-        "rows",
-        "fields",
-        "sample",
-        "cleaned"
-      ],
-      "path": "agents/tools/data-tools"
-    },
-    "git-ops": {
-      "name": "git-ops",
-      "version": "0.1.0",
-      "domain": "tools",
-      "description": "通用工具原子(省重复 P1-3): 常用 git 操作(status/log/branch/remote/sync/commit), 包装 E:/scripts/git。纯 stdlib 数据不出厂。",
-      "open_source": true,
-      "agent_class": "GitOpsAgent",
-      "entry": "main.py",
-      "provides": [
-        "git.status",
-        "git.log",
-        "git.branch",
-        "git.remote",
-        "git.sync",
-        "git.commit"
-      ],
-      "depends_on": [],
-      "inputs": [
-        "action",
-        "d",
-        "n",
-        "msg"
-      ],
-      "outputs": [
-        "result",
-        "error",
-        "returncode",
-        "stdout",
-        "stderr"
-      ],
-      "path": "agents/tools/git-ops"
-    },
-    "json-io": {
-      "name": "json-io",
-      "version": "0.1.0",
-      "domain": "tools",
-      "description": "通用工具原子(省重复 P1-3): JSON/JSONL 读写去重, 包装 E:/scripts/lib/pycommon.py, 纯 stdlib 数据不出厂。收敛 123 个散落脚本手写 json helper。",
-      "open_source": true,
-      "agent_class": "JsonIoAgent",
-      "entry": "main.py",
-      "provides": [
-        "json.load",
-        "json.save",
-        "jsonl.read",
-        "jsonl.write",
-        "jsonl.append",
-        "jsonl.dedup"
-      ],
-      "depends_on": [],
-      "inputs": [
-        "action",
-        "path",
-        "obj",
-        "rows",
-        "key",
-        "default"
-      ],
-      "outputs": [
-        "result",
-        "error"
-      ],
-      "path": "agents/tools/json-io"
-    },
-    "text-clean": {
-      "name": "text-clean",
-      "version": "0.1.0",
-      "domain": "tools",
-      "description": "通用工具原子(省重复 P1-3): 中文文本清洗(去AI套话/规范空白/中文检测), 包装 pycommon。收敛散落脚本中反复手写的中文清洗函数。",
-      "open_source": true,
-      "agent_class": "TextCleanAgent",
-      "entry": "main.py",
-      "provides": [
-        "clean.cn",
-        "clean.ai_talk",
-        "clean.ws",
-        "clean.is_chinese"
-      ],
-      "depends_on": [],
-      "inputs": [
-        "action",
-        "s",
-        "remove_ai_talk"
-      ],
-      "outputs": [
-        "result",
-        "error"
-      ],
-      "path": "agents/tools/text-clean"
-    }
+ "schema": "codeagent-registry-v1",
+ "agents_dir": "agents",
+ "agents": {
+  "command-approvals": {
+   "name": "command-approvals",
+   "version": "0.1.0",
+   "domain": "approval",
+   "description": "高危命令/工具审批原子（P0，借鉴Codex approvals.rs/execpolicy）: 命令/工具/文件/网络 allow/ask/deny 细粒度判定+高危命令表+人工确认。复用code-dispatch权限模型, 算法进开源approval_policy.py。",
+   "open_source": true,
+   "agent_class": "CommandApprovalsAgent",
+   "entry": "main.py",
+   "provides": [
+    "approval.check",
+    "approval.classify",
+    "approval.resolve",
+    "approval.policy"
+   ],
+   "depends_on": [],
+   "inputs": [
+    "resource",
+    "resource_type",
+    "policy",
+    "decision",
+    "user_choice"
+   ],
+   "outputs": [
+    "decision",
+    "reason",
+    "rule",
+    "tier",
+    "verdict",
+    "granted",
+    "matched_keywords",
+    "pending"
+   ],
+   "path": "agents/approval/command-approvals"
   },
-  "order": [
-    "command-approvals",
-    "arch-review",
-    "atomicity-audit",
-    "bug-deep",
-    "minimalist-style",
-    "context-compact",
-    "code-deliver",
-    "dep-scan",
-    "code-dispatch",
-    "doc-freshness",
-    "domain-review",
-    "code-fuzz",
-    "guard",
-    "deadcode",
-    "dep-impact",
-    "method-impact",
-    "llm-router",
-    "localized",
-    "mcp-client",
-    "code-memory",
-    "ontology-review",
-    "code-project",
-    "code-reuse",
-    "process-sandbox",
-    "security-scan",
-    "task-state",
-    "code-test",
-    "batch-fs",
-    "data-tools",
-    "git-ops",
-    "json-io",
-    "text-clean",
-    "code-review",
-    "model-fallback",
-    "code-evolve",
-    "code-skill",
-    "code-plan"
-  ],
-  "conflicts": []
+  "arch-review": {
+   "name": "arch-review",
+   "version": "0.1.0",
+   "domain": "archreview",
+   "description": "架构审查原子: 分层/依赖方向/边界/攻击面清单/设计意图比对(声明vs实现)。纯 stdlib 数据不出厂。",
+   "open_source": true,
+   "agent_class": "ArchReviewAgent",
+   "entry": "main.py",
+   "provides": [
+    "archreview.layers",
+    "archreview.boundary",
+    "archreview.surface",
+    "archreview.intent"
+   ],
+   "depends_on": [],
+   "inputs": [
+    "path"
+   ],
+   "outputs": [
+    "layers",
+    "by_layer",
+    "violations",
+    "boundaries",
+    "inventory",
+    "missing",
+    "summary"
+   ],
+   "path": "agents/archreview/arch-review"
+  },
+  "atomicity-audit": {
+   "name": "atomicity-audit",
+   "version": "0.1.0",
+   "domain": "atomic",
+   "description": "原子化审查原子（P0，覆盖 codeagent-minimal 自身）: 复用 agent_loader 审查 manifest(name==目录/字段/entry)/registry 一致性/能力断链。纯 stdlib 数据不出厂。",
+   "open_source": true,
+   "agent_class": "AtomicityAuditAgent",
+   "entry": "main.py",
+   "provides": [
+    "atomicity.manifest",
+    "atomicity.registry",
+    "atomicity.breaks"
+   ],
+   "depends_on": [],
+   "inputs": [
+    "agents_dir",
+    "registry_path"
+   ],
+   "outputs": [
+    "ok",
+    "issues",
+    "agents",
+    "registry_mismatch",
+    "breaks",
+    "verdict"
+   ],
+   "path": "agents/atomic/atomicity-audit"
+  },
+  "bug-deep": {
+   "name": "bug-deep",
+   "version": "0.1.0",
+   "domain": "bugdeep",
+   "description": "深挖 bug 原子: 威胁建模先建攻击面 + 对抗性审查 + 自动化PoC沙箱跑证据 + AI规则反哺闭环(验证漏洞沉淀规则)。纯 stdlib 数据不出厂。",
+   "open_source": true,
+   "agent_class": "BugDeepAgent",
+   "entry": "main.py",
+   "provides": [
+    "bugdeep.model",
+    "bugdeep.adv",
+    "bugdeep.poc",
+    "bugdeep.rule"
+   ],
+   "depends_on": [],
+   "inputs": [
+    "path",
+    "code",
+    "sink",
+    "title",
+    "rules_file"
+   ],
+   "outputs": [
+    "attack_surface",
+    "findings",
+    "confirmed",
+    "evidence",
+    "rule",
+    "summary"
+   ],
+   "path": "agents/bugdeep/bug-deep"
+  },
+  "code-review": {
+   "name": "code-review",
+   "version": "0.2.1",
+   "domain": "codereview",
+   "description": "代码审查原子(多模+5方向): review.py静态/语义/依赖图+LSP(P1-3)+P0-1逐行语义审查+P0-2严重度去噪+P2-7自评+P1-4人类在环; 5方向: 轻审codereview.light(增量git diff快速静态+安全基线) + 重审codereview.deep(数据流污点追踪+双引擎静态+AI语义对抗性审查先假设误报证伪)。",
+   "open_source": true,
+   "agent_class": "CodeReviewAgent",
+   "entry": "main.py",
+   "provides": [
+    "codereview.review",
+    "codereview.design",
+    "codereview.layout",
+    "codereview.content",
+    "codereview.lsp",
+    "codereview.semantic",
+    "codereview.self_eval",
+    "codereview.light",
+    "codereview.deep"
+   ],
+   "depends_on": [
+    "impact.analyze"
+   ],
+   "inputs": [
+    "path",
+    "code",
+    "mode",
+    "use_llm",
+    "reuse_atoms",
+    "max_complexity",
+    "lsp",
+    "lsp_server",
+    "semantic",
+    "denoise",
+    "base"
+   ],
+   "outputs": [
+    "score",
+    "issues",
+    "static_issues",
+    "model",
+    "reuse_suggestions",
+    "lsp_diagnostics",
+    "severity_summary",
+    "self_eval",
+    "human_review",
+    "security_baseline",
+    "dataflow_findings",
+    "adversarial",
+    "changed_files"
+   ],
+   "path": "agents/codereview/code-review"
+  },
+  "minimalist-style": {
+   "name": "minimalist-style",
+   "version": "0.1.0",
+   "domain": "codereview",
+   "description": "极简风格审查原子（P0）: 解析 AST 审查代码是否纯标准库/不过度依赖/不炫技/可独立部署。纯 stdlib 数据不出厂。",
+   "open_source": true,
+   "agent_class": "MinimalistStyleAgent",
+   "entry": "main.py",
+   "provides": [
+    "minimal.style",
+    "minimal.deps",
+    "minimal.independent"
+   ],
+   "depends_on": [],
+   "inputs": [
+    "path",
+    "code",
+    "strict"
+   ],
+   "outputs": [
+    "ok",
+    "score",
+    "issues",
+    "third_party",
+    "signals",
+    "verdict"
+   ],
+   "path": "agents/codereview/minimalist-style"
+  },
+  "context-compact": {
+   "name": "context-compact",
+   "version": "0.1.0",
+   "domain": "context",
+   "description": "上下文压缩原子（P2，借鉴Codex context_manager/compaction）: token估算 + 链结果压缩(保留summary/score/verdict丢弃大payload) + max_tokens预算裁剪。防组装链上下文膨胀。纯stdlib。",
+   "open_source": true,
+   "agent_class": "ContextCompactAgent",
+   "entry": "main.py",
+   "provides": [
+    "context.estimate",
+    "context.compact",
+    "context.budget"
+   ],
+   "depends_on": [],
+   "inputs": [
+    "data",
+    "text",
+    "steps",
+    "max_tokens",
+    "keep",
+    "cap"
+   ],
+   "outputs": [
+    "tokens",
+    "compact",
+    "_compact",
+    "used_tokens",
+    "budget",
+    "overshoot"
+   ],
+   "path": "agents/context/context-compact"
+  },
+  "code-deliver": {
+   "name": "code-deliver",
+   "version": "0.1.0",
+   "domain": "deliver",
+   "description": "交付/报告原子: 汇总组装链各原子输出为验收报告(数据不出厂)。deliver.report 聚合 think/gen/review/test/evolve 结果, deliver.package 收集产物清单。",
+   "open_source": true,
+   "agent_class": "CodeDeliverAgent",
+   "entry": "main.py",
+   "provides": [
+    "deliver.report",
+    "deliver.package"
+   ],
+   "depends_on": [],
+   "inputs": [
+    "chain",
+    "outputs",
+    "evidence"
+   ],
+   "outputs": [
+    "report",
+    "artifacts",
+    "verdict"
+   ],
+   "path": "agents/deliver/code-deliver"
+  },
+  "dep-scan": {
+   "name": "dep-scan",
+   "version": "0.2.0",
+   "domain": "depscan",
+   "description": "依赖漏洞SCA+污点+跨仓库断链原子：复用 dep_scan.scan_dependencies/taint_analyze/scan_all + chain_break.multi_repo_break_check，纯 stdlib 数据不出厂。SCA 依赖漏洞 + Semgrep 级 source→sink 污点分析 + 多仓库联动断链。",
+   "open_source": true,
+   "agent_class": "DepScanAgent",
+   "entry": "main.py",
+   "provides": [
+    "depscan.scan",
+    "depscan.sca",
+    "depscan.taint",
+    "depscan.osv",
+    "depscan.chainbreak"
+   ],
+   "depends_on": [],
+   "inputs": [
+    "target",
+    "osv_query",
+    "allow_remote",
+    "repos"
+   ],
+   "outputs": [
+    "deps",
+    "vulns",
+    "sca",
+    "taint",
+    "findings",
+    "total_findings",
+    "summary",
+    "broken",
+    "checks",
+    "by_tier"
+   ],
+   "path": "agents/depscan/dep-scan"
+  },
+  "code-dispatch": {
+   "name": "code-dispatch",
+   "version": "0.2.0",
+   "domain": "dispatch",
+   "description": "派单原子: 复用 dispatch_template 派单5段 + estimate_budget 自适应预算 + back_to_back 背靠背验证 + check_workspace_conflicts 并行冲突防护 + allow/ask/deny 三级细粒度权限(OpenCode P1-2)。纯启发式/规则。",
+   "open_source": true,
+   "agent_class": "CodeDispatchAgent",
+   "entry": "main.py",
+   "provides": [
+    "dispatch.template",
+    "dispatch.budget",
+    "dispatch.verify",
+    "dispatch.conflict",
+    "dispatch.permission"
+   ],
+   "depends_on": [],
+   "inputs": [
+    "background",
+    "goal",
+    "constraint",
+    "redline",
+    "deliverable",
+    "task",
+    "files_needed",
+    "language",
+    "claims",
+    "workdir",
+    "rerun_cmd",
+    "tasks",
+    "workspace",
+    "policy",
+    "action",
+    "resource",
+    "resource_type"
+   ],
+   "outputs": [
+    "template",
+    "budget",
+    "items",
+    "summary",
+    "conflicts",
+    "safe",
+    "recommendation",
+    "decision",
+    "policy"
+   ],
+   "path": "agents/dispatch/code-dispatch"
+  },
+  "doc-freshness": {
+   "name": "doc-freshness",
+   "version": "0.1.0",
+   "domain": "docs",
+   "description": "文档新鲜度审计：代码锚点确定性校验（repo://path#L-L 行区间哈希/符号存在性），输出 stale/unresolved。复用 doc_freshness。借鉴 OpenWiki 证据版本化。零 LLM。",
+   "open_source": true,
+   "agent_class": "DocFreshnessAgent",
+   "entry": "main.py",
+   "provides": [
+    "doc.anchor",
+    "doc.stale"
+   ],
+   "depends_on": [],
+   "inputs": [
+    "path",
+    "root"
+   ],
+   "outputs": [
+    "file",
+    "anchors",
+    "ok_count",
+    "stale",
+    "unresolved",
+    "total_anchors",
+    "stale_count",
+    "unresolved_count"
+   ],
+   "path": "agents/docs/doc-freshness"
+  },
+  "domain-review": {
+   "name": "domain-review",
+   "version": "0.1.0",
+   "domain": "domain",
+   "description": "领域代码审查原子（P2）: 跨仓库import依赖拓扑断链(复用chain_break) + 工业阀门领域规则审查。纯 stdlib 数据不出厂。",
+   "open_source": true,
+   "agent_class": "DomainReviewAgent",
+   "entry": "main.py",
+   "provides": [
+    "domain.imports",
+    "domain.valve"
+   ],
+   "depends_on": [],
+   "inputs": [
+    "repos",
+    "target",
+    "rules",
+    "data"
+   ],
+   "outputs": [
+    "ok",
+    "broken",
+    "topology",
+    "violations",
+    "rules",
+    "verdict"
+   ],
+   "path": "agents/domain/domain-review"
+  },
+  "code-evolve": {
+   "name": "code-evolve",
+   "version": "0.1.0",
+   "domain": "evolve",
+   "description": "自进化原子: 复用 self_evolve.refine(观察→归因→精炼→校验四步闭环)/self_prompt/tdd_loop/_sediment_skill。evolve.refine 四步闭环+技能沉淀, evolve.tdd 红绿闭环。",
+   "open_source": true,
+   "agent_class": "CodeEvolveAgent",
+   "entry": "main.py",
+   "provides": [
+    "evolve.refine",
+    "evolve.skill",
+    "evolve.self_prompt",
+    "evolve.tdd"
+   ],
+   "depends_on": [
+    "memory.recall"
+   ],
+   "inputs": [
+    "task",
+    "outcome",
+    "snapshot",
+    "memdir",
+    "auto_sediment",
+    "top_k"
+   ],
+   "outputs": [
+    "observation",
+    "attribution",
+    "refinement",
+    "kept",
+    "verdict",
+    "skills",
+    "prompt",
+    "tdd"
+   ],
+   "path": "agents/evolve/code-evolve"
+  },
+  "code-fuzz": {
+   "name": "code-fuzz",
+   "version": "0.2.0",
+   "domain": "fuzz",
+   "description": "属性模糊测试原子：复用 fuzz_engine.coverage_driven_gen/fuzz_function/property_test/fuzz_project，纯 stdlib 子进程隔离执行。覆盖率驱动用例生成 + 属性/模糊测试捕获未处理异常。",
+   "open_source": true,
+   "agent_class": "CodeFuzzAgent",
+   "entry": "main.py",
+   "provides": [
+    "fuzz.gen",
+    "fuzz.run",
+    "fuzz.property",
+    "fuzz.project"
+   ],
+   "depends_on": [],
+   "inputs": [
+    "path",
+    "funcname",
+    "iterations",
+    "timeout",
+    "seed",
+    "max_cases",
+    "properties",
+    "max_funcs"
+   ],
+   "outputs": [
+    "func",
+    "cases",
+    "coverage_hint",
+    "runs",
+    "crashed",
+    "unhandled",
+    "failures",
+    "ok",
+    "details"
+   ],
+   "path": "agents/fuzz/code-fuzz"
+  },
+  "guard": {
+   "name": "guard",
+   "version": "0.1.0",
+   "domain": "guard",
+   "description": "护栏钩子原子（P2，借鉴Codex guardian）: code变更前置/后置安全审查钩子流水线, 复用security_scan 10维度+secret+误报治理做门禁(pre/post/pipeline/check)。纯stdlib数据不出厂。",
+   "open_source": true,
+   "agent_class": "GuardAgent",
+   "entry": "main.py",
+   "provides": [
+    "guard.pre",
+    "guard.post",
+    "guard.pipeline",
+    "guard.check"
+   ],
+   "depends_on": [],
+   "inputs": [
+    "path",
+    "code",
+    "paths",
+    "govern"
+   ],
+   "outputs": [
+    "issues",
+    "secrets",
+    "verdict",
+    "files",
+    "summary",
+    "total"
+   ],
+   "path": "agents/guard/guard"
+  },
+  "deadcode": {
+   "name": "deadcode",
+   "version": "0.1.0",
+   "domain": "impact",
+   "description": "死代码检测：入口点正向可达 BFS，报不可达死符号。复用 deadcode。借鉴 code-graph-rag。零 LLM。",
+   "open_source": true,
+   "agent_class": "DeadCodeAgent",
+   "entry": "main.py",
+   "provides": [
+    "deadcode.scan",
+    "deadcode.stats"
+   ],
+   "depends_on": [],
+   "inputs": [
+    "path",
+    "threshold"
+   ],
+   "outputs": [
+    "total",
+    "live",
+    "dead_count",
+    "ratio",
+    "roots",
+    "dead",
+    "dead_by_file"
+   ],
+   "path": "agents/impact/deadcode"
+  },
+  "dep-impact": {
+   "name": "dep-impact",
+   "version": "0.1.0",
+   "domain": "impact",
+   "description": "依赖图影响分析原子：复用 dep_audit.build_graph/dep_report，零 LLM。分析改符号/模块波及谁、循环依赖、模块耦合。",
+   "open_source": true,
+   "agent_class": "DepImpactAgent",
+   "entry": "main.py",
+   "provides": [
+    "impact.analyze",
+    "impact.circular",
+    "impact.coupling"
+   ],
+   "depends_on": [],
+   "inputs": [
+    "path",
+    "symbol",
+    "impact",
+    "transitive"
+   ],
+   "outputs": [
+    "files",
+    "entities",
+    "edges",
+    "coupling",
+    "circular_imports",
+    "impact"
+   ],
+   "path": "agents/impact/dep-impact"
+  },
+  "method-impact": {
+   "name": "method-impact",
+   "version": "0.1.0",
+   "domain": "impact",
+   "description": "方法级影响分析：复用 method_impact，CALLS 传递反向可达 + 传播路径 + 边类型分类。借鉴 code-graph-rag 方法级 CALLS。零 LLM。",
+   "open_source": true,
+   "agent_class": "MethodImpactAgent",
+   "entry": "main.py",
+   "provides": [
+    "impact.method",
+    "impact.kind"
+   ],
+   "depends_on": [],
+   "inputs": [
+    "path",
+    "symbol",
+    "transitive",
+    "max_depth",
+    "caller",
+    "to"
+   ],
+   "outputs": [
+    "symbol",
+    "impact",
+    "paths",
+    "kind",
+    "entities",
+    "edges"
+   ],
+   "path": "agents/impact/method-impact"
+  },
+  "llm-router": {
+   "name": "llm-router",
+   "version": "0.2.0",
+   "domain": "llm",
+   "description": "多模型 provider 注册表原子: 本地 ornith/Ollama + 云端 DeepSeek/GLM 等热扩展(改config即加模型)。llm.generate 云端按provider路由, llm.review 本地。llm.list_models/registry 模型目录。local-only 默认 True 数据不出厂。",
+   "open_source": true,
+   "agent_class": "LlmRouterAgent",
+   "entry": "main.py",
+   "provides": [
+    "llm.generate",
+    "llm.review",
+    "llm.list_models",
+    "llm.registry"
+   ],
+   "depends_on": [],
+   "inputs": [
+    "messages",
+    "temp",
+    "max_tokens",
+    "local_only",
+    "config_path",
+    "provider",
+    "model",
+    "api_key"
+   ],
+   "outputs": [
+    "content",
+    "model",
+    "provider",
+    "type",
+    "models",
+    "registry"
+   ],
+   "path": "agents/llm/llm-router"
+  },
+  "localized": {
+   "name": "localized",
+   "version": "0.1.0",
+   "domain": "locality",
+   "description": "本地化原子（P1）: 数据不出厂审计(网络/云端调用信号) + 模型降级链本地主(本地可用绝不外发) + 本地路由审查。纯 stdlib 数据不出厂。",
+   "open_source": true,
+   "agent_class": "LocalizedAgent",
+   "entry": "main.py",
+   "provides": [
+    "local.audit",
+    "local.chain",
+    "local.route"
+   ],
+   "depends_on": [],
+   "inputs": [
+    "target",
+    "code",
+    "local_only",
+    "candidates",
+    "config_path",
+    "timeout"
+   ],
+   "outputs": [
+    "ok",
+    "signals",
+    "route",
+    "local_up",
+    "verdict",
+    "fallback"
+   ],
+   "path": "agents/locality/localized"
+  },
+  "mcp-client": {
+   "name": "mcp-client",
+   "version": "0.1.0",
+   "domain": "mcp",
+   "description": "MCP 客户端原子(新原子): 连外部 MCP server(local stdio + remote http), tools/list + tools/call 接入生态工具。默认 local_only 白名单, 远程需显式 allow_remote。零依赖纯标准库。",
+   "open_source": true,
+   "agent_class": "McpClientAgent",
+   "entry": "main.py",
+   "provides": [
+    "mcp.list",
+    "mcp.connect",
+    "mcp.tools",
+    "mcp.call"
+   ],
+   "depends_on": [],
+   "inputs": [
+    "server",
+    "endpoint",
+    "command",
+    "tools",
+    "timeout",
+    "local_only",
+    "allow_remote",
+    "allow_tools"
+   ],
+   "outputs": [
+    "servers",
+    "tools",
+    "result",
+    "server"
+   ],
+   "path": "agents/mcp/mcp-client"
+  },
+  "code-memory": {
+   "name": "code-memory",
+   "version": "0.1.0",
+   "domain": "memory",
+   "description": "记忆/经验原子: 复用 self_evolve.remember/_load/_save + OptMem 思路。memory.save 经验沉淀, memory.recall 跨会话召回, memory.sediment 技能沉淀。落 experience/*.json。",
+   "open_source": true,
+   "agent_class": "CodeMemoryAgent",
+   "entry": "main.py",
+   "provides": [
+    "memory.save",
+    "memory.recall",
+    "memory.sediment"
+   ],
+   "depends_on": [],
+   "inputs": [
+    "findings",
+    "task",
+    "memdir",
+    "top_k"
+   ],
+   "outputs": [
+    "added",
+    "lessons",
+    "prompt",
+    "skills"
+   ],
+   "path": "agents/memory/code-memory"
+  },
+  "model-fallback": {
+   "name": "model-fallback",
+   "version": "0.1.0",
+   "domain": "model",
+   "description": "模型降级链原子（P2，借鉴Codex model-provider fallback）: 按候选链尝试provider, 失败自动降级(cloud→local), local_only剔除云端数据不出厂。复用llm-router provider注册表概念。",
+   "open_source": true,
+   "agent_class": "ModelFallbackAgent",
+   "entry": "main.py",
+   "provides": [
+    "model.chain",
+    "model.route",
+    "model.candidates"
+   ],
+   "depends_on": [
+    "llm.list_models"
+   ],
+   "inputs": [
+    "messages",
+    "call_model",
+    "purpose",
+    "preference",
+    "local_only",
+    "candidates"
+   ],
+   "outputs": [
+    "ok",
+    "verdict",
+    "provider",
+    "type",
+    "result",
+    "fell_back",
+    "candidates",
+    "errors"
+   ],
+   "path": "agents/model/model-fallback"
+  },
+  "ontology-review": {
+   "name": "ontology-review",
+   "version": "0.1.0",
+   "domain": "ontology",
+   "description": "本体审查原子（P0+P2）: factory-ontology 链路断链审查(Web↔套件↔CSV↔NT) + 本体数据质量(CSV/NT/lexicon)。纯 stdlib 数据不出厂。",
+   "open_source": true,
+   "agent_class": "OntologyReviewAgent",
+   "entry": "main.py",
+   "provides": [
+    "ontology.chain",
+    "ontology.quality"
+   ],
+   "depends_on": [],
+   "inputs": [
+    "web_dir",
+    "kit_dir",
+    "data_dir",
+    "target"
+   ],
+   "outputs": [
+    "ok",
+    "links",
+    "issues",
+    "quality",
+    "verdict"
+   ],
+   "path": "agents/ontology/ontology-review"
+  },
+  "code-plan": {
+   "name": "code-plan",
+   "version": "0.1.0",
+   "domain": "plan",
+   "description": "方案设计原子: 复用 dispatch_template 派单5段模板任务拆解。plan.think 输出5段方案+文件清单, plan.gen 按方案产出代码骨架/透传代码。",
+   "open_source": true,
+   "agent_class": "CodePlanAgent",
+   "entry": "main.py",
+   "provides": [
+    "plan.think",
+    "plan.gen"
+   ],
+   "depends_on": [
+    "taskstate.track"
+   ],
+   "inputs": [
+    "task",
+    "language",
+    "domain",
+    "files_needed",
+    "spec"
+   ],
+   "outputs": [
+    "plan",
+    "assumptions",
+    "files_needed",
+    "constraint_chain",
+    "questions",
+    "files",
+    "score"
+   ],
+   "path": "agents/plan/code-plan"
+  },
+  "code-project": {
+   "name": "code-project",
+   "version": "0.1.0",
+   "domain": "project",
+   "description": "项目加载/分析原子: 复用 load_project/scan_issues/analyze_project 思路, 产出项目快照+问题清单。project.load 快照, project.scan 扫描问题, project.analyze 分析。",
+   "open_source": true,
+   "agent_class": "CodeProjectAgent",
+   "entry": "main.py",
+   "provides": [
+    "project.load",
+    "project.scan",
+    "project.analyze"
+   ],
+   "depends_on": [],
+   "inputs": [
+    "path",
+    "file_pattern",
+    "max_complexity",
+    "impact"
+   ],
+   "outputs": [
+    "files",
+    "snapshot",
+    "issues",
+    "summary"
+   ],
+   "path": "agents/project/code-project"
+  },
+  "code-reuse": {
+   "name": "code-reuse",
+   "version": "0.1.0",
+   "domain": "reuse",
+   "description": "代码复用检索原子: 复用 review.py._list_code_atoms/_reuse_suggestion + atoms/19个复用库。reuse.local 本地检索, reuse.atom 列库, reuse.remote GitHub降级。",
+   "open_source": true,
+   "agent_class": "CodeReuseAgent",
+   "entry": "main.py",
+   "provides": [
+    "reuse.local",
+    "reuse.atom",
+    "reuse.remote"
+   ],
+   "depends_on": [],
+   "inputs": [
+    "content",
+    "path",
+    "top_k",
+    "task"
+   ],
+   "outputs": [
+    "suggestions",
+    "atoms",
+    "count"
+   ],
+   "path": "agents/reuse/code-reuse"
+  },
+  "process-sandbox": {
+   "name": "process-sandbox",
+   "version": "0.1.0",
+   "domain": "sandbox",
+   "description": "进程沙箱原子（P0，借鉴Codex sandboxing）: 安全执行不可信PoC/命令, 隔离+超时+资源限制+输出封顶+白名单+env净化+路径防护。纯stdlib数据不出厂。",
+   "open_source": true,
+   "agent_class": "ProcessSandboxAgent",
+   "entry": "main.py",
+   "provides": [
+    "sandbox.poc",
+    "sandbox.exec",
+    "sandbox.validate",
+    "sandbox.interpreter",
+    "sandbox.guard"
+   ],
+   "depends_on": [],
+   "inputs": [
+    "code",
+    "cmd",
+    "timeout",
+    "max_output",
+    "base_dir",
+    "path",
+    "base"
+   ],
+   "outputs": [
+    "ran",
+    "verdict",
+    "rc",
+    "wall_s",
+    "evidence",
+    "out_tail",
+    "err_tail",
+    "timed_out",
+    "overflow",
+    "rejected",
+    "safe",
+    "path"
+   ],
+   "path": "agents/sandbox/process-sandbox"
+  },
+  "security-scan": {
+   "name": "security-scan",
+   "version": "0.1.0",
+   "domain": "security",
+   "description": "安全扫描原子: 10安全维度(注入/认证/授权/反序列化/文件/SSRF/加密/配置/业务/供应链) + 危险函数库 + secret检测 + 误报治理。纯 stdlib 数据不出厂。",
+   "open_source": true,
+   "agent_class": "SecurityScanAgent",
+   "entry": "main.py",
+   "provides": [
+    "security.scan",
+    "security.secret",
+    "security.govern",
+    "security.dim",
+    "security.project"
+   ],
+   "depends_on": [],
+   "inputs": [
+    "path",
+    "code",
+    "dimension"
+   ],
+   "outputs": [
+    "issues",
+    "by_dimension",
+    "by_tier",
+    "secrets",
+    "total",
+    "summary",
+    "files"
+   ],
+   "path": "agents/security/security-scan"
+  },
+  "code-skill": {
+   "name": "code-skill",
+   "version": "0.1.0",
+   "domain": "skill",
+   "description": "SKILL.md 技能标准原子(新原子): 兼容 .opencode/.claude/.agents/skills 搜索路径, skill.load 按需加载省上下文, skill.export 把自进化沉淀技能转 SKILL.md 标准可交换资产。",
+   "open_source": true,
+   "agent_class": "CodeSkillAgent",
+   "entry": "main.py",
+   "provides": [
+    "skill.list",
+    "skill.load",
+    "skill.export",
+    "skill.sediment"
+   ],
+   "depends_on": [
+    "memory.recall"
+   ],
+   "inputs": [
+    "paths",
+    "name",
+    "content",
+    "task",
+    "action",
+    "bucket",
+    "memdir",
+    "frontmatter"
+   ],
+   "outputs": [
+    "skills",
+    "skill",
+    "exported",
+    "added",
+    "path"
+   ],
+   "path": "agents/skill/code-skill"
+  },
+  "task-state": {
+   "name": "task-state",
+   "version": "0.1.0",
+   "domain": "taskstate",
+   "description": "任务状态原子: 复用外置任务状态模块(做到哪/下一步/证据/决策点), 跨会话续跑不丢进度。taskstate.track 跟踪状态。",
+   "open_source": true,
+   "agent_class": "TaskStateAgent",
+   "entry": "main.py",
+   "provides": [
+    "taskstate.track"
+   ],
+   "depends_on": [],
+   "inputs": [
+    "task",
+    "action",
+    "tid",
+    "state",
+    "progress",
+    "evidence",
+    "gate",
+    "status_file"
+   ],
+   "outputs": [
+    "status",
+    "task_id",
+    "file",
+    "progress"
+   ],
+   "path": "agents/taskstate/task-state"
+  },
+  "code-test": {
+   "name": "code-test",
+   "version": "0.2.1",
+   "domain": "test",
+   "description": "测试原子：复用 test_harness 红绿回归 + reg_guard 回归快照/增量测试选择 + P0-3智能测试选择(git diff→受影响测试省时非全量) + P1-4人类在环(AI结论需人工复核渐进式不自动放行) + P1-5覆盖度分析(报告未测函数/分支提示补测)。",
+   "open_source": true,
+   "agent_class": "CodeTestAgent",
+   "entry": "main.py",
+   "provides": [
+    "test.gen",
+    "test.run",
+    "test.tdd",
+    "test.snapshot",
+    "test.affected",
+    "test.select",
+    "test.coverage_analysis"
+   ],
+   "depends_on": [],
+   "inputs": [
+    "code",
+    "path",
+    "target_dir",
+    "task",
+    "project_root",
+    "test_map",
+    "human_review"
+   ],
+   "outputs": [
+    "test_files",
+    "smoke",
+    "coverage",
+    "unit",
+    "boundary",
+    "mutation",
+    "stability",
+    "red_green",
+    "coverage_analysis",
+    "human_review"
+   ],
+   "path": "agents/test/code-test"
+  }
+ },
+ "order": [
+  "command-approvals",
+  "arch-review",
+  "atomicity-audit",
+  "bug-deep",
+  "minimalist-style",
+  "context-compact",
+  "code-deliver",
+  "dep-scan",
+  "code-dispatch",
+  "doc-freshness",
+  "domain-review",
+  "code-fuzz",
+  "guard",
+  "deadcode",
+  "dep-impact",
+  "method-impact",
+  "llm-router",
+  "localized",
+  "mcp-client",
+  "code-memory",
+  "ontology-review",
+  "code-project",
+  "code-reuse",
+  "process-sandbox",
+  "security-scan",
+  "task-state",
+  "code-test",
+  "code-review",
+  "model-fallback",
+  "code-evolve",
+  "code-skill",
+  "code-plan"
+ ],
+ "conflicts": []
 }
