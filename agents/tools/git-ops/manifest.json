@@ -1,0 +1,14 @@
+{
+  "name": "git-ops",
+  "version": "0.1.0",
+  "domain": "tools",
+  "description": "通用工具原子(省重复 P1-3): 常用 git 操作(status/log/branch/remote/sync/commit), 包装 E:/scripts/git。纯 stdlib 数据不出厂。",
+  "open_source": true,
+  "agent_class": "GitOpsAgent",
+  "entry": "main.py",
+  "provides": ["git.status", "git.log", "git.branch", "git.remote", "git.sync", "git.commit"],
+  "depends_on": [],
+  "inputs": ["action", "d", "n", "msg"],
+  "outputs": ["result", "error", "returncode", "stdout", "stderr"],
+  "path": "agents/tools/git-ops"
+}

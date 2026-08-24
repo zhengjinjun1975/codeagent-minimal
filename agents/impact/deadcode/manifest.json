@@ -1,0 +1,16 @@
+{
+  "name": "deadcode",
+  "version": "0.1.0",
+  "domain": "impact",
+  "description": "死代码检测：入口点正向可达 BFS，报不可达死符号。复用 deadcode。借鉴 code-graph-rag。零 LLM。",
+  "open_source": true,
+  "agent_class": "DeadCodeAgent",
+  "entry": "main.py",
+  "provides": [
+    "deadcode.scan",
+    "deadcode.stats"
+  ],
+  "depends_on": [],
+  "inputs": ["path", "threshold"],
+  "outputs": ["total", "live", "dead_count", "ratio", "roots", "dead", "dead_by_file"]
+}

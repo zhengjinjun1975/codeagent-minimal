@@ -1,0 +1,16 @@
+{
+  "name": "method-impact",
+  "version": "0.1.0",
+  "domain": "impact",
+  "description": "方法级影响分析：复用 method_impact，CALLS 传递反向可达 + 传播路径 + 边类型分类。借鉴 code-graph-rag 方法级 CALLS。零 LLM。",
+  "open_source": true,
+  "agent_class": "MethodImpactAgent",
+  "entry": "main.py",
+  "provides": [
+    "impact.method",
+    "impact.kind"
+  ],
+  "depends_on": [],
+  "inputs": ["path", "symbol", "transitive", "max_depth", "caller", "to"],
+  "outputs": ["symbol", "impact", "paths", "kind", "entities", "edges"]
+}

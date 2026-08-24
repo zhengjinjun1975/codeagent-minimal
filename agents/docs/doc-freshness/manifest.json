@@ -1,0 +1,16 @@
+{
+  "name": "doc-freshness",
+  "version": "0.1.0",
+  "domain": "docs",
+  "description": "文档新鲜度审计：代码锚点确定性校验（repo://path#L-L 行区间哈希/符号存在性），输出 stale/unresolved。复用 doc_freshness。借鉴 OpenWiki 证据版本化。零 LLM。",
+  "open_source": true,
+  "agent_class": "DocFreshnessAgent",
+  "entry": "main.py",
+  "provides": [
+    "doc.anchor",
+    "doc.stale"
+  ],
+  "depends_on": [],
+  "inputs": ["path", "root"],
+  "outputs": ["file", "anchors", "ok_count", "stale", "unresolved", "total_anchors", "stale_count", "unresolved_count"]
+}

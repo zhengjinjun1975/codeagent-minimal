@@ -347,6 +347,35 @@
       ],
       "path": "agents/dispatch/code-dispatch"
     },
+    "doc-freshness": {
+      "name": "doc-freshness",
+      "version": "0.1.0",
+      "domain": "docs",
+      "description": "文档新鲜度审计：代码锚点确定性校验（repo://path#L-L 行区间哈希/符号存在性），输出 stale/unresolved。复用 doc_freshness。借鉴 OpenWiki 证据版本化。零 LLM。",
+      "open_source": true,
+      "agent_class": "DocFreshnessAgent",
+      "entry": "main.py",
+      "provides": [
+        "doc.anchor",
+        "doc.stale"
+      ],
+      "depends_on": [],
+      "inputs": [
+        "path",
+        "root"
+      ],
+      "outputs": [
+        "file",
+        "anchors",
+        "ok_count",
+        "stale",
+        "unresolved",
+        "total_anchors",
+        "stale_count",
+        "unresolved_count"
+      ],
+      "path": "agents/docs/doc-freshness"
+    },
     "domain-review": {
       "name": "domain-review",
       "version": "0.1.0",
@@ -482,6 +511,34 @@
       ],
       "path": "agents/guard/guard"
     },
+    "deadcode": {
+      "name": "deadcode",
+      "version": "0.1.0",
+      "domain": "impact",
+      "description": "死代码检测：入口点正向可达 BFS，报不可达死符号。复用 deadcode。借鉴 code-graph-rag。零 LLM。",
+      "open_source": true,
+      "agent_class": "DeadCodeAgent",
+      "entry": "main.py",
+      "provides": [
+        "deadcode.scan",
+        "deadcode.stats"
+      ],
+      "depends_on": [],
+      "inputs": [
+        "path",
+        "threshold"
+      ],
+      "outputs": [
+        "total",
+        "live",
+        "dead_count",
+        "ratio",
+        "roots",
+        "dead",
+        "dead_by_file"
+      ],
+      "path": "agents/impact/deadcode"
+    },
     "dep-impact": {
       "name": "dep-impact",
       "version": "0.1.0",
@@ -511,6 +568,37 @@
         "impact"
       ],
       "path": "agents/impact/dep-impact"
+    },
+    "method-impact": {
+      "name": "method-impact",
+      "version": "0.1.0",
+      "domain": "impact",
+      "description": "方法级影响分析：复用 method_impact，CALLS 传递反向可达 + 传播路径 + 边类型分类。借鉴 code-graph-rag 方法级 CALLS。零 LLM。",
+      "open_source": true,
+      "agent_class": "MethodImpactAgent",
+      "entry": "main.py",
+      "provides": [
+        "impact.method",
+        "impact.kind"
+      ],
+      "depends_on": [],
+      "inputs": [
+        "path",
+        "symbol",
+        "transitive",
+        "max_depth",
+        "caller",
+        "to"
+      ],
+      "outputs": [
+        "symbol",
+        "impact",
+        "paths",
+        "kind",
+        "entities",
+        "edges"
+      ],
+      "path": "agents/impact/method-impact"
     },
     "llm-router": {
       "name": "llm-router",
@@ -971,6 +1059,169 @@
         "human_review"
       ],
       "path": "agents/test/code-test"
+    },
+    "batch-fs": {
+      "name": "batch-fs",
+      "version": "0.1.0",
+      "domain": "tools",
+      "description": "通用工具原子(省重复 P1-3): 批量文件操作(列文件/哈希/去重/重命名/按扩展名整理), 包装 pycommon + E:/scripts/fs。纯 stdlib 数据不出厂。",
+      "open_source": true,
+      "agent_class": "BatchFsAgent",
+      "entry": "main.py",
+      "provides": [
+        "fs.list",
+        "fs.hash",
+        "fs.dedup",
+        "fs.rename",
+        "fs.organize"
+      ],
+      "depends_on": [],
+      "inputs": [
+        "action",
+        "d",
+        "p",
+        "prefix",
+        "suffix",
+        "dry",
+        "recursive"
+      ],
+      "outputs": [
+        "result",
+        "error",
+        "duplicates",
+        "pairs",
+        "changed",
+        "moved"
+      ],
+      "path": "agents/tools/batch-fs"
+    },
+    "data-tools": {
+      "name": "data-tools",
+      "version": "0.1.0",
+      "domain": "tools",
+      "description": "通用工具原子(省重复 P1-3): 数据集统计/CSV 读写/行去重/固定种子抽样/字段中文清洗, 包装 pycommon + E:/scripts/data。纯 stdlib 数据不出厂。",
+      "open_source": true,
+      "agent_class": "DataToolsAgent",
+      "entry": "main.py",
+      "provides": [
+        "data.stats",
+        "data.csv.read",
+        "data.csv.write",
+        "data.dedup_lines",
+        "data.sample",
+        "data.clean_fields"
+      ],
+      "depends_on": [],
+      "inputs": [
+        "action",
+        "p",
+        "p_in",
+        "p_out",
+        "rows",
+        "fields",
+        "n",
+        "seed",
+        "delimiter",
+        "remove_ai_talk"
+      ],
+      "outputs": [
+        "result",
+        "error",
+        "rows",
+        "fields",
+        "sample",
+        "cleaned"
+      ],
+      "path": "agents/tools/data-tools"
+    },
+    "git-ops": {
+      "name": "git-ops",
+      "version": "0.1.0",
+      "domain": "tools",
+      "description": "通用工具原子(省重复 P1-3): 常用 git 操作(status/log/branch/remote/sync/commit), 包装 E:/scripts/git。纯 stdlib 数据不出厂。",
+      "open_source": true,
+      "agent_class": "GitOpsAgent",
+      "entry": "main.py",
+      "provides": [
+        "git.status",
+        "git.log",
+        "git.branch",
+        "git.remote",
+        "git.sync",
+        "git.commit"
+      ],
+      "depends_on": [],
+      "inputs": [
+        "action",
+        "d",
+        "n",
+        "msg"
+      ],
+      "outputs": [
+        "result",
+        "error",
+        "returncode",
+        "stdout",
+        "stderr"
+      ],
+      "path": "agents/tools/git-ops"
+    },
+    "json-io": {
+      "name": "json-io",
+      "version": "0.1.0",
+      "domain": "tools",
+      "description": "通用工具原子(省重复 P1-3): JSON/JSONL 读写去重, 包装 E:/scripts/lib/pycommon.py, 纯 stdlib 数据不出厂。收敛 123 个散落脚本手写 json helper。",
+      "open_source": true,
+      "agent_class": "JsonIoAgent",
+      "entry": "main.py",
+      "provides": [
+        "json.load",
+        "json.save",
+        "jsonl.read",
+        "jsonl.write",
+        "jsonl.append",
+        "jsonl.dedup"
+      ],
+      "depends_on": [],
+      "inputs": [
+        "action",
+        "path",
+        "obj",
+        "rows",
+        "key",
+        "default"
+      ],
+      "outputs": [
+        "result",
+        "error"
+      ],
+      "path": "agents/tools/json-io"
+    },
+    "text-clean": {
+      "name": "text-clean",
+      "version": "0.1.0",
+      "domain": "tools",
+      "description": "通用工具原子(省重复 P1-3): 中文文本清洗(去AI套话/规范空白/中文检测), 包装 pycommon。收敛散落脚本中反复手写的中文清洗函数。",
+      "open_source": true,
+      "agent_class": "TextCleanAgent",
+      "entry": "main.py",
+      "provides": [
+        "clean.cn",
+        "clean.ai_talk",
+        "clean.ws",
+        "clean.is_chinese"
+      ],
+      "depends_on": [],
+      "inputs": [
+        "action",
+        "s",
+        "remove_ai_talk"
+      ],
+      "outputs": [
+        "result",
+        "error"
+      ],
+      "path": "agents/tools/text-clean"
     }
   },
   "order": [
@@ -983,10 +1234,13 @@
     "code-deliver",
     "dep-scan",
     "code-dispatch",
+    "doc-freshness",
     "domain-review",
     "code-fuzz",
     "guard",
+    "deadcode",
     "dep-impact",
+    "method-impact",
     "llm-router",
     "localized",
     "mcp-client",
@@ -998,6 +1252,11 @@
     "security-scan",
     "task-state",
     "code-test",
+    "batch-fs",
+    "data-tools",
+    "git-ops",
+    "json-io",
+    "text-clean",
     "code-review",
     "model-fallback",
     "code-evolve",

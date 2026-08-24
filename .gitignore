@@ -17,3 +17,9 @@ nul
 # 待定/不入库原子（本地保留，不入库）
 _pending_atoms/
 .registry_staging/
+
+# 运行期污染(提交前必查, 不提交)
+experience/
+.codeagent/
+__pycache__/
+*.pyc

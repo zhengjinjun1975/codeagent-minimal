@@ -1,0 +1,14 @@
+{
+  "name": "text-clean",
+  "version": "0.1.0",
+  "domain": "tools",
+  "description": "通用工具原子(省重复 P1-3): 中文文本清洗(去AI套话/规范空白/中文检测), 包装 pycommon。收敛散落脚本中反复手写的中文清洗函数。",
+  "open_source": true,
+  "agent_class": "TextCleanAgent",
+  "entry": "main.py",
+  "provides": ["clean.cn", "clean.ai_talk", "clean.ws", "clean.is_chinese"],
+  "depends_on": [],
+  "inputs": ["action", "s", "remove_ai_talk"],
+  "outputs": ["result", "error"],
+  "path": "agents/tools/text-clean"
+}
