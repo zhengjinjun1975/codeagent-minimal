@@ -56,6 +56,10 @@ KNOWN_DEFECTS = [
      "title": "global 可变状态（跨调用污染/并发竞态）", "tier": "P1",
      "suggestion": "用参数传递或类实例状态替代 global",
      "root_cause": "全局可变状态难追踪"},
+    {"id": "reasoning-model-token-exhaust", "pattern": r"deepseek-reasoner",
+     "title": "推理模型 max_tokens 被 reasoning 吃光 → content 空", "tier": "P1",
+     "suggestion": "deepseek-reasoner 对实质任务推理链发散，reasoning_content 随 max_tokens 线性增长，content 永远空(finish_reason=length)。修复：请求体加 thinking:{\"type\":\"disabled\"} 关闭推理链，或改用非推理模型 deepseek-chat，或把 max_tokens 显著加大（bump 治标不治本，reasoning 会跟着涨）",
+     "root_cause": "带 CoT 的推理模型对复杂代码/生成任务推理发散，reasoning 吃满 max_tokens，content 被吃光返回空"},
 ]
 
 _SEV = {"P0": "critical", "P1": "major", "P2": "minor"}
