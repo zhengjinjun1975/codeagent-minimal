@@ -37,6 +37,57 @@ if HERE not in sys.path:
 import agent_loader
 
 
+# ── 数据飞轮采样旁路（可选，fail-open，绝不破坏主流程）──────────
+# 采样模块不存在/import 失败 → 静默跳过，CodeAgent 功能零影响。
+# 开关：环境变量 CODEAGENT_FLYWHEEL_SAMPLE=0 关闭。
+# 目录：FLYWHEEL_SAMPLER_DIR 指向 codeagent_sampler.py 所在目录；
+#       未设置/目录不存在 → 不启用采样（开源库零硬编码路径）。
+def _sample_init():
+    try:
+        if os.environ.get("CODEAGENT_FLYWHEEL_SAMPLE", "1") == "0":
+            return None
+        d = os.environ.get("FLYWHEEL_SAMPLER_DIR", "")
+        if not d or not os.path.isdir(d):
+            return None
+        if d not in sys.path:
+            sys.path.insert(0, d)
+        from codeagent_sampler import sample
+        return sample
+    except Exception:
+        return None
+
+
+_FLY_SAMPLE = _sample_init()
+
+
+def _cap_dim(capability):
+    c = (capability or "").lower()
+    if c.startswith(("codereview", "review")):
+        return "code_review"
+    if c.startswith("security") or "security" in c:
+        return "security_review"
+    if c.startswith("test"):
+        return "test"
+    if c.startswith(("plan", "dispatch")) or "think" in c:
+        return "decision"
+    if c.startswith(("gen", "implement", "deliver")):
+        return "format"
+    return "tool_call"
+
+
+def _try_flywheel_sample(capability, inputs, result):
+    try:
+        if _FLY_SAMPLE is None:
+            return
+        dim = _cap_dim(capability)
+        ok = isinstance(result, dict) and bool(result.get("ok"))
+        _FLY_SAMPLE(dim=dim, backend="codeagent-runtime",
+                    input=inputs, output=result,
+                    polarity="pos" if ok else "neg", body="CodeAgent真实")
+    except Exception:
+        pass
+
+
 # ── 信封 ─────────────────────────────────────
 def _ok(data):
     return {"ok": True, "data": data}
@@ -121,7 +172,13 @@ class AgentRuntime:
         return None
 
     def run_capability(self, capability, **inputs):
-        """统一调用某个能力（路由到对应原子）。未知能力 → 降级信封。"""
+        """统一调用某个能力（路由到对应原子）。未知能力 → 降级信封。
+        数据飞轮旁路：真实执行结果统一采样落盘（fail-open，不影响主流程）。"""
+        res = self._run_capability_impl(capability, **inputs)
+        _try_flywheel_sample(capability, inputs, res)
+        return res
+
+    def _run_capability_impl(self, capability, **inputs):
         name = self.capability_atom(capability)
         if name is None:
             return _fail(f"能力 '{capability}' 无可用原子（候选见 describe().capabilities）")

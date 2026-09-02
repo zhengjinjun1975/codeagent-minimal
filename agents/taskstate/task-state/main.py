@@ -28,15 +28,39 @@ def _ts_tid(task: str) -> str:
 
 
 def _state_dir() -> str:
-    """状态目录：env 覆盖优先，默认仓库内 .taskstate/（可移植，无 E:/ 硬编码）。"""
+    """状态目录：env 覆盖优先，默认仓库内 .taskstate/（可移植，无绝对盘符硬编码）。"""
     return os.environ.get("TASK_STATE_DIR", os.path.join(REPO_ROOT, ".taskstate"))
 
 
+def _project_key() -> str:
+    """从 cwd 推断项目身份键(8位hash): 优先 git root, fallback cwd 路径。"""
+    try:
+        import subprocess
+        root = subprocess.run(
+            ["git", "rev-parse", "--show-toplevel"],
+            capture_output=True, text=True, cwd=os.getcwd(), timeout=5,
+        ).stdout.strip()
+        if root:
+            return hashlib.md5(root.encode()).hexdigest()[:8]
+    except Exception:
+        pass
+    return hashlib.md5(os.getcwd().encode()).hexdigest()[:8]
+
+
 def _state_path(tid: str) -> str:
-    return os.path.join(_state_dir(), f"{tid}.md")
+    """项目隔离状态路径: {dir}/{project_key}/{tid}.md。
+    旧的无项目目录任务({dir}/{tid}.md)存在时沿用旧路径(兼容迁移)。"""
+    pkey = _project_key()
+    if not pkey:
+        return os.path.join(_state_dir(), f"{tid}.md")
+    proj = os.path.join(_state_dir(), pkey, f"{tid}.md")
+    legacy = os.path.join(_state_dir(), f"{tid}.md")
+    if not os.path.exists(proj) and os.path.exists(legacy):
+        return legacy
+    return proj
 
 
-def _apply(action, tid, state="", progress="", evidence="", gate=""):
+def _apply(action, tid, state="", progress="", evidence="", gate="", done_evidence=""):
     """纯函数：对状态文件执行 new/set/ev/gate，返回 (ok, file, stdout, stderr)。"""
     path = _state_path(tid)
     os.makedirs(os.path.dirname(path), exist_ok=True)
@@ -51,7 +75,16 @@ def _apply(action, tid, state="", progress="", evidence="", gate=""):
         if action == "new":
             out.append(f"new task {tid} @ {path}")
         elif action == "set":
+            # 方向C(Ledger): DONE 必须绑定真实产物证据(借鉴外部研究经验(不变量1)——
+            # 模型不能写自己的进度, 完成只能由真实结果/收据认定)
+            if state.lower() == "done":
+                if not done_evidence:
+                    return False, path, "", "done 必须提供 done_evidence=真实产物路径(否则视为'以为完成'误判)"
+                if not os.path.exists(done_evidence):
+                    return False, path, "", f"done_evidence 指向的产物不存在, 拒绝标记完成: {done_evidence}"
             updated = [f"status: {state}", f"progress: {progress}", f"updated: {now}"]
+            if done_evidence:
+                updated.append(f"done_evidence: {done_evidence}")
             for key in ("status:", "progress:", "updated:"):
                 lines = [ln for ln in lines if not ln.startswith(key)]
             lines += updated
@@ -88,17 +121,18 @@ class TaskStateAgent(AtomicAgent):
         self.register("taskstate.track", self._track)
 
     def _track(self, task, action="new", tid=None, state="", progress="",
-               evidence="", gate="", status_file=None):
-        """内联纯函数续跑（修复 P1-3：不再子进程调外部 E:/... 文件）。
+               evidence="", gate="", status_file=None, done_evidence=""):
+        """内联纯函数续跑（修复 P1-3：不再子进程调外部脚本文件）。
         action: new/set/ev/gate。返回信封，成功带 evidence（真实文件路径），失败带 error。
 
         契约修复 P2：默认 action 由 "set" 改为 "new"——与 CLI 默认(--action new)
         及「track = 开始跟踪」语义对齐。此前裸调用 taskstate.track(task=...) 会
         以 action="set" 落空状态(空 state/progress)，返回 data["action"]="set"，
         与断言期望 action="new" 不符。
+        方向C: set state=done 时须传 done_evidence=真实产物路径, 否则拒绝(防'以为完成')。
         """
         tid = tid or _ts_tid(task)
-        ok, path, out, err = _apply(action, tid, state, progress, evidence, gate)
+        ok, path, out, err = _apply(action, tid, state, progress, evidence, gate, done_evidence)
         data = {"task_id": tid, "action": action, "progress": progress,
                 "file": path}
         if ok:

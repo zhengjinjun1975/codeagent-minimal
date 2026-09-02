@@ -4,6 +4,14 @@
 
 格式遵循 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.0.0/)。
 
+## [0.3.3] - 2026-09-02
+
+### 增强
+
+- **task-state 项目隔离**：任务状态按项目键隔离存放（从 git root / cwd 推断），旧路径自动迁移兼容
+- **task-state DONE 真实性门检**：标记 done 须提供真实产物路径（done_evidence），产物不存在则拒绝，防"以为完成"误判
+- **agent_runtime 数据飞轮采样旁路**（可选，fail-open）：按环境变量开关，目录不可用即静默跳过，不影响主流程
+
 ## [0.3.2] - 2026-08-16
 
 ### 遗留契约修复闭环（dispatch.template / plan.think / task-state.track）
