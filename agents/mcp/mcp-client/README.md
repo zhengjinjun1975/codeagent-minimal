@@ -1,6 +1,6 @@
 # mcp-client 原子（新原子 · OpenCode P0-1 吸收）
 
-> 对齐 OpenCode「MCP 客户端」（local+remote 工具接入生态）。让 CodeAgent 12 原子消费外部
+> 对齐 OpenCode「MCP 客户端」（local+remote 工具接入生态）。让 CodeAgent 原子消费外部
 > MCP server 工具，把「原子注册表」升级为「原子 + MCP 双轨插件面」。
 
 ## 能力

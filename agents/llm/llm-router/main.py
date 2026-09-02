@@ -54,8 +54,9 @@ DEFAULT_PROVIDERS = {
 
 
 def _read_env(key):
-    for p in [os.path.join(os.path.expanduser("~"), ".hermes", ".env"),
-              os.path.join(os.path.expanduser("~"), "AppData/Local/hermes/.env")]:
+    # 凭据文件(本地可配置, 不耦合任何内部工具): ~/.codeagent/.env 或运行目录 .env
+    for p in [os.path.join(os.path.expanduser("~"), ".codeagent", ".env"),
+              os.path.join(os.getcwd(), ".env")]:
         try:
             for line in open(p, encoding="utf-8"):
                 if line.split("=", 1)[0].strip() == key:
@@ -180,7 +181,7 @@ class LlmRouterAgent(AtomicAgent):
                                       error="无可用云端 provider", data={})
             provider = cloud[0]
             p = providers[provider]
-        # API key：显式传 → env → .hermes 凭据文件
+        # API key：显式传 → env → 本地凭据文件(~/.codeagent/.env)
         key_env = {"glm": "ZHIPU_API_KEY", "deepseek": "DEEPSEEK_API_KEY"}.get(provider, provider.upper() + "_API_KEY")
         key = api_key or os.environ.get(key_env, "") or _read_env(key_env)
         if not key:

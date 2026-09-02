@@ -44,6 +44,8 @@ The following projects / products inspired *design ideas only*
       - Static review dimensions and mutation / fuzz testing *approaches*,
         re-implemented as pure-stdlib modules (review.py, test_harness.py,
         fuzz_engine.py, reg_guard.py).
+  * LoopX (design inspiration)
+      - 任务状态"完成只能由真实产物/结果认定"(ledger 不变量)的设计思想, re-implemented in the task-state atom.
 
 MIT is a permissive license compatible with Apache-2.0 for downstream use.
 Because no MIT source was copied into this repository, no MIT notice
@@ -64,7 +66,7 @@ for the shipped artifact.
 Open-source kernel / closed-source orchestration boundary
 -------------------------------------------------------------------------
 
-The 16 atomic agents, the unified runtime (agent_runtime.py) and the unified
+The 32 atomic agents, the unified runtime (agent_runtime.py) and the unified
 entry (codeagent.py) shipped in THIS repository are open source under
 Apache-2.0. The closed-source assembler / orchestrator and CodeMode live in
 the SEPARATE closed-source workspace and are NOT part of this repository and

@@ -17,7 +17,7 @@ tdd_loop    : 测试反馈→改进→再测试 闭环(先写失败测试→红�
     python self_evolve.py remember <findings.json> [--dir experience/]
     python self_evolve.py tdd <target.py> [--dir experience/]
 
-记忆默认落盘 `experience/`（与 code_agent 同目录结构），可被 OptMem 语义检索消费。
+记忆默认落盘 `experience/`（与运行时同目录结构），可被外部语义检索消费。
 """
 import os
 import re
@@ -38,7 +38,7 @@ def _now():
 
 
 def _keywords(text):
-    """中英关键词提取：中文连续段 + 中文 bigram + 英文单词，提升召回（对齐 OptMem tokenize）。"""
+    """中英关键词提取：中文连续段 + 中文 bigram + 英文单词，提升召回（对齐语义检索 tokenize）。"""
     zh = re.findall(r"[\u4e00-\u9fff]{2,}", text or "")
     zh_bigram = []
     for seg in zh:

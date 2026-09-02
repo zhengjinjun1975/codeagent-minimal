@@ -23,3 +23,6 @@ experience/
 .codeagent/
 __pycache__/
 *.pyc
+
+# 本地 CDP 浏览器验证脚本(第三方 websocket, 不进发布)
+web/_cdp_verify.py

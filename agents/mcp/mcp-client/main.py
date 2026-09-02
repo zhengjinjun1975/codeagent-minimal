@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """MCP 客户端原子壳（open_source:true, 新原子）。
 
-对齐 OpenCode P0-1「MCP 客户端」：让 CodeAgent 12 原子能消费外部 MCP server
+对齐 OpenCode P0-1「MCP 客户端」：让 CodeAgent 原子能消费外部 MCP server
 的本地(local/stdio)与远程(remote/http+sse)工具，把「原子注册表」升级为
 「原子 + MCP 双轨插件面」，一次性接入 Cursor/OpenCode/社区 MCP server 生态。
 

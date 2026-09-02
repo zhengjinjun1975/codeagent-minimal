@@ -67,4 +67,3 @@ tags: [codeagent, capability, advantage, open-source]
 ```
 
 ## 落盘
-- E:/open-source/codeagent-minimal/docs/CAPABILITY.md

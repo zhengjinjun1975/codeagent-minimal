@@ -2,7 +2,7 @@
   "name": "code-memory",
   "version": "0.1.0",
   "domain": "memory",
-  "description": "记忆/经验原子: 复用 self_evolve.remember/_load/_save + OptMem 思路。memory.save 经验沉淀, memory.recall 跨会话召回, memory.sediment 技能沉淀。落 experience/*.json。",
+  "description": "记忆/经验原子: 复用 self_evolve.remember/_load/_save + 语义记忆检索思路。memory.save 经验沉淀, memory.recall 跨会话召回, memory.sediment 技能沉淀。落 experience/*.json。",
   "open_source": true,
   "agent_class": "CodeMemoryAgent",
   "entry": "main.py",
