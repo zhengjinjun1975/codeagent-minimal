@@ -70,7 +70,9 @@ class AtomicityAuditAgent(AtomicAgent):
             return self._envelope(False, degraded=True, error=reg.get("error", "registry 加载失败"))
         reg_agents = reg["data"]["agents"]
         mismatch = []
-        missing_in_registry = sorted(set(manifests) - set(reg_agents))
+        # standalone(独立运行原子, 如 code-runloop, 不进 fusion registry) 不算未注册差量
+        standalone = {n for n, m in manifests.items() if m.get("standalone")}
+        missing_in_registry = sorted(set(manifests) - set(reg_agents) - standalone)
         stale_in_registry = sorted(set(reg_agents) - set(manifests))
         if missing_in_registry:
             mismatch.append(f"磁盘已有但未注册 registry: {missing_in_registry}")

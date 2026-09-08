@@ -4,6 +4,7 @@
   "domain": "code",
   "description": "写码原子(真跑反馈闭环, agentic run_loop): 纯 stdlib 自包含, 不进 import 跨库活目录; 一次 LLM generate + 真工具执行回喂(设计v2), verify_cmd DoD 硬校验绿才算完成。",
   "open_source": true,
+  "standalone": true,
   "agent_class": "CodeRunLoopAgent",
   "entry": "main.py",
   "provides": ["code.runloop"],
