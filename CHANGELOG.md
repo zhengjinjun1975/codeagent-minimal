@@ -4,6 +4,13 @@
 
 格式遵循 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.0.0/)。
 
+## [0.4.1] - 2026-09-08
+
+### 修复与 CI
+
+- **atomicity 豁免独立原子**：`atomicity.registry` 现认识 `standalone` 原子（独立运行、不进 fusion registry 的原子，如 code-runloop），不再将其误报为「磁盘已有但未注册」，全量 pytest 由 179/1 → **180 全绿**。`code-runloop/manifest.json` 标记 `standalone:true`。
+- **补 GitHub CI**：新增 `.github/workflows/ci.yml`（ubuntu + `pytest tests/`），main 推送自动跑全量单测，验证纯标准库零依赖。
+
 ## [0.4.0] - 2026-09-08
 
 ### 一体化完整版（带前端）开源

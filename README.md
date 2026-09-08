@@ -3,11 +3,11 @@
 > ⭐ **觉得有用就给我们一个 Star** —— 你的 Star 让这个项目被更多人看见，支持我们持续迭代。
 > [![GitHub stars](https://img.shields.io/github/stars/zhengjinjun1975/codeagent-minimal?style=social)](https://github.com/zhengjinjun1975/codeagent-minimal)
 
-> **v0.4.0 · 一体化完整版** — 把代码审查 / 测试 / 依赖漏洞 / 变异 / 模糊 / 回归 / 自进化 / 写码等能力实现为 **34 个可独立运行、可任意组装的原子智能体**，由统一运行时编排、统一入口 `codeagent` 驱动，并随仓库开源 **Lab 编排平台（`lab/`）+ 浏览器前端（`web/`）**，`git clone` 即用。
+> **v0.4.1 · 一体化完整版** — 把代码审查 / 测试 / 依赖漏洞 / 变异 / 模糊 / 回归 / 自进化 / 写码等能力实现为 **34 个可独立运行、可任意组装的原子智能体**，由统一运行时编排、统一入口 `codeagent` 驱动，并随仓库开源 **Lab 编排平台（`lab/`）+ 浏览器前端（`web/`）**，`git clone` 即用。
 > **一体化开源**：本仓库 = 34 原子 + 统一运行时/入口 + Lab 编排（`lab/`，含前端 `lab/frontend`）+ 最小运行前端（`web/`），全部 Apache-2.0，零第三方依赖。
 
 [![License](https://img.shields.io/badge/License-Apache-2.0-blue.svg)](LICENSE)
-[![Version](https://img.shields.io/badge/version-0.4.0-blue.svg)](CHANGELOG.md)
+[![Version](https://img.shields.io/badge/version-0.4.1-blue.svg)](CHANGELOG.md)
 [![GitHub stars](https://img.shields.io/github/stars/zhengjinjun1975/codeagent-minimal)](https://github.com/zhengjinjun1975/codeagent-minimal)
 [![GitHub forks](https://img.shields.io/github/forks/zhengjinjun1975/codeagent-minimal)](https://github.com/zhengjinjun1975/codeagent-minimal)
 
