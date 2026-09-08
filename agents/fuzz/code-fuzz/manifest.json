@@ -1,0 +1,19 @@
+{
+  "name": "code-fuzz",
+  "version": "0.2.0",
+  "domain": "fuzz",
+  "description": "属性模糊测试原子：复用 fuzz_engine.coverage_driven_gen/fuzz_function/property_test/fuzz_project，纯 stdlib 子进程隔离执行。覆盖率驱动用例生成 + 属性/模糊测试捕获未处理异常。",
+  "open_source": true,
+  "agent_class": "CodeFuzzAgent",
+  "entry": "main.py",
+  "provides": [
+    "fuzz.gen",
+    "fuzz.run",
+    "fuzz.property",
+    "fuzz.project"
+  ],
+  "depends_on": [],
+  "inputs": ["path", "funcname", "iterations", "timeout", "seed", "max_cases", "properties", "max_funcs"],
+  "outputs": ["func", "cases", "coverage_hint", "runs", "crashed", "unhandled", "failures", "ok", "details"],
+  "path": "agents/fuzz/code-fuzz"
+}

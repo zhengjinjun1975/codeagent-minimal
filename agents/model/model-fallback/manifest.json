@@ -1,0 +1,36 @@
+{
+  "name": "model-fallback",
+  "version": "0.1.0",
+  "domain": "model",
+  "description": "模型降级链原子（P2，借鉴Codex model-provider fallback）: 按候选链尝试provider, 失败自动降级(cloud→local), local_only剔除云端数据不出厂。复用llm-router provider注册表概念。",
+  "open_source": true,
+  "agent_class": "ModelFallbackAgent",
+  "entry": "main.py",
+  "provides": [
+    "model.chain",
+    "model.route",
+    "model.candidates"
+  ],
+  "depends_on": [
+    "llm.list_models"
+  ],
+  "inputs": [
+    "messages",
+    "call_model",
+    "purpose",
+    "preference",
+    "local_only",
+    "candidates"
+  ],
+  "outputs": [
+    "ok",
+    "verdict",
+    "provider",
+    "type",
+    "result",
+    "fell_back",
+    "candidates",
+    "errors"
+  ],
+  "path": "agents/model/model-fallback"
+}

@@ -1,0 +1,10 @@
+{
+  "order": [
+    "lab-harness",
+    "lab-loop"
+  ],
+  "enabled": {
+    "lab-harness": true,
+    "lab-loop": true
+  }
+}

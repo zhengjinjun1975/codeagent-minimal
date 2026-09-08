@@ -1,0 +1,24 @@
+# ── Python ────────────────────────────────
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+
+# ── 本地运行产物 / 数据（数据不出厂：不提交本地库 / 任务状态 / 经验记忆 / 报告 / 模型密钥）──
+lab/lab_data/
+lab/**/lab_data/
+*.db
+*.sqlite
+.taskstate/
+.codeagent/
+.codeagent_snapshots/
+experience/
+*.log
+
+# 测试截图 / 临时图
+*.png
+
+# 环境
+.venv/
+venv/
+lab/lab_config.json

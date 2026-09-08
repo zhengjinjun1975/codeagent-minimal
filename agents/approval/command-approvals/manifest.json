@@ -1,0 +1,34 @@
+{
+  "name": "command-approvals",
+  "version": "0.1.0",
+  "domain": "approval",
+  "description": "高危命令/工具审批原子（P0，借鉴Codex approvals.rs/execpolicy）: 命令/工具/文件/网络 allow/ask/deny 细粒度判定+高危命令表+人工确认。复用code-dispatch权限模型, 算法进开源approval_policy.py。",
+  "open_source": true,
+  "agent_class": "CommandApprovalsAgent",
+  "entry": "main.py",
+  "provides": [
+    "approval.check",
+    "approval.classify",
+    "approval.resolve",
+    "approval.policy"
+  ],
+  "depends_on": [],
+  "inputs": [
+    "resource",
+    "resource_type",
+    "policy",
+    "decision",
+    "user_choice"
+  ],
+  "outputs": [
+    "decision",
+    "reason",
+    "rule",
+    "tier",
+    "verdict",
+    "granted",
+    "matched_keywords",
+    "pending"
+  ],
+  "path": "agents/approval/command-approvals"
+}

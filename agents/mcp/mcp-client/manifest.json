@@ -1,0 +1,18 @@
+{
+  "name": "mcp-client",
+  "version": "0.1.0",
+  "domain": "mcp",
+  "description": "MCP 客户端原子(新原子): 连外部 MCP server(local stdio + remote http), tools/list + tools/call 接入生态工具。默认 local_only 白名单, 远程需显式 allow_remote。零依赖纯标准库。",
+  "open_source": true,
+  "agent_class": "McpClientAgent",
+  "entry": "main.py",
+  "provides": [
+    "mcp.list",
+    "mcp.connect",
+    "mcp.tools",
+    "mcp.call"
+  ],
+  "depends_on": [],
+  "inputs": ["server", "endpoint", "command", "tools", "timeout", "local_only", "allow_remote", "allow_tools"],
+  "outputs": ["servers", "tools", "result", "server"]
+}

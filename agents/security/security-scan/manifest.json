@@ -1,0 +1,20 @@
+{
+  "name": "security-scan",
+  "version": "0.1.0",
+  "domain": "security",
+  "description": "安全扫描原子: 10安全维度(注入/认证/授权/反序列化/文件/SSRF/加密/配置/业务/供应链) + 危险函数库 + secret检测 + 误报治理。纯 stdlib 数据不出厂。",
+  "open_source": true,
+  "agent_class": "SecurityScanAgent",
+  "entry": "main.py",
+  "provides": [
+    "security.scan",
+    "security.secret",
+    "security.govern",
+    "security.dim",
+    "security.project"
+  ],
+  "depends_on": [],
+  "inputs": ["path", "code", "dimension"],
+  "outputs": ["issues", "by_dimension", "by_tier", "secrets", "total", "summary", "files"],
+  "path": "agents\\security\\security-scan"
+}

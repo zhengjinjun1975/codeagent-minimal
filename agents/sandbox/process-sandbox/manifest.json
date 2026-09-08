@@ -1,0 +1,41 @@
+{
+  "name": "process-sandbox",
+  "version": "0.1.0",
+  "domain": "sandbox",
+  "description": "进程沙箱原子（P0，借鉴Codex sandboxing）: 安全执行不可信PoC/命令, 隔离+超时+资源限制+输出封顶+白名单+env净化+路径防护。纯stdlib数据不出厂。",
+  "open_source": true,
+  "agent_class": "ProcessSandboxAgent",
+  "entry": "main.py",
+  "provides": [
+    "sandbox.poc",
+    "sandbox.exec",
+    "sandbox.validate",
+    "sandbox.interpreter",
+    "sandbox.guard"
+  ],
+  "depends_on": [],
+  "inputs": [
+    "code",
+    "cmd",
+    "timeout",
+    "max_output",
+    "base_dir",
+    "path",
+    "base"
+  ],
+  "outputs": [
+    "ran",
+    "verdict",
+    "rc",
+    "wall_s",
+    "evidence",
+    "out_tail",
+    "err_tail",
+    "timed_out",
+    "overflow",
+    "rejected",
+    "safe",
+    "path"
+  ],
+  "path": "agents/sandbox/process-sandbox"
+}

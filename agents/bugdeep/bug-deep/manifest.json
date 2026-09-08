@@ -1,0 +1,19 @@
+{
+  "name": "bug-deep",
+  "version": "0.1.0",
+  "domain": "bugdeep",
+  "description": "深挖 bug 原子: 威胁建模先建攻击面 + 对抗性审查 + 自动化PoC沙箱跑证据 + AI规则反哺闭环(验证漏洞沉淀规则)。纯 stdlib 数据不出厂。",
+  "open_source": true,
+  "agent_class": "BugDeepAgent",
+  "entry": "main.py",
+  "provides": [
+    "bugdeep.model",
+    "bugdeep.adv",
+    "bugdeep.poc",
+    "bugdeep.rule"
+  ],
+  "depends_on": [],
+  "inputs": ["path", "code", "sink", "title", "rules_file"],
+  "outputs": ["attack_surface", "findings", "confirmed", "evidence", "rule", "summary"],
+  "path": "agents\\bugdeep\\bug-deep"
+}

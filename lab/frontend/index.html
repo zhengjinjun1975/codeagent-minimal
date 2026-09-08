@@ -1,0 +1,250 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CodeAgent Lab — 本地完整代码智能体</title>
+<link rel="stylesheet" href="/lab.css">
+</head>
+<body>
+<header id="topbar">
+  <div class="brand">
+    <span class="logo">⬡</span>
+    <h1>CodeAgent Lab</h1>
+    <span class="sub">本地完整代码智能体 · 纯 stdlib · 数据不出私域</span>
+  </div>
+  <div class="top-right">
+    <span id="atom-count" class="pill" title="原子库规模">原子...</span>
+    <span id="conn-pill" class="pill ok">服务 ✓</span>
+  </div>
+  <div id="review-bar">
+    <span class="rb-lbl" title="审查对象 = 要审查的目标仓库/目录/文件。输入绝对路径并切换，或直接点『一键审查』用默认编排图审查当前目标。">🎯 审查对象</span>
+    <input id="target-input" list="target-recents" placeholder="目标仓库 / 目录 / 文件绝对路径（如 C:/my/repo 或 C:/my/repo/main.py）">
+    <datalist id="target-recents"></datalist>
+    <button id="btn-browse-target-dir" class="mini" title="点此弹出系统目录选择器，选择目标仓库/目录（浏览器原生 webkitdirectory）">📂 选目录</button>
+    <button id="btn-browse-target-file" class="mini" title="点此弹出系统文件选择器，选择目标文件（其所在目录将成为审查对象）">📄 选文件</button>
+    <button id="btn-target-apply" class="mini" title="把上方路径设为审查目标仓库（目录）或打开文件">切换目标</button>
+    <button id="btn-review-now" class="mini primary" title="一键运行默认代码审查编排图（对当前审查对象执行 8 项审查+聚合交付）">▶ 一键审查</button>
+    <span id="target-hint" class="hint"></span>
+  </div>
+  <nav id="tabs">
+    <button data-view="workspace" class="tab active">代码工作区</button>
+    <button data-view="canvas" class="tab">🧩 原子编排</button>
+    <button data-view="debug" class="tab">🔧 黑箱调试</button>
+    <button data-view="report" class="tab">📋 审查报告</button>
+    <button data-view="models" class="tab">🧠 模型配置</button>
+    <button data-view="ext" class="tab">🧬 原子扩展</button>
+    <button data-view="arch" class="tab">🗺 架构图</button>
+    <button data-view="events" class="tab">📡 事件流</button>
+  </nav>
+</header>
+
+<main id="main">
+
+  <!-- ══════════ 代码工作区: 文件树 + 编辑器/方法级/图 ══════════ -->
+  <section id="view-workspace" class="view active">
+    <aside id="tree-panel" class="panel">
+      <div class="panel-head">
+        <span>文件树</span>
+        <button id="btn-refresh-tree" title="刷新">⟳</button>
+      </div>
+      <div id="tree-root-label" class="tree-root">-</div>
+      <div id="tree-box" class="tree-box"></div>
+    </aside>
+    <section id="file-panel" class="panel flex-1">
+      <div class="panel-head">
+        <span id="file-title">选择文件查看 / 编辑</span>
+        <span class="head-actions">
+          <button id="btn-methods" class="mini">方法级</button>
+          <button id="btn-graph" class="mini">依赖图</button>
+          <button id="btn-impact" class="mini">影响面</button>
+          <button id="btn-layer" class="mini">分层图</button>
+          <button id="btn-editor" class="mini primary">编辑模式</button>
+          <button id="btn-save" class="mini" disabled>保存</button>
+          <button id="btn-run-test" class="mini" disabled>跑测试</button>
+        </span>
+      </div>
+      <div id="file-body" class="file-body"><div class="placeholder">← 从左侧文件树选择源码文件<br>支持: 代码查看 / 方法级定位 / 依赖图 / 影响面 / 在线编辑保存</div></div>
+      <div id="graph-box" class="graph-box hidden"></div>
+    </section>
+    <aside id="info-panel" class="panel right">
+      <div class="panel-head"><span>方法清单 / 信息</span></div>
+      <div id="info-box" class="info-box"></div>
+    </aside>
+  </section>
+
+  <!-- ══════════ 原子编排: 调色板 + 拖拽画布 ══════════ -->
+  <section id="view-canvas" class="view">
+    <aside id="palette" class="panel">
+      <div class="panel-head"><span>原子调色板 <small>(32核心+扩展, 中文功能名)</small></span></div>
+      <div id="palette-search"><input id="palette-q" placeholder="过滤原子(支持中文名)..."></div>
+      <div id="palette-box" class="palette-box"></div>
+    </aside>
+    <section id="canvas-panel" class="panel flex-1">
+      <div class="panel-head">
+        <span>拖拽编排画布</span>
+        <span class="head-actions">
+          <input id="pipe-name" placeholder="管道名称" value="审查-管道">
+          <button id="btn-validate" class="mini">校验</button>
+          <button id="btn-run-pipe" class="mini primary">▶ 运行管道</button>
+          <button id="btn-ui-smoke-preset" class="mini" title="载入「浏览器 UI 冒烟」编排预设(browser-smoke)：对当前前端逐路由真实浏览器冒烟(期望 2 PASS+1 FAIL)。载入后点▶运行管道。">🧪 UI冒烟预设</button>
+          <button id="btn-clear-canvas" class="mini">清空</button>
+        </span>
+      </div>
+      <div id="canvas-box" class="canvas-box">
+        <svg id="canvas-svg" width="100%" height="100%"></svg>
+        <div id="canvas-legend" class="canvas-legend">
+          <span class="lg-line"><svg width="22" height="4"><line x1="0" y1="2" x2="22" y2="2" stroke="#94a3b8" stroke-width="2"/></svg> 实线 = 数据流(执行)</span>
+          <span class="lg-line"><svg width="22" height="4"><line x1="0" y1="2" x2="22" y2="2" stroke="#f59e0b" stroke-width="2" stroke-dasharray="6 4"/></svg> 橙虚线 = 循环反馈环路(语义)</span>
+        </div>
+        <div id="canvas-tip" class="canvas-tip">① 左侧拖原子到画布(或双击) → ② 从节点右端 ◉ 拖到另一节点左端 ○ 连线 → ③ 点节点右侧配置参数 → ④ ▶ 运行管道(节点随事件变绿=完成/变红=失败)</div>
+      </div>
+      <div id="pipe-log" class="pipe-log"></div>
+    </section>
+    <aside id="node-prop" class="panel right">
+      <div class="panel-head"><span>节点属性</span></div>
+      <div id="prop-box" class="info-box">
+        <div class="placeholder">点画布上的节点<br>配置输入参数 / 选择能力</div>
+      </div>
+    </aside>
+  </section>
+
+  <!-- ══════════ 黑箱调试 ══════════ -->
+  <section id="view-debug" class="view">
+    <section id="debug-form" class="panel">
+      <div class="panel-head"><span>🔧 黑箱自动调试（全自动: 复现→最小化→历史命中→定位→修复→回归→沉淀）</span></div>
+      <div class="form-row">
+        <input id="dbg-file" placeholder="目标文件 (target_root 内相对路径, 如 bad_sample.py)">
+        <button id="btn-browse-dbg" class="mini" title="点此弹出系统文件选择器，选择目标文件（解析为审查对象内相对路径）">📄 浏览</button>
+        <input id="dbg-test" placeholder="可选 test_cmd (留空则用 codeagent test.run)">
+      </div>
+      <textarea id="dbg-failure" rows="3" placeholder="失败描述 / 报错输出 (如: NameError: name 'add' is not defined)"></textarea>
+      <div class="form-row">
+        <button id="btn-debug" class="primary">▶ 启动调试回路</button>
+        <span class="hint">轮次上限 3 · 全自动 · 结果沉淀历史库</span>
+      </div>
+    </section>
+    <section id="debug-live" class="panel">
+      <div class="panel-head"><span>调试状态机</span></div>
+      <div id="dbg-steps" class="dbg-steps"></div>
+    </section>
+    <aside id="debug-history-panel" class="panel right">
+      <div class="panel-head"><span>🕘 过去调试结果（历史库，同形命中复用）</span></div>
+      <div id="dbg-history" class="info-box"></div>
+    </aside>
+  </section>
+
+  <!-- ══════════ 审查报告 ══════════ -->
+  <section id="view-report" class="view">
+    <section class="panel flex-1">
+      <div class="panel-head">
+        <span>📋 详细软件审查报告（代码结构）</span>
+        <span class="head-actions">
+          <input id="rep-target" placeholder="目标文件/目录 (留空=whole target)">
+          <button id="btn-browse-rep-dir" class="mini" title="点此弹出系统目录选择器，选择报告目标目录（解析为审查对象内相对路径）">📂 目录</button>
+          <button id="btn-browse-rep-file" class="mini" title="点此弹出系统文件选择器，选择报告目标文件（解析为审查对象内相对路径）">📄 文件</button>
+          <button id="btn-report" class="mini primary">生成报告</button>
+        </span>
+      </div>
+      <div id="rep-actions" class="rep-actions hidden">
+        <a id="rep-export-html" class="mini btn" target="_blank">导出 HTML</a>
+        <a id="rep-export-md" class="mini btn" target="_blank">导出 Markdown</a>
+      </div>
+      <div id="rep-body" class="rep-body"><div class="placeholder">一键聚合: 代码审查 / 架构分层 / 安全扫描 / 依赖SCA / 死代码 / 文档新鲜度 / 复杂度 / 方法级影响 → P0/P1/P2 分级</div></div>
+    </section>
+    <aside class="panel right">
+      <div class="panel-head"><span>报告历史</span></div>
+      <div id="rep-history" class="info-box"></div>
+    </aside>
+  </section>
+
+  <!-- ══════════ 模型配置 ══════════ -->
+  <section id="view-models" class="view">
+    <section class="panel flex-1">
+      <div class="panel-head">
+        <span>🧠 模型设置（本地 / 云端，密钥脱敏不出私域）</span>
+        <span class="head-actions"><button id="btn-add-provider" class="mini">+ 新增 Provider</button></span>
+      </div>
+      <div id="providers-box" class="providers-box"></div>
+      <div class="panel-head"><span>降级链（本地挂了自动切云端，反之亦然）</span></div>
+      <div id="chain-box" class="chain-box"></div>
+      <div class="form-row"><button id="btn-save-models" class="primary">保存配置</button><button id="btn-test-all" class="mini">测试全部连通</button><span id="models-status" class="hint"></span></div>
+    </section>
+    <aside class="panel right">
+      <div class="panel-head"><span>说明</span></div>
+      <div class="info-box note">
+        <b>本地</b>: Ollama / llama.cpp 等 OpenAI 兼容端点 (http://127.0.0.1:11434)<br><br>
+        <b>云端</b>: 任意 OpenAI 兼容 base_url (数据仅发往你配置的端点)<br><br>
+        <b>脱敏</b>: api_key 只存本机；回显 前4***后2；空串/含* 保留旧值<br><br>
+        <b>生效</b>: 保存即时生效，无需重启
+      </div>
+    </aside>
+  </section>
+
+  <!-- ══════════ 原子扩展 ══════════ -->
+  <section id="view-ext" class="view">
+    <section class="panel flex-1">
+      <div class="panel-head"><span>🧬 新原子扩展机制（开发 / 挂接 / 注册，加壳不改核心）</span></div>
+      <div class="form-row">
+        <input id="ext-name" placeholder="扩展名 (如 my-review)">
+        <input id="ext-domain" placeholder="领域 (如 codereview)">
+        <input id="ext-cap" placeholder="能力 (如 myreview.check)">
+      </div>
+      <div class="form-row">
+        <input id="ext-inputs" placeholder="输入 (逗号分隔: path,code)">
+        <input id="ext-desc" placeholder="一句话描述">
+      </div>
+      <div class="form-row">
+        <button id="btn-scaffold" class="primary">① 生成原子模板</button>
+        <button id="btn-register" class="mini">② 注册原子</button>
+        <button id="btn-unregister" class="mini danger">注销</button>
+        <button id="btn-selfcheck" class="mini">自检(扩展↔核心一致性)</button>
+      </div>
+      <div id="ext-log" class="ext-log"></div>
+    </section>
+    <aside class="panel right">
+      <div class="panel-head"><span>已挂接扩展</span></div>
+      <div id="ext-list" class="info-box"></div>
+    </aside>
+  </section>
+
+  <!-- ══════════ 架构图 ══════════ -->
+  <section id="view-arch" class="view">
+    <section class="panel flex-1">
+      <div class="panel-head"><span>🗺 原子架构一张图（32 核心原子 + 扩展 + 壳层）</span></div>
+      <div id="arch-svg-box" class="arch-box"><div class="placeholder">加载 32 原子架构图...</div></div>
+    </section>
+  </section>
+
+  <!-- ══════════ 事件流 ══════════ -->
+  <section id="view-events" class="view">
+    <section class="panel flex-1">
+      <div class="panel-head"><span>📡 事件流（事件驱动无死角：原子/调试/报告/配置全部有事件）</span></div>
+      <div id="events-box" class="events-box"></div>
+    </section>
+  </section>
+
+</main>
+
+<!-- ══════════ 底部: 对话流 ══════════ -->
+<footer id="chatbar">
+  <div id="chat-panel" class="chat-panel hidden">
+    <div class="chat-head"><span>💬 原生对话（所有功能可用自然语言触发）</span><button id="btn-chat-close">×</button></div>
+    <div id="chat-box" class="chat-box"></div>
+  </div>
+  <div class="chat-input-row">
+    <input id="chat-input" placeholder="说点什么: 审查 bad_sample.py / 调试 sample_target.py / 切换到模型 / 生成审查报告 / 浏览 / 跑测试 / 影响 ...">
+    <button id="btn-chat-send" class="primary">发送</button>
+    <button id="btn-chat-toggle" class="mini">💬</button>
+  </div>
+</footer>
+
+<!-- 浏览器原生文件/目录选择器（隐藏，由"浏览/选目录/选文件"按钮触发点击）。
+     <input type=file> 选单个文件；<input type=file webkitdirectory> 选整个目录。
+     沙箱只暴露文件名/相对结构，绝对路径由后端 /api/fs/locate 在边界内解析。
+     注意：必须放在 <script src="/lab.js"> 之前，保证 lab.js 顶层 setPickTargets 执行时元素已存在。 -->
+<input type="file" id="pick-file" class="hidden-picker">
+<input type="file" id="pick-dir" webkitdirectory class="hidden-picker">
+<script src="/lab.js"></script>
+</body>
+</html>

@@ -1,0 +1,30 @@
+{
+  "name": "lab-loop",
+  "version": "0.1.0",
+  "domain": "loop",
+  "description": "循环控制原子: 重试(loop.retry, 失败反馈上次错误再试) / 迭代(loop.iterate, 逐项执行且上轮结果反馈下轮), 加壳不改核心, 纯 stdlib 数据不出私域。",
+  "open_source": true,
+  "agent_class": "LabLoopAgent",
+  "entry": "main.py",
+  "provides": [
+    "loop.retry",
+    "loop.iterate"
+  ],
+  "depends_on": [],
+  "inputs": [
+    "target_atom",
+    "target_cap",
+    "attempts",
+    "params",
+    "items",
+    "item_param"
+  ],
+  "outputs": [
+    "ok",
+    "attempts_used",
+    "final",
+    "results",
+    "iterations",
+    "summary"
+  ]
+}

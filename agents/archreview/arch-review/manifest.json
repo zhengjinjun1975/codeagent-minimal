@@ -1,0 +1,19 @@
+{
+  "name": "arch-review",
+  "version": "0.1.0",
+  "domain": "archreview",
+  "description": "架构审查原子: 分层/依赖方向/边界/攻击面清单/设计意图比对(声明vs实现)。纯 stdlib 数据不出厂。",
+  "open_source": true,
+  "agent_class": "ArchReviewAgent",
+  "entry": "main.py",
+  "provides": [
+    "archreview.layers",
+    "archreview.boundary",
+    "archreview.surface",
+    "archreview.intent"
+  ],
+  "depends_on": [],
+  "inputs": ["path"],
+  "outputs": ["layers", "by_layer", "violations", "boundaries", "inventory", "missing", "summary"],
+  "path": "agents\\archreview\\arch-review"
+}

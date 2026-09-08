@@ -1,0 +1,31 @@
+{
+  "name": "guard",
+  "version": "0.1.0",
+  "domain": "guard",
+  "description": "护栏钩子原子（P2，借鉴Codex guardian）: code变更前置/后置安全审查钩子流水线, 复用security_scan 10维度+secret+误报治理做门禁(pre/post/pipeline/check)。纯stdlib数据不出厂。",
+  "open_source": true,
+  "agent_class": "GuardAgent",
+  "entry": "main.py",
+  "provides": [
+    "guard.pre",
+    "guard.post",
+    "guard.pipeline",
+    "guard.check"
+  ],
+  "depends_on": [],
+  "inputs": [
+    "path",
+    "code",
+    "paths",
+    "govern"
+  ],
+  "outputs": [
+    "issues",
+    "secrets",
+    "verdict",
+    "files",
+    "summary",
+    "total"
+  ],
+  "path": "agents/guard/guard"
+}

@@ -1,0 +1,13 @@
+{
+  "name": "code-evolve",
+  "version": "0.1.0",
+  "domain": "evolve",
+  "description": "自进化原子: 复用 self_evolve.refine(观察→归因→精炼→校验四步闭环)/self_prompt/tdd_loop/_sediment_skill。evolve.refine 四步闭环+技能沉淀, evolve.tdd 红绿闭环。",
+  "open_source": true,
+  "agent_class": "CodeEvolveAgent",
+  "entry": "main.py",
+  "provides": ["evolve.refine", "evolve.skill", "evolve.self_prompt", "evolve.tdd"],
+  "depends_on": ["memory.recall"],
+  "inputs": ["task", "outcome", "snapshot", "memdir", "auto_sediment", "top_k"],
+  "outputs": ["observation", "attribution", "refinement", "kept", "verdict", "skills", "prompt", "tdd"]
+}

@@ -1,0 +1,28 @@
+{
+  "name": "ontology-review",
+  "version": "0.1.0",
+  "domain": "ontology",
+  "description": "本体审查原子（P0+P2）: factory-ontology 链路断链审查(Web↔套件↔CSV↔NT) + 本体数据质量(CSV/NT/lexicon)。纯 stdlib 数据不出厂。",
+  "open_source": true,
+  "agent_class": "OntologyReviewAgent",
+  "entry": "main.py",
+  "provides": [
+    "ontology.chain",
+    "ontology.quality"
+  ],
+  "depends_on": [],
+  "inputs": [
+    "web_dir",
+    "kit_dir",
+    "data_dir",
+    "target"
+  ],
+  "outputs": [
+    "ok",
+    "links",
+    "issues",
+    "quality",
+    "verdict"
+  ],
+  "path": "agents/ontology/ontology-review"
+}

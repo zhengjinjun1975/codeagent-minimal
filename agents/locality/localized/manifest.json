@@ -1,0 +1,32 @@
+{
+  "name": "localized",
+  "version": "0.1.0",
+  "domain": "locality",
+  "description": "本地化原子（P1）: 数据不出厂审计(网络/云端调用信号) + 模型降级链本地主(本地可用绝不外发) + 本地路由审查。纯 stdlib 数据不出厂。",
+  "open_source": true,
+  "agent_class": "LocalizedAgent",
+  "entry": "main.py",
+  "provides": [
+    "local.audit",
+    "local.chain",
+    "local.route"
+  ],
+  "depends_on": [],
+  "inputs": [
+    "target",
+    "code",
+    "local_only",
+    "candidates",
+    "config_path",
+    "timeout"
+  ],
+  "outputs": [
+    "ok",
+    "signals",
+    "route",
+    "local_up",
+    "verdict",
+    "fallback"
+  ],
+  "path": "agents/locality/localized"
+}
