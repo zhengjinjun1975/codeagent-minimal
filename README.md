@@ -15,6 +15,26 @@
 
 ---
 
+## 克隆即用（30 秒跑起来）
+
+只需 **Python 3.8+**，无需安装任何第三方包：
+
+```bash
+git clone https://github.com/zhengjinjun1975/codeagent-minimal.git
+cd codeagent-minimal
+
+# 方式一：起本地可视化 Lab（浏览器打开 http://127.0.0.1:8087，可编排/审查/调试/报告）
+python lab/lab_app.py --port 8087
+
+# 方式二：命令行直接用（不开界面）
+python codeagent.py review 你的代码文件.py   # 代码审查：质量评分 + 揪出隐患
+python codeagent.py test   你的代码文件.py   # 自动测试
+python codeagent.py dep-scan .               # 依赖漏洞扫描
+python codeagent.py guard   .                # 一键安全·质量组装链
+```
+
+把外包/供应商交付的代码丢进去，本地就能审查、修 Bug、扫安全、跑测试，数据不出厂。完整命令与每个能力见下方「带前端(Lab 编排)」「用法」。
+
 ## 文档导航
 
 | 文档 | 说明 |
@@ -33,7 +53,9 @@
 
 ## 定位
 
-**给需要审代码但不写代码的人：本地代码审查 / 安全 / 测试智能体，纯标准库零依赖，数据不出厂，原子化可组装，中小企业工厂代码工具。**
+**给中小企业 / 工厂审外包代码的本地智能体。** 外包和供应商交付的代码往往不透明、不放心——把整包代码丢进这个本地工具，就能对收到的代码做**质量审查、Bug 修复、安全防护、测试**：挑出注水与隐患、揪出漏洞与硬编码密钥、补上缺失的测试，全程本地处理、数据不出厂。纯 Python 标准库零依赖，不装任何包，工厂一台普通机器即可落地。
+
+> 典型场景：软件/代码外包回厂后的一键体检与加固；供应商二次开发代码的接收验收；对历史外包项目做安全与合规扫描。既能当"外包代码接收体检台"，也能当常用代码能力的本地工具箱。
 
 - **原子化**：每个能力是一个「原子智能体」（`AtomicAgent` 基类），具备统一接口 `call / run / describe`、统一生命周期 `discovered → loaded → ready`、统一 `{ok, data}` 结果信封、失败自动降级 `{ok:false, degraded:true}`。
 - **可组装**：原子之间通过能力声明（`provides` / `depends_on`）由加载器做拓扑排序 + 冲突检测，按需拼成任意组装链（如 `think→gen→review→test→evolve`、`guard = review+dep-scan+fuzz`）。
