@@ -26,11 +26,14 @@ def _registry_atoms():
     return sorted(agents.keys())
 
 
+COUNT_RE = re.compile(r'(\d+)\s*个?\s*原子|(\d+)\s*个?\s*核心(?=\s*(?:原子|\+))')
+
+
 def scan_atom_counts(text, n):
     out = []
     for i, line in enumerate(text.splitlines(), 1):
-        for m in re.finditer(r'(\d+)\s*个?原子', line):
-            if int(m.group(1)) != n:
+        for m in COUNT_RE.finditer(line):
+            if int(m.group(1) or m.group(2)) != n:
                 out.append((i, m.group(0)))
     return out
 
@@ -137,6 +140,7 @@ def test_checkers_have_power():
     readme = _read('README.md')
     mutated = readme + '\n共 **999 个原子**\n'
     assert scan_atom_counts(mutated, n), 'scan_atom_counts 未检出注入的 999 原子'
+    assert scan_atom_counts('调色板 (999核心+扩展)', n), 'scan_atom_counts 未检出 999核心+ 形式'
 
     guide = _read('docs/ATOMS_GUIDE.md')
     lines = guide.splitlines()
