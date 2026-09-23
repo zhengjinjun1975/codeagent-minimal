@@ -4,7 +4,7 @@
 纯 http.server 实现：
   - 托管静态 index.html（浅色/中文/按钮/结果展示）
   - API 端点真实调用统一入口 codeagent.py（subprocess），
-    显示 35 原子状态(ready/degraded/冲突) + 运行 review/test/chain/guard/evolve/status。
+    显示 36 原子状态(ready/degraded/冲突) + 运行 review/test/chain/guard/evolve/git/project/evals/status。
 
 安全加固（codeagent-security-hardening）：
   - P0 路径穿越：review/test/guard 的 target 必须是 ROOT 内 `_code_targets()` 白名单源码文件，
@@ -88,26 +88,62 @@ def _validate_target(target):
     return None, f"非法路径(仅允许项目内源码文件): {t}"
 
 
-def _run_codeagent(args, timeout=180):
-    """真实调用统一入口 codeagent.py，返回标准输出 JSON。"""
-    cmd = [sys.executable, CODEAGENT] + args + ["--json"]
+def _validate_dir(target):
+    """目录入参边界：仅放行 ROOT 内的相对目录（拒绍 ../ 与绝对路径）。
+
+    用于项目级验收(test.project)与 git 工具——它们吃的是目录，不是源码文件。
+    """
+    if not target:
+        return None, "缺少目录"
+    t = str(target).replace("\\", "/")
+    try:
+        real = os.path.realpath(os.path.join(ROOT, t))
+        root = os.path.realpath(ROOT)
+        if os.path.commonpath([real, root]) == root and os.path.isdir(real):
+            return os.path.relpath(real, ROOT).replace("\\", "/") or ".", None
+    except ValueError:
+        pass
+    return None, f"非法目录(仅允许项目内目录): {t}"
+
+
+def _run_proc(cmd, timeout=180):
+    """跑一个子进程并尽力解析 stdout JSON（cwd 固定 ROOT，不经过 shell）。
+
+    原子 CLI 会先打一行“══ … 原子自测 ══”横幅，所以首个 json.loads 失败时
+    从第一个 { 处再试一次（否则只剩 raw，前端不好用）。
+    """
     try:
         proc = subprocess.run(cmd, cwd=ROOT, capture_output=True,
                               text=True, timeout=timeout, encoding="utf-8",
                               errors="replace")
         out = proc.stdout.strip()
-        try:
-            return json.loads(out) if out else {"error": "(空输出)", "code": proc.returncode}
-        except json.JSONDecodeError:
-            return {"raw": out, "stderr": proc.stderr[-2000:], "code": proc.returncode}
+        tail = out[out.index("{"):] if "{" in out else ""
+        for cand in (out, tail):
+            if not cand:
+                continue
+            try:
+                return json.loads(cand)
+            except json.JSONDecodeError:
+                continue
+        return {"raw": out, "stderr": proc.stderr[-2000:], "code": proc.returncode}
     except subprocess.TimeoutExpired:
         return {"error": f"命令超时(>{timeout}s)"}
     except Exception as e:  # noqa: BLE001
         return {"error": f"调用失败: {e.__class__.__name__}"}
 
 
+def _run_codeagent(args, timeout=180):
+    """真实调用统一入口 codeagent.py，返回标准输出 JSON。"""
+    return _run_proc([sys.executable, CODEAGENT] + args + ["--json"], timeout)
+
+
+def _run_script(rel_script, args, timeout=180):
+    """调用仓库内脚本（脚本路径由调用处写死，不接受外部拼接）。"""
+    return _run_proc([sys.executable, os.path.join(ROOT, rel_script)] + args, timeout)
+
+
 def _status_atoms():
-    """35 原子状态：ready / degraded / 冲突。"""
+    """36 原子状态：ready / degraded / 冲突。"""
     d = _run_codeagent(["status"])
     atoms = d.get("status") or {}
     order = atoms.get("order") or atoms.get("atoms") or []
@@ -293,6 +329,46 @@ class Handler(BaseHTTPRequestHandler):
             r = _run_codeagent(["evolve", "--task", task,
                                 "--outcome", json.dumps(outcome, ensure_ascii=False)])
             self._json({"ok": True, "cmd": "evolve", "result": r})
+            return
+        if cmd == "project":
+            d, derr = _validate_dir(payload.get("dir") or ".")
+            if derr:
+                self._json({"ok": False, "error": derr}, 400)
+                return
+            r = _run_codeagent(["project", d], timeout=300)
+            self._json({"ok": True, "cmd": "project", "target": d, "result": r})
+            return
+        if cmd == "git":
+            action = str(payload.get("action") or "status")
+            if action not in ("status", "diff", "log", "branch"):
+                self._json({"ok": False, "error": f"git 只开放只读动作: {action}"}, 400)
+                return
+            d, derr = _validate_dir(payload.get("dir") or ".")
+            if derr:
+                self._json({"ok": False, "error": derr}, 400)
+                return
+            cap = "git." + action
+            args = ["--capability", cap, "--path", d]
+            if action == "log":
+                try:
+                    n = max(1, min(int(payload.get("n") or 10), 50))
+                except (TypeError, ValueError):
+                    n = 10
+                args += ["--n", str(n)]
+            if action == "branch":
+                args += ["--action", "list"]   # 只列分支：不建/不切/不删
+            r = _run_script(os.path.join("agents", "tools", "git-ops", "main.py"), args)
+            self._json({"ok": True, "cmd": "git", "capability": cap,
+                        "target": d, "result": r})
+            return
+        if cmd == "evals":
+            try:
+                k = max(1, min(int(payload.get("k") or 1), 3))
+            except (TypeError, ValueError):
+                k = 1
+            r = _run_script(os.path.join("scripts", "run_evals.py"),
+                            ["--k", str(k), "--json"], timeout=300)
+            self._json({"ok": True, "cmd": "evals", "result": r})
             return
         self._json({"ok": False, "error": f"未知命令: {cmd}"}, 400)
 

@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-"""pipeline.py — 拖拽式编排执行器（35 原子 + 扩展原子组装成管道，真实执行）。
+"""pipeline.py — 拖拽式编排执行器（36 原子 + 扩展原子组装成管道，真实执行）。
 
 - 拓扑校验：依赖环检测（Kahn）+ 原子 exists + 能力 ∈ provides + 边目标存在
 - 依赖方向：原子 depends_on 的能力提供者必须先执行；边（数据流）先序约束同样入拓扑

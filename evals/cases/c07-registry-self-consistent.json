@@ -1,0 +1,13 @@
+{
+  "id": "c07-registry-self-consistent",
+  "title": "注册表自洽（原子数与声明对得上）",
+  "call": {
+    "capability": "atomicity.registry",
+    "arguments": {}
+  },
+  "expect": {
+    "path": "data.ok",
+    "equals": true
+  },
+  "note": "期望值照实跑：True"
+}

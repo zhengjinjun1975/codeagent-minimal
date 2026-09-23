@@ -1,6 +1,6 @@
 # CodeAgent Minimal 能力对照说明（Positioning）
 
-> **数据口径**：同类项目星标 / 许可 = **2026-09-23 经 GitHub API 实测**（`gh api repos/<owner>/<repo>`）；本仓数字取自 `registry.json`（35 原子 / 140 能力）与全库扫描（138 个 `.py` / 30,234 行 / **无 requirements.txt**）。
+> **数据口径**：同类项目星标 / 许可 = **2026-09-23 经 GitHub API 实测**（`gh api repos/<owner>/<repo>`）；本仓数字取自 `registry.json`（36 原子 / 145 能力）与全库扫描（140 个 `.py` / 31,071 行 / **无 requirements.txt**）。
 > 本文件只做**定位与边界**说明：优势逐条列出，短板同样逐条列出，不拔高、不贬低。
 
 ---
@@ -51,7 +51,7 @@
 | `aider-AI/aider` | 49,122 | Apache-2.0 | 终端结对编程 | 需模型 API | 云端 | ✗ |
 | `continuedev/continue` | 35,997 | Apache-2.0 | IDE 助手 | 需模型 | 云端 | ✗ |
 | `SWE-agent/SWE-agent` | 20,386 | MIT | 研究型修 issue 代理 | 需模型 API | 云端 | ✗ |
-| **CodeAgent Minimal（本仓）** | — | Apache-2.0 | **质量治理内核** | **无（可选增强缺失即降级）** | **默认不出厂** | **✓（35 原子 / 140 能力）** |
+| **CodeAgent Minimal（本仓）** | — | Apache-2.0 | **质量治理内核** | **无（可选增强缺失即降级）** | **默认不出厂** | **✓（36 原子 / 145 能力）** |
 
 ## 表 B：与「质量治理工具类」同层，差在覆盖与组装
 
@@ -86,10 +86,10 @@
 ## 优势（逐条显性，不埋在表格里）
 
 1. **零安装起点**：无 `requirements.txt`；核心判定全走标准库（可选增强如 bandit / pyflakes / coverage / pytest 装了才用、缺失即降级）。对照：Semgrep 要装引擎 + 规则、CodeQL 要建数据库、Trivy 要下漏洞库、SonarQube 要起服务 + DB。
-2. **覆盖面 × 组装**：35 原子 / 140 能力，横跨代码审查、安全扫描、依赖 SCA、测试与变异、影响分析（方法级 / 依赖级）、死代码、架构审查、本体 / 领域审查、审批、沙箱、上下文压缩、模型降级；可任意组装成链（`guard` 安全质量链、`chain` think→gen→review→test→evolve）。
+2. **覆盖面 × 组装**：36 原子 / 145 能力，横跨代码审查、安全扫描、依赖 SCA、测试与变异、影响分析（方法级 / 依赖级）、死代码、架构审查、本体 / 领域审查、Git 只读工具、审批、沙箱、上下文压缩、模型降级；可任意组装成链（`guard` 安全质量链、`chain` think→gen→review→test→evolve）。
 3. **统一契约**：每个原子同一生命周期（`discovered → loaded → ready`）、统一 `{ok, data}` 信封、失败自动降级 `{ok:false, degraded:true}`；manifest 声明 `permission`（read/write/exec/net）+ `resource` 并受门复核。
 4. **数据不出厂是默认值**：云端 LLM / 远端漏洞库必须显式开启；同类编码代理默认就把代码 / 上下文交给云端模型。
-5. **自证体系**：188 条 pytest + 新增 **7 项跨面能力一致性门**（含分辨力自检：注入错误计数 / 删表行 / 删映射键必须报红）+ GitHub Actions CI。
+5. **自证体系**：195 条 pytest + **7 项跨面能力一致性门**（含分辨力自检：注入错误计数 / 删表行 / 删映射键必须报红）+ GitHub Actions CI。
 6. **可加壳扩展不碰核心**：扩展原子挂壳层（Lab 编排画布），核心原子只读复用；拆得开、拼得起。
 7. **危险面收紧**：命令审批（`approval.check/classify/policy`）细粒度 allow/ask/deny + 执行期审批门；沙箱执行不可信 PoC。
 8. **可解释可复算**：判定主体是规则 / 阈值，能复算、能对账；模型只做兜底与增强，不把结论托付给黑盒。
@@ -117,4 +117,4 @@
 ## 数据来源（可复核）
 
 - 同类项目星标 / 许可：`gh api repos/<owner>/<repo>`，**2026-09-23 实测**；许可取自 `license.spdx_id`；另经 3 路独立调研（编码代理 / 静态分析安全 / 测试变异）一手核对，数字一致。
-- 本仓：`registry.json`（35 原子 / 140 能力）；全库扫描 138 个 `.py` / 30,234 行 / 无 `requirements.txt`；测试数取自 `pytest` 实测。
+- 本仓：`registry.json`（36 原子 / 145 能力）；全库扫描 140 个 `.py` / 31,071 行 / 无 `requirements.txt`；测试数取自 `pytest` 实测。

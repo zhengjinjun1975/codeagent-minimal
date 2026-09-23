@@ -26,6 +26,12 @@ def _registry_atoms():
     return sorted(agents.keys())
 
 
+def _registry_caps():
+    with open(os.path.join(ROOT, 'registry.json'), encoding='utf-8') as f:
+        reg = json.load(f)
+    return {a: v.get('provides', []) for a, v in (reg.get('agents') or {}).items()}
+
+
 COUNT_RE = re.compile(r'(\d+)\s*个?\s*原子|(\d+)\s*个?\s*核心(?=\s*(?:原子|\+))')
 
 
@@ -128,9 +134,13 @@ def test_frontend_atomcn_covers():
 
 
 def test_server_cmd_whitelist():
-    allowed = {'status', 'review', 'test', 'chain', 'guard', 'evolve'}
+    allowed = {'status', 'review', 'test', 'chain', 'guard', 'evolve', 'project', 'git', 'evals'}
     extra = scan_server_cmds(_read('web/server.py'), allowed)
     assert not extra, f'server.py 命令超出白名单: {extra}'
+    caps = _registry_caps()
+    assert 'git.status' in caps.get('git-ops', []), 'git-ops 缺 git.status'
+    assert 'test.project' in caps.get('code-test', []), 'code-test 缺 test.project'
+    assert os.path.exists(os.path.join(ROOT, 'scripts', 'run_evals.py')), 'scripts/run_evals.py 缺失'
 
 
 def test_checkers_have_power():

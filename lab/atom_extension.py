@@ -263,7 +263,7 @@ def unregister(name, cfg=None, events=None):
 def sync_core(name, confirm=False, cfg=None, events=None):
     """显式确认后写入核心库（agents/<domain>/<name> + registry.json 重建）。
 
-    这是「新增原子正式进入 35 原子库」的标准动作；核心代码零改动，
+    这是「新增原子正式进入 36 原子库」的标准动作；核心代码零改动，
     仅新增目录 + 经 agent_loader.build_registry 重建索引（既有机制）。
     """
     cfg = cfg or get_config()

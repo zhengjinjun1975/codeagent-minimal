@@ -26,7 +26,7 @@ def main():
     ap.add_argument("--port", type=int, default=None)
     ap.add_argument("--token", default=None)
     ap.add_argument("--codeagent-root", default=None,
-                    help="35 原子库根目录(默认读 lab_config.json)")
+                    help="36 原子库根目录(默认读 lab_config.json)")
     ap.add_argument("--target-root", default=None,
                     help="目标仓库(默认=原子库自身, 可在前端切换)")
     ap.add_argument("--data-dir", default=None, help="运行数据目录(默认 lab/lab_data)")

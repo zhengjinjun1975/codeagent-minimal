@@ -1404,6 +1404,59 @@
       },
       "path": "agents/test/code-test"
     },
+    "git-ops": {
+      "name": "git-ops",
+      "version": "0.1.0",
+      "domain": "tools",
+      "description": "git 仓库操作：状态/差异/日志/提交/分支（只读为主+受控写；不含 push/reset/force）",
+      "open_source": true,
+      "agent_class": "GitOpsAgent",
+      "entry": "main.py",
+      "provides": [
+        "git.status",
+        "git.diff",
+        "git.log",
+        "git.commit",
+        "git.branch"
+      ],
+      "depends_on": [],
+      "inputs": [
+        "path",
+        "action",
+        "name",
+        "message",
+        "n",
+        "staged",
+        "base"
+      ],
+      "outputs": [
+        "branch",
+        "clean",
+        "changed",
+        "diff",
+        "files",
+        "stat",
+        "commits",
+        "sha",
+        "committed",
+        "branches",
+        "current",
+        "created",
+        "switched"
+      ],
+      "permission": {
+        "needs": [
+          "exec"
+        ],
+        "network": false
+      },
+      "resource": {
+        "model_calls": 0,
+        "timeout_sec": 600,
+        "memory_mb": 512
+      },
+      "path": "agents/tools/git-ops"
+    },
     "browser-smoke": {
       "name": "browser-smoke",
       "version": "0.1.0",
@@ -1465,6 +1518,7 @@
     "security-scan",
     "task-state",
     "code-test",
+    "git-ops",
     "browser-smoke",
     "code-review",
     "model-fallback",

@@ -61,7 +61,7 @@
 <body>
 <header>
   <h1>⚙️ CodeAgent 最小化运行前端 <span id="ver" style="font-size:13px;color:var(--muted);font-weight:400"></span></h1>
-  <p>35 原子统一运行时 · 统一入口 <code>codeagent.py</code> · 纯标准库 · 数据不出厂</p>
+  <p><span id="rt-summary">统一运行时</span> · 统一入口 <code>codeagent.py</code> · 纯标准库 · 数据不出厂</p>
 </header>
 <main>
   <div class="error-bar" id="errbar"></div>
@@ -92,7 +92,7 @@
         <select id="ts-file"></select></div>
       <div class="row"><label><input type="checkbox" id="ts-nomut" checked> 跳过变异</label>
         <button onclick="runTest()">运行测试</button></div>
-      <div class="hint">冒烟 / 覆盖率 / 单元 / 变异</div>
+      <div class="hint">冒烟 / 覆盖率 / 单元 / 变异（项目级验收见下方卡片）</div>
       <div class="result-wrap" id="ts-result"><pre></pre></div>
     </div>
 
@@ -123,6 +123,37 @@
     </div>
 
     <div class="card">
+      <h2>🛠️ 工具 (git 只读)</h2>
+      <div class="row"><label>仓库目录</label><input type="text" id="gt-dir" value="."></div>
+      <div class="row"><label>动作</label>
+        <select id="gt-action">
+          <option value="status">status 工作区状态</option>
+          <option value="diff">diff 变更差异</option>
+          <option value="log">log 提交历史</option>
+          <option value="branch">branch 分支列表</option>
+        </select>
+        <button onclick="runGit()">运行 git</button></div>
+      <div class="hint">只开放只读动作（不 commit / 不切分支 / 不建删）</div>
+      <div class="result-wrap" id="gt-result"><pre></pre></div>
+    </div>
+
+    <div class="card">
+      <h2>📦 项目级验收 (test.project)</h2>
+      <div class="row"><label>项目目录</label><input type="text" id="pj-dir" value="examples"></div>
+      <div class="row"><button onclick="runProject()">运行项目验收</button>
+        <span class="hint">逐文件 smoke + 跑自带测试 · 汇总与明细同口径</span></div>
+      <div class="result-wrap" id="pj-result"><pre></pre></div>
+    </div>
+
+    <div class="card">
+      <h2>📋 评测题集 (evals)</h2>
+      <div class="row"><label>次数 k</label><input type="number" id="ev-k" value="1" min="1" max="3" style="width:70px">
+        <button onclick="runEvals()">跑题集</button>
+        <span class="hint">pass^k 稳定性 · 期望值来自真跑 · 不调云端</span></div>
+      <div class="result-wrap" id="evk-result"><pre></pre></div>
+    </div>
+
+    <div class="card">
       <h2>🧭 状态 (status)</h2>
       <div class="row"><button onclick="runStatus()">运行 status</button>
         <span class="hint">运行时全貌：atoms / capabilities</span></div>
@@ -145,6 +176,7 @@ async function refreshAtoms(){
     if(!d.ok){ showErr(d.error||'获取状态失败'); return; }
     const a = d.data;
     $('atoms-count').textContent = `共 ${a.count} 原子`;
+    $('rt-summary').textContent = `${a.count} 原子统一运行时`;
     $('atoms').innerHTML = a.rows.map(x =>
       `<span class="atom ${x.status}"><span class="dot"></span>${x.name}</span>`).join('');
     $('atoms-detail').textContent =
@@ -188,6 +220,9 @@ function runEvolve(){ const t=$('ev-task').value; if(!t){showErr('请填写任�
   let out; try{out=JSON.parse($('ev-outcome').value);}catch(e){showErr('结果 JSON 解析失败');return;}
   run('evolve',{task:t, outcome:out},'ev-result'); }
 function runStatus(){ run('status',{},'st-result'); }
+function runGit(){ const a=$('gt-action').value; run('git',{action:a, dir:$('gt-dir').value.trim()||'.'},'gt-result'); }
+function runProject(){ const d=$('pj-dir').value.trim(); if(!d){showErr('请填项目目录');return;} run('project',{dir:d},'pj-result'); }
+function runEvals(){ run('evals',{k:parseInt($('ev-k').value||'1',10)},'evk-result'); }
 
 refreshAtoms(); loadFiles();
 </script>

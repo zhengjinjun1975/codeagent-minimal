@@ -1,0 +1,15 @@
+{
+  "id": "c03-rule-chain-select-is-zero-model",
+  "title": "规则选链：0 模型调用且第 3 步是跑测试",
+  "call": {
+    "capability": "dispatch.chain_select",
+    "arguments": {
+      "task": "修一个函数里的空指针崩溃"
+    }
+  },
+  "expect": {
+    "path": "data.chain.2.capability",
+    "equals": "test.run"
+  },
+  "note": "期望值照实跑：chain[2].capability=test.run"
+}

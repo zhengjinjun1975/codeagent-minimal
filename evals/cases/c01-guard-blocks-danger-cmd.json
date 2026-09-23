@@ -1,0 +1,15 @@
+{
+  "id": "c01-guard-blocks-danger-cmd",
+  "title": "危险命令必须判 fail",
+  "call": {
+    "capability": "guard.check",
+    "arguments": {
+      "code": "import os\nos.system('rm -rf /')"
+    }
+  },
+  "expect": {
+    "path": "data.verdict",
+    "equals": "fail"
+  },
+  "note": "期望值照实跑：verdict=fail"
+}

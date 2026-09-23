@@ -823,7 +823,7 @@ const ATOM_CN = {
   "lab-echo97004": "回显测试3", "lab-echo97043": "回显测试4", "lab-echo97171": "回显测试5",
   "lab-harness": "执行编排控制器", "lab-loop": "循环控制",
   "browser-smoke": "浏览器冒烟",
-  "code-implement": "编码实现", "code-runloop": "迭代实现"
+  "code-implement": "编码实现", "code-runloop": "迭代实现", "git-ops": "Git 操作"
 };
 const cnName = (atom) => ATOM_CN[atom] || atom;
 
@@ -1577,7 +1577,7 @@ async function loadExtList() {
   }));
 }
 
-/* ═══════════ 架构图(35原子一张图) ═══════════ */
+/* ═══════════ 架构图(36原子一张图) ═══════════ */
 function renderArch() {
   const box = $("arch-svg-box");
   if (!S.atoms.length) { box.innerHTML = "<div class='placeholder'>原子库未加载</div>"; return; }
