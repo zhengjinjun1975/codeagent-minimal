@@ -120,8 +120,9 @@ class LabConfig:
             return None, None, "缺少路径"
         if isinstance(relpath, (list, dict)):
             return None, None, "路径必须为字符串"
-        p = str(relpath).strip().replace(os.sep, "/")
-        if not p or p.startswith("/") or p.startswith("\\\\") or ".." in p.split("/"):
+        p = str(relpath).strip().replace("\\", "/").replace(os.sep, "/")   # 两种分隔符一律归一（跨平台）
+        if (not p or p.startswith("/") or p.startswith("//") or ".." in p.split("/")
+                or ":" in p.split("/")[0]):   # 绝对路径(含 C:/ 盘符) 与 ../ 穿越一律拒绝
             return None, None, f"路径越界(拒绝 ../ 与绝对路径): {relpath}"
         p = p.lstrip("./")
         real = os.path.realpath(os.path.join(self.target_root(), p))
@@ -139,8 +140,9 @@ class LabConfig:
         """目录解析（树遍历用）：逃逸拒绝，允许目录或文件。"""
         if not relpath:
             return self.target_root(), "", None
-        p = str(relpath).strip().replace(os.sep, "/")
-        if not p or p.startswith("/") or p.startswith("\\\\") or ".." in p.split("/"):
+        p = str(relpath).strip().replace("\\", "/").replace(os.sep, "/")   # 两种分隔符一律归一（跨平台）
+        if (not p or p.startswith("/") or p.startswith("//") or ".." in p.split("/")
+                or ":" in p.split("/")[0]):   # 绝对路径(含 C:/ 盘符) 与 ../ 穿越一律拒绝
             return None, None, f"路径越界(拒绝 ../ 与绝对路径): {relpath}"
         real = os.path.realpath(os.path.join(self.target_root(), p))
         root = self.target_root()
