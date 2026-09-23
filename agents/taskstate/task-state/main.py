@@ -85,10 +85,16 @@ def _apply(action, tid, state="", progress="", evidence="", gate="", done_eviden
             updated = [f"status: {state}", f"progress: {progress}", f"updated: {now}"]
             if done_evidence:
                 updated.append(f"done_evidence: {done_evidence}")
-            for key in ("status:", "progress:", "updated:"):
+            drop = ("status:", "progress:", "updated:")
+            if gate:
+                # 声明了 gate 入参就必须落盘：静默忽略会让调用方以为记上了（两侧对账就错）
+                updated += [f"gate: {gate}", f"gated_at: {now}"]
+                drop += ("gate:", "gated_at:")
+            for key in drop:
                 lines = [ln for ln in lines if not ln.startswith(key)]
             lines += updated
-            out.append(f"set status={state} progress={progress}")
+            out.append(f"set status={state} progress={progress}"
+                       + (f" gate={gate}" if gate else ""))
         elif action == "ev":
             lines.append(f"- {now} ev: {evidence}")
             out.append(f"append evidence")
@@ -107,15 +113,42 @@ def _apply(action, tid, state="", progress="", evidence="", gate="", done_eviden
         return False, path, "", f"{type(e).__name__}: {e}"
 
 
+def _parse_state(path: str) -> dict:
+    """把状态文件解析成结构化字段（读侧的真相：文件才是账本，不靠内存）。"""
+    d = {"exists": os.path.exists(path), "task": "", "created": "", "status": "",
+         "progress": "", "updated": "", "gate": "", "gated_at": "",
+         "done_evidence": "", "events": []}
+    if not d["exists"]:
+        return d
+    try:
+        for ln in open(path, encoding="utf-8").read().splitlines():
+            s = ln.strip()
+            if not s:
+                continue
+            if s.startswith("# task:"):
+                d["task"] = s.split(":", 1)[1].strip()
+            elif s.startswith("- "):
+                d["events"].append(s[2:].strip())
+            elif ":" in s:
+                k, v = s.split(":", 1)
+                k = k.strip()
+                if k in ("created", "status", "progress", "updated", "gate", "gated_at",
+                         "done_evidence"):
+                    d[k] = v.strip()
+    except Exception as e:
+        d["error"] = "%s: %s" % (type(e).__name__, e)
+    return d
+
+
 class TaskStateAgent(AtomicAgent):
     name = "task-state"
-    version = "0.1.0"
+    version = "0.2.0"
     domain = "taskstate"
     description = "任务状态: 内联纯函数续跑(零依赖, 状态文件 .taskstate/ 可 env 覆盖)"
     provides = ["taskstate.track"]
     depends_on = []
     inputs = ["task", "action", "tid", "state", "progress", "evidence", "gate", "status_file"]
-    outputs = ["status", "task_id", "file", "progress"]
+    outputs = ["status", "task_id", "file", "progress", "state"]
 
     def _register_defaults(self):
         self.register("taskstate.track", self._track)
@@ -123,15 +156,29 @@ class TaskStateAgent(AtomicAgent):
     def _track(self, task, action="new", tid=None, state="", progress="",
                evidence="", gate="", status_file=None, done_evidence=""):
         """内联纯函数续跑（修复 P1-3：不再子进程调外部脚本文件）。
-        action: new/set/ev/gate。返回信封，成功带 evidence（真实文件路径），失败带 error。
+        action: new/set/ev/gate/read。返回信封，成功带 evidence（真实文件路径），失败带 error。
 
         契约修复 P2：默认 action 由 "set" 改为 "new"——与 CLI 默认(--action new)
         及「track = 开始跟踪」语义对齐。此前裸调用 taskstate.track(task=...) 会
         以 action="set" 落空状态(空 state/progress)，返回 data["action"]="set"，
         与断言期望 action="new" 不符。
         方向C: set state=done 时须传 done_evidence=真实产物路径, 否则拒绝(防'以为完成')。
+        读侧(action=read，2026-09-21 补)：状态只能写不能读等于半个账本——两侧(如
+        上层编排与 CodeAgent)要"读同一份状态对账"，必须有读侧。read 只读不写文件。
         """
         tid = tid or _ts_tid(task)
+        if str(action).lower() == "read":
+            path = _state_path(tid)
+            st = _parse_state(path)
+            data = {"task_id": tid, "action": "read", "file": path, "state": st,
+                    "progress": st.get("progress", "")}
+            if not st.get("exists"):
+                data["status"] = "missing"
+                return self._envelope(False, degraded=True,
+                                      error="任务状态不存在: %s（先 action=new/set 建立）" % tid,
+                                      data=data)
+            data["status"] = str(st.get("status") or "tracked")
+            return self._envelope(True, data=data)
         ok, path, out, err = _apply(action, tid, state, progress, evidence, gate, done_evidence)
         data = {"task_id": tid, "action": action, "progress": progress,
                 "file": path}
@@ -152,7 +199,7 @@ if __name__ == "__main__":
     import argparse, json
     ap = argparse.ArgumentParser(description="task-state 原子自测入口")
     ap.add_argument("--task", default="实现加法函数 add(a,b)")
-    ap.add_argument("--action", default="new", choices=["new", "set", "ev", "gate"])
+    ap.add_argument("--action", default="new", choices=["new", "set", "ev", "gate", "read"])
     args = ap.parse_args()
     agent.load()
     print("══ task-state 原子自测 ══", agent.describe()["name"], "status=" + agent.describe()["status"])

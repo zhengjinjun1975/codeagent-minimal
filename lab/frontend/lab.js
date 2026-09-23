@@ -822,7 +822,8 @@ const ATOM_CN = {
   "code-test": "单元测试", "lab-echo96914": "回显测试", "lab-echo96962": "回显测试",
   "lab-echo97004": "回显测试3", "lab-echo97043": "回显测试4", "lab-echo97171": "回显测试5",
   "lab-harness": "执行编排控制器", "lab-loop": "循环控制",
-  "browser-smoke": "浏览器冒烟"
+  "browser-smoke": "浏览器冒烟",
+  "code-implement": "编码实现", "code-runloop": "迭代实现"
 };
 const cnName = (atom) => ATOM_CN[atom] || atom;
 

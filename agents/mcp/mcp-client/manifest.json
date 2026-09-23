@@ -1,18 +1,55 @@
 {
   "name": "mcp-client",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "domain": "mcp",
-  "description": "MCP 客户端原子(新原子): 连外部 MCP server(local stdio + remote http), tools/list + tools/call 接入生态工具。默认 local_only 白名单, 远程需显式 allow_remote。零依赖纯标准库。",
+  "description": "MCP 客户端原子: 连外部 MCP server(local stdio + remote http/sse), tools/list + tools/call 接入生态工具。默认 local_only 白名单, 远程需显式 allow。工具描述入上下文前过 mcp_guard 定性(防 tool poisoning), 工具输出统一剥不可见字符 + 数据围栏(防注入)。",
   "open_source": true,
   "agent_class": "McpClientAgent",
   "entry": "main.py",
   "provides": [
     "mcp.list",
-    "mcp.connect",
     "mcp.tools",
-    "mcp.call"
+    "mcp.call",
+    "mcp.connect",
+    "mcp.guard"
   ],
   "depends_on": [],
-  "inputs": ["server", "endpoint", "command", "tools", "timeout", "local_only", "allow_remote", "allow_tools"],
-  "outputs": ["servers", "tools", "result", "server"]
+  "inputs": [
+    "server",
+    "endpoint",
+    "command",
+    "tools",
+    "timeout",
+    "local_only",
+    "allow_remote",
+    "allow_tools",
+    "action",
+    "text",
+    "description",
+    "name",
+    "tool",
+    "source"
+  ],
+  "outputs": [
+    "servers",
+    "tools",
+    "result",
+    "server",
+    "guard",
+    "findings",
+    "text"
+  ],
+  "permission": {
+    "needs": [
+      "read",
+      "exec",
+      "net"
+    ],
+    "network": true
+  },
+  "resource": {
+    "model_calls": 1,
+    "timeout_sec": 600,
+    "memory_mb": 512
+  }
 }

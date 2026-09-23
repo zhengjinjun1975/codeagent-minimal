@@ -4,9 +4,9 @@
   "agents": {
     "command-approvals": {
       "name": "command-approvals",
-      "version": "0.1.0",
+      "version": "0.2.0",
       "domain": "approval",
-      "description": "高危命令/工具审批原子（P0，借鉴Codex approvals.rs/execpolicy）: 命令/工具/文件/网络 allow/ask/deny 细粒度判定+高危命令表+人工确认。复用code-dispatch权限模型, 算法进开源approval_policy.py。",
+      "description": "高危命令/工具审批原子（P0，借鉴Codex approvals.rs/execpolicy）: 命令/工具/文件/网络 allow/ask/deny 细粒度判定+高危命令表(含Windows)+人工确认+审批→执行→被拒升级重试编排(拒绝缓存)。复用code-dispatch权限模型, 算法进开源approval_policy.py。",
       "open_source": true,
       "agent_class": "CommandApprovalsAgent",
       "entry": "main.py",
@@ -14,7 +14,8 @@
         "approval.check",
         "approval.classify",
         "approval.resolve",
-        "approval.policy"
+        "approval.policy",
+        "approval.orchestrate"
       ],
       "depends_on": [],
       "inputs": [
@@ -22,7 +23,10 @@
         "resource_type",
         "policy",
         "decision",
-        "user_choice"
+        "user_choice",
+        "runner",
+        "cache_path",
+        "max_escalations"
       ],
       "outputs": [
         "decision",
@@ -32,9 +36,25 @@
         "verdict",
         "granted",
         "matched_keywords",
-        "pending"
+        "pending",
+        "executed",
+        "profile",
+        "attempts",
+        "cached"
       ],
-      "path": "agents/approval/command-approvals"
+      "path": "agents/approval/command-approvals",
+      "permission": {
+        "needs": [
+          "read",
+          "write"
+        ],
+        "network": false
+      },
+      "resource": {
+        "model_calls": 0,
+        "timeout_sec": 120,
+        "memory_mb": 512
+      }
     },
     "arch-review": {
       "name": "arch-review",
@@ -129,7 +149,7 @@
       "name": "code-implement",
       "version": "0.2.0",
       "domain": "code",
-      "description": "写码原子: 底层用仓库自包含写码引擎(规划+自动复用+迭代循环+可选工作日志落库), 将任务实现为生产代码写入磁盘。可用于代码实现编排与真实写码。",
+      "description": "写码原子: 底层用仓库自包含 code_agent_engine(规划+自动复用+迭代循环+可选工作日志落库), 将任务实现为生产代码写入磁盘。可用于代码实现编排与真实写码。",
       "open_source": true,
       "agent_class": "CodeImplementAgent",
       "entry": "main.py",
@@ -158,6 +178,60 @@
         "engine"
       ],
       "path": "agents/code/code-implement"
+    },
+    "code-runloop": {
+      "name": "code-runloop",
+      "version": "0.3.0",
+      "domain": "code",
+      "description": "写码原子(真跑反馈闭环 agentic run_loop + 零模型调用的定点替换 code.patch): 纯 stdlib 自包含, 不进 import 跨库活目录; 一次 LLM generate + 真工具执行回喂(设计v2), verify_cmd DoD 硬校验绿才算完成; 每轮回喂把目标+DoD 复述到上下文尾部(T2); 没给 verify 也没给 path 时 DoD 兜底为写出的 .py 能编译(仍不许无产出收尾)。",
+      "open_source": true,
+      "standalone": true,
+      "agent_class": "CodeRunLoopAgent",
+      "entry": "main.py",
+      "provides": [
+        "code.runloop",
+        "code.patch"
+      ],
+      "depends_on": [],
+      "inputs": [
+        "task",
+        "path",
+        "output_dir",
+        "verify",
+        "language",
+        "max_iterations",
+        "fake_model",
+        "edits",
+        "write_root"
+      ],
+      "outputs": [
+        "files",
+        "summary",
+        "verify_passed",
+        "verify_cmd",
+        "turns_used",
+        "tool_log",
+        "trace",
+        "engine",
+        "last_model_text",
+        "applied",
+        "changed"
+      ],
+      "permission": {
+        "needs": [
+          "read",
+          "write",
+          "exec",
+          "net"
+        ],
+        "network": true
+      },
+      "resource": {
+        "model_calls": 1,
+        "timeout_sec": 600,
+        "memory_mb": 512
+      },
+      "path": "agents/code/code-runloop"
     },
     "code-review": {
       "name": "code-review",
@@ -242,16 +316,22 @@
     },
     "context-compact": {
       "name": "context-compact",
-      "version": "0.1.0",
+      "version": "0.5.0",
       "domain": "context",
-      "description": "上下文压缩原子（P2，借鉴Codex context_manager/compaction）: token估算 + 链结果压缩(保留summary/score/verdict丢弃大payload) + max_tokens预算裁剪。防组装链上下文膨胀。纯stdlib。",
+      "description": "上下文压缩原子(P1 上下文量化): token估算 + 链结果压缩(保留summary/score/verdict丢弃大payload) + max_tokens预算真裁到预算内(压缩/丢弃+action建议) + 上下文腐烂对策(offload工具输出头尾截断+全文落盘, disclose技能渐进披露)。核心在 context_harness.py, 纯stdlib。 含上下文编辑工具化（编辑",
       "open_source": true,
       "agent_class": "ContextCompactAgent",
       "entry": "main.py",
       "provides": [
         "context.estimate",
         "context.compact",
-        "context.budget"
+        "context.budget",
+        "context.offload",
+        "context.disclose",
+        "context.compaction_cost",
+        "context.edit",
+        "context.store",
+        "context.reveal"
       ],
       "depends_on": [],
       "inputs": [
@@ -260,7 +340,17 @@
         "steps",
         "max_tokens",
         "keep",
-        "cap"
+        "cap",
+        "content",
+        "label",
+        "keep_head",
+        "keep_tail",
+        "store_dir",
+        "registry_desc",
+        "task",
+        "top_k",
+        "before",
+        "after"
       ],
       "outputs": [
         "tokens",
@@ -268,8 +358,36 @@
         "_compact",
         "used_tokens",
         "budget",
-        "overshoot"
+        "overshoot",
+        "compacted",
+        "dropped",
+        "dropped_capabilities",
+        "action",
+        "enforced",
+        "inlined",
+        "offloaded_path",
+        "original_tokens",
+        "inlined_tokens",
+        "loaded",
+        "deferred_count",
+        "verdict",
+        "recoverable",
+        "lost",
+        "lost_tokens",
+        "reacquisition_hops"
       ],
+      "permission": {
+        "needs": [
+          "read",
+          "write"
+        ],
+        "network": false
+      },
+      "resource": {
+        "model_calls": 0,
+        "timeout_sec": 120,
+        "memory_mb": 512
+      },
       "path": "agents/context/context-compact"
     },
     "code-deliver": {
@@ -335,9 +453,9 @@
     },
     "code-dispatch": {
       "name": "code-dispatch",
-      "version": "0.2.0",
+      "version": "0.4.0",
       "domain": "dispatch",
-      "description": "派单原子: 复用 dispatch_template 派单5段 + estimate_budget 自适应预算 + back_to_back 背靠背验证 + check_workspace_conflicts 并行冲突防护 + allow/ask/deny 三级细粒度权限(OpenCode P1-2)。纯启发式/规则。",
+      "description": "派单原子: 复用 dispatch_template 派单5段 + estimate_budget 自适应预算 + back_to_back 背靠背验证 + check_workspace_conflicts 并行冲突防护 + allow/ask/deny 三级细粒度权限 + 验收门(verify_artifact 逐名diff/断言脚本/生产引用, assert_exit 退出码)。核心在 verify_gate.py, 纯stdlib。规则层选链 chain_select(核心 chain_selector.py + chain_templates.json): 关键词命中模板即出能力序列, 0 次模型调用; 未命中如实 matched=False 由调用方模型兜底。",
       "open_source": true,
       "agent_class": "CodeDispatchAgent",
       "entry": "main.py",
@@ -346,7 +464,10 @@
         "dispatch.budget",
         "dispatch.verify",
         "dispatch.conflict",
-        "dispatch.permission"
+        "dispatch.permission",
+        "dispatch.verify_artifact",
+        "dispatch.assert_exit",
+        "dispatch.chain_select"
       ],
       "depends_on": [],
       "inputs": [
@@ -366,7 +487,12 @@
         "policy",
         "action",
         "resource",
-        "resource_type"
+        "resource_type",
+        "target",
+        "expect",
+        "mode",
+        "script_path",
+        "templates_path"
       ],
       "outputs": [
         "template",
@@ -377,21 +503,48 @@
         "safe",
         "recommendation",
         "decision",
-        "policy"
+        "policy",
+        "passed",
+        "checks",
+        "exit_code",
+        "stdout_tail",
+        "ok",
+        "matched",
+        "source",
+        "chain",
+        "template_name",
+        "score",
+        "hits",
+        "dropped",
+        "reason"
       ],
+      "permission": {
+        "needs": [
+          "read",
+          "write",
+          "exec"
+        ],
+        "network": false
+      },
+      "resource": {
+        "model_calls": 0,
+        "timeout_sec": 600,
+        "memory_mb": 512
+      },
       "path": "agents/dispatch/code-dispatch"
     },
     "doc-freshness": {
       "name": "doc-freshness",
-      "version": "0.1.0",
+      "version": "0.2.0",
       "domain": "docs",
-      "description": "文档新鲜度审计：代码锚点确定性校验（repo://path#L-L 行区间哈希/符号存在性），输出 stale/unresolved。复用 doc_freshness。借鉴 OpenWiki 证据版本化。零 LLM。",
+      "description": "文档新鲜度审计 + P0-1 建议性增量重写草案：代码锚点确定性校验（repo://path#L-L 行区间哈希/符号存在性），对 managed 区 stale 条目产补丁草案（只报不改、手写区保护）。复用 doc_freshness。借鉴 OpenWiki 证据版本化 + AGENTS.md marker 两区协议。零 LLM。",
       "open_source": true,
       "agent_class": "DocFreshnessAgent",
       "entry": "main.py",
       "provides": [
         "doc.anchor",
-        "doc.stale"
+        "doc.stale",
+        "doc.draft"
       ],
       "depends_on": [],
       "inputs": [
@@ -406,8 +559,25 @@
         "unresolved",
         "total_anchors",
         "stale_count",
-        "unresolved_count"
+        "unresolved_count",
+        "draft_count",
+        "guarded_count",
+        "managed_zones",
+        "drafts",
+        "guarded"
       ],
+      "permission": {
+        "needs": [
+          "read",
+          "write"
+        ],
+        "network": false
+      },
+      "resource": {
+        "model_calls": 0,
+        "timeout_sec": 120,
+        "memory_mb": 1024
+      },
       "path": "agents/docs/doc-freshness"
     },
     "domain-review": {
@@ -516,9 +686,9 @@
     },
     "guard": {
       "name": "guard",
-      "version": "0.1.0",
+      "version": "0.2.0",
       "domain": "guard",
-      "description": "护栏钩子原子（P2，借鉴Codex guardian）: code变更前置/后置安全审查钩子流水线, 复用security_scan 10维度+secret+误报治理做门禁(pre/post/pipeline/check)。纯stdlib数据不出厂。",
+      "description": "护栏钩子原子: code变更前置/后置安全审查钩子流水线(pre/post/pipeline/check, 复用security_scan 10维度+secret+误报治理) + harness中间件(exit_intercept退出拦截强制清单自检 / selfcheck单次自检 / loop_guard按文件编辑计数检测死循环)。核心在 harness_guard.py, 纯stdlib数据不出厂。",
       "open_source": true,
       "agent_class": "GuardAgent",
       "entry": "main.py",
@@ -526,14 +696,26 @@
         "guard.pre",
         "guard.post",
         "guard.pipeline",
-        "guard.check"
+        "guard.check",
+        "guard.exit_intercept",
+        "guard.selfcheck",
+        "guard.loop_guard"
       ],
       "depends_on": [],
       "inputs": [
         "path",
         "code",
         "paths",
-        "govern"
+        "govern",
+        "task",
+        "artifacts",
+        "checklist",
+        "session_key",
+        "file_path",
+        "bump",
+        "threshold",
+        "store_dir",
+        "since"
       ],
       "outputs": [
         "issues",
@@ -541,8 +723,30 @@
         "verdict",
         "files",
         "summary",
-        "total"
+        "total",
+        "passed",
+        "failed",
+        "next_prompt",
+        "items",
+        "stalled",
+        "count",
+        "hint",
+        "evidence"
       ],
+      "permission": {
+        "needs": [
+          "read",
+          "write",
+          "exec",
+          "net"
+        ],
+        "network": true
+      },
+      "resource": {
+        "model_calls": 1,
+        "timeout_sec": 600,
+        "memory_mb": 1024
+      },
       "path": "agents/guard/guard"
     },
     "deadcode": {
@@ -703,17 +907,18 @@
     },
     "mcp-client": {
       "name": "mcp-client",
-      "version": "0.1.0",
+      "version": "0.2.0",
       "domain": "mcp",
-      "description": "MCP 客户端原子(新原子): 连外部 MCP server(local stdio + remote http), tools/list + tools/call 接入生态工具。默认 local_only 白名单, 远程需显式 allow_remote。零依赖纯标准库。",
+      "description": "MCP 客户端原子: 连外部 MCP server(local stdio + remote http/sse), tools/list + tools/call 接入生态工具。默认 local_only 白名单, 远程需显式 allow。工具描述入上下文前过 mcp_guard 定性(防 tool poisoning), 工具输出统一剥不可见字符 + 数据围栏(防注入)。",
       "open_source": true,
       "agent_class": "McpClientAgent",
       "entry": "main.py",
       "provides": [
         "mcp.list",
-        "mcp.connect",
         "mcp.tools",
-        "mcp.call"
+        "mcp.call",
+        "mcp.connect",
+        "mcp.guard"
       ],
       "depends_on": [],
       "inputs": [
@@ -724,14 +929,36 @@
         "timeout",
         "local_only",
         "allow_remote",
-        "allow_tools"
+        "allow_tools",
+        "action",
+        "text",
+        "description",
+        "name",
+        "tool",
+        "source"
       ],
       "outputs": [
         "servers",
         "tools",
         "result",
-        "server"
+        "server",
+        "guard",
+        "findings",
+        "text"
       ],
+      "permission": {
+        "needs": [
+          "read",
+          "exec",
+          "net"
+        ],
+        "network": true
+      },
+      "resource": {
+        "model_calls": 1,
+        "timeout_sec": 600,
+        "memory_mb": 512
+      },
       "path": "agents/mcp/mcp-client"
     },
     "code-memory": {
@@ -764,16 +991,20 @@
     },
     "model-fallback": {
       "name": "model-fallback",
-      "version": "0.1.0",
+      "version": "0.2.0",
       "domain": "model",
-      "description": "模型降级链原子（P2，借鉴Codex model-provider fallback）: 按候选链尝试provider, 失败自动降级(cloud→local), local_only剔除云端数据不出厂。复用llm-router provider注册表概念。",
+      "description": "模型降级链原子: 按候选链尝试provider失败自动降级(cloud→local), local_only剔除云端数据不出厂 + 三级分流(rule规则命中→cache MD5缓存命中→llm, 简单意图零token)。核心在 cascade_router.py, 纯stdlib。",
       "open_source": true,
       "agent_class": "ModelFallbackAgent",
       "entry": "main.py",
       "provides": [
         "model.chain",
         "model.route",
-        "model.candidates"
+        "model.candidates",
+        "model.rule_match",
+        "model.cache_lookup",
+        "model.cache_put",
+        "model.cascade"
       ],
       "depends_on": [
         "llm.list_models"
@@ -784,7 +1015,12 @@
         "purpose",
         "preference",
         "local_only",
-        "candidates"
+        "candidates",
+        "text",
+        "rules",
+        "ttl_sec",
+        "store_dir",
+        "intent"
       ],
       "outputs": [
         "ok",
@@ -794,8 +1030,28 @@
         "result",
         "fell_back",
         "candidates",
-        "errors"
+        "errors",
+        "layer",
+        "shortcut",
+        "matched",
+        "handler",
+        "confidence",
+        "hit",
+        "key",
+        "size"
       ],
+      "permission": {
+        "needs": [
+          "read",
+          "write"
+        ],
+        "network": false
+      },
+      "resource": {
+        "model_calls": 0,
+        "timeout_sec": 120,
+        "memory_mb": 512
+      },
       "path": "agents/model/model-fallback"
     },
     "ontology-review": {
@@ -916,9 +1172,9 @@
     },
     "process-sandbox": {
       "name": "process-sandbox",
-      "version": "0.1.0",
+      "version": "0.3.0",
       "domain": "sandbox",
-      "description": "进程沙箱原子（P0，借鉴Codex sandboxing）: 安全执行不可信PoC/命令, 隔离+超时+资源限制+输出封顶+白名单+env净化+路径防护。纯stdlib数据不出厂。",
+      "description": "沙箱执行原子: 有界执行(argv/shell=False)+超时+输出封顶+环境净化; 执行期审批门(高危默认拒, ask 无裁决不执行); 支持任务级能力作用域(scope)合判。",
       "open_source": true,
       "agent_class": "ProcessSandboxAgent",
       "entry": "main.py",
@@ -937,7 +1193,10 @@
         "max_output",
         "base_dir",
         "path",
-        "base"
+        "base",
+        "profile",
+        "approval",
+        "scope"
       ],
       "outputs": [
         "ran",
@@ -951,9 +1210,26 @@
         "overflow",
         "rejected",
         "safe",
-        "path"
+        "path",
+        "decision",
+        "refused",
+        "pending"
       ],
-      "path": "agents/sandbox/process-sandbox"
+      "path": "agents/sandbox/process-sandbox",
+      "permission": {
+        "needs": [
+          "read",
+          "write",
+          "exec",
+          "net"
+        ],
+        "network": true
+      },
+      "resource": {
+        "model_calls": 1,
+        "timeout_sec": 600,
+        "memory_mb": 1024
+      }
     },
     "security-scan": {
       "name": "security-scan",
@@ -1025,9 +1301,9 @@
     },
     "task-state": {
       "name": "task-state",
-      "version": "0.1.0",
+      "version": "0.2.0",
       "domain": "taskstate",
-      "description": "任务状态原子: 复用外置任务状态模块(做到哪/下一步/证据/决策点), 跨会话续跑不丢进度。taskstate.track 跟踪状态。",
+      "description": "任务状态原子: 复用外置任务状态模块(做到哪/下一步/证据/决策点), 跨会话续跑不丢进度。taskstate.track 跟踪状态(action: new/set/ev/gate/read; set state=done 须给 done_evidence 真实产物)。",
       "open_source": true,
       "agent_class": "TaskStateAgent",
       "entry": "main.py",
@@ -1043,19 +1319,34 @@
         "progress",
         "evidence",
         "gate",
-        "status_file"
+        "status_file",
+        "done_evidence"
       ],
       "outputs": [
         "status",
         "task_id",
         "file",
-        "progress"
+        "progress",
+        "state"
       ],
+      "permission": {
+        "needs": [
+          "read",
+          "write",
+          "exec"
+        ],
+        "network": false
+      },
+      "resource": {
+        "model_calls": 0,
+        "timeout_sec": 600,
+        "memory_mb": 512
+      },
       "path": "agents/taskstate/task-state"
     },
     "code-test": {
       "name": "code-test",
-      "version": "0.2.1",
+      "version": "0.3.0",
       "domain": "test",
       "description": "测试原子：复用 test_harness 红绿回归 + reg_guard 回归快照/增量测试选择 + P0-3智能测试选择(git diff→受影响测试省时非全量) + P1-4人类在环(AI结论需人工复核渐进式不自动放行) + P1-5覆盖度分析(报告未测函数/分支提示补测)。",
       "open_source": true,
@@ -1068,7 +1359,8 @@
         "test.snapshot",
         "test.affected",
         "test.select",
-        "test.coverage_analysis"
+        "test.coverage_analysis",
+        "test.project"
       ],
       "depends_on": [],
       "inputs": [
@@ -1078,7 +1370,9 @@
         "task",
         "project_root",
         "test_map",
-        "human_review"
+        "human_review",
+        "timeout",
+        "exclude"
       ],
       "outputs": [
         "test_files",
@@ -1090,8 +1384,24 @@
         "stability",
         "red_green",
         "coverage_analysis",
-        "human_review"
+        "human_review",
+        "smoke_failed",
+        "summary",
+        "skipped"
       ],
+      "permission": {
+        "needs": [
+          "read",
+          "write",
+          "exec"
+        ],
+        "network": false
+      },
+      "resource": {
+        "model_calls": 0,
+        "timeout_sec": 600,
+        "memory_mb": 1024
+      },
       "path": "agents/test/code-test"
     },
     "browser-smoke": {
@@ -1131,6 +1441,7 @@
     "atomicity-audit",
     "bug-deep",
     "code-implement",
+    "code-runloop",
     "minimalist-style",
     "context-compact",
     "code-deliver",

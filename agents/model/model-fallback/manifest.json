@@ -1,36 +1,33 @@
 {
   "name": "model-fallback",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "domain": "model",
-  "description": "模型降级链原子（P2，借鉴Codex model-provider fallback）: 按候选链尝试provider, 失败自动降级(cloud→local), local_only剔除云端数据不出厂。复用llm-router provider注册表概念。",
+  "description": "模型降级链原子: 按候选链尝试provider失败自动降级(cloud→local), local_only剔除云端数据不出厂 + 三级分流(rule规则命中→cache MD5缓存命中→llm, 简单意图零token)。核心在 cascade_router.py, 纯stdlib。",
   "open_source": true,
   "agent_class": "ModelFallbackAgent",
   "entry": "main.py",
   "provides": [
     "model.chain",
     "model.route",
-    "model.candidates"
+    "model.candidates",
+    "model.rule_match",
+    "model.cache_lookup",
+    "model.cache_put",
+    "model.cascade"
   ],
-  "depends_on": [
-    "llm.list_models"
-  ],
-  "inputs": [
-    "messages",
-    "call_model",
-    "purpose",
-    "preference",
-    "local_only",
-    "candidates"
-  ],
-  "outputs": [
-    "ok",
-    "verdict",
-    "provider",
-    "type",
-    "result",
-    "fell_back",
-    "candidates",
-    "errors"
-  ],
-  "path": "agents/model/model-fallback"
+  "depends_on": ["llm.list_models"],
+  "inputs": ["messages", "call_model", "purpose", "preference", "local_only", "candidates", "text", "rules", "ttl_sec", "store_dir", "intent"],
+  "outputs": ["ok", "verdict", "provider", "type", "result", "fell_back", "candidates", "errors", "layer", "shortcut", "matched", "handler", "confidence", "hit", "key", "size"],
+  "permission": {
+    "needs": [
+      "read",
+      "write"
+    ],
+    "network": false
+  },
+  "resource": {
+    "model_calls": 0,
+    "timeout_sec": 120,
+    "memory_mb": 512
+  }
 }

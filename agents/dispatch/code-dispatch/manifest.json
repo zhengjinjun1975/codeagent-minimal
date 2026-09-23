@@ -1,8 +1,8 @@
 {
   "name": "code-dispatch",
-  "version": "0.2.0",
+  "version": "0.4.0",
   "domain": "dispatch",
-  "description": "派单原子: 复用 dispatch_template 派单5段 + estimate_budget 自适应预算 + back_to_back 背靠背验证 + check_workspace_conflicts 并行冲突防护 + allow/ask/deny 三级细粒度权限(OpenCode P1-2)。纯启发式/规则。",
+  "description": "派单原子: 复用 dispatch_template 派单5段 + estimate_budget 自适应预算 + back_to_back 背靠背验证 + check_workspace_conflicts 并行冲突防护 + allow/ask/deny 三级细粒度权限 + 验收门(verify_artifact 逐名diff/断言脚本/生产引用, assert_exit 退出码)。核心在 verify_gate.py, 纯stdlib。规则层选链 chain_select(核心 chain_selector.py + chain_templates.json): 关键词命中模板即出能力序列, 0 次模型调用; 未命中如实 matched=False 由调用方模型兜底。",
   "open_source": true,
   "agent_class": "CodeDispatchAgent",
   "entry": "main.py",
@@ -11,9 +11,71 @@
     "dispatch.budget",
     "dispatch.verify",
     "dispatch.conflict",
-    "dispatch.permission"
+    "dispatch.permission",
+    "dispatch.verify_artifact",
+    "dispatch.assert_exit",
+    "dispatch.chain_select"
   ],
   "depends_on": [],
-  "inputs": ["background", "goal", "constraint", "redline", "deliverable", "task", "files_needed", "language", "claims", "workdir", "rerun_cmd", "tasks", "workspace", "policy", "action", "resource", "resource_type"],
-  "outputs": ["template", "budget", "items", "summary", "conflicts", "safe", "recommendation", "decision", "policy"]
+  "inputs": [
+    "background",
+    "goal",
+    "constraint",
+    "redline",
+    "deliverable",
+    "task",
+    "files_needed",
+    "language",
+    "claims",
+    "workdir",
+    "rerun_cmd",
+    "tasks",
+    "workspace",
+    "policy",
+    "action",
+    "resource",
+    "resource_type",
+    "target",
+    "expect",
+    "mode",
+    "script_path",
+    "templates_path"
+  ],
+  "outputs": [
+    "template",
+    "budget",
+    "items",
+    "summary",
+    "conflicts",
+    "safe",
+    "recommendation",
+    "decision",
+    "policy",
+    "passed",
+    "checks",
+    "exit_code",
+    "stdout_tail",
+    "ok",
+    "matched",
+    "source",
+    "chain",
+    "template_name",
+    "score",
+    "hits",
+    "dropped",
+    "reason"
+  ],
+  "permission": {
+    "needs": [
+      "read",
+      "write",
+      "exec"
+    ],
+    "network": false
+  },
+  "resource": {
+    "model_calls": 0,
+    "timeout_sec": 600,
+    "memory_mb": 512
+  }
 }

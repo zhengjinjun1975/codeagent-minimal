@@ -1,16 +1,29 @@
 {
   "name": "doc-freshness",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "domain": "docs",
-  "description": "文档新鲜度审计：代码锚点确定性校验（repo://path#L-L 行区间哈希/符号存在性），输出 stale/unresolved。复用 doc_freshness。借鉴 OpenWiki 证据版本化。零 LLM。",
+  "description": "文档新鲜度审计 + P0-1 建议性增量重写草案：代码锚点确定性校验（repo://path#L-L 行区间哈希/符号存在性），对 managed 区 stale 条目产补丁草案（只报不改、手写区保护）。复用 doc_freshness。借鉴 OpenWiki 证据版本化 + AGENTS.md marker 两区协议。零 LLM。",
   "open_source": true,
   "agent_class": "DocFreshnessAgent",
   "entry": "main.py",
   "provides": [
     "doc.anchor",
-    "doc.stale"
+    "doc.stale",
+    "doc.draft"
   ],
   "depends_on": [],
   "inputs": ["path", "root"],
-  "outputs": ["file", "anchors", "ok_count", "stale", "unresolved", "total_anchors", "stale_count", "unresolved_count"]
+  "outputs": ["file", "anchors", "ok_count", "stale", "unresolved", "total_anchors", "stale_count", "unresolved_count", "draft_count", "guarded_count", "managed_zones", "drafts", "guarded"],
+  "permission": {
+    "needs": [
+      "read",
+      "write"
+    ],
+    "network": false
+  },
+  "resource": {
+    "model_calls": 0,
+    "timeout_sec": 120,
+    "memory_mb": 1024
+  }
 }

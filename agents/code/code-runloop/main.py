@@ -6,8 +6,9 @@ agentic run_loop —— harness 一次 LLM generate 后用真工具执行+观测
 无 tool_call 收尾 + verify_cmd DoD 硬校验绿。引擎本体(run_loop/tools/llm/prompts)
 不 import 任何跨库活目录 / 闭源编排; 唯一 LLM 调用读 config/model_config.json。
 
-能力: code.runloop — 真跑反馈闭环写码。
-输入: task / path / output_dir / verify / language / max_iterations / fake_model
+能力: code.runloop — 真跑反馈闭环写码（要模型）。
+     code.patch   — 定点替换（**零模型调用**）：调用方给 old→new，直接改盘 + 可选跑一次 DoD。
+输入: task / path / output_dir / verify / language / max_iterations / fake_model / edits
 输出: files / verify_passed / turns_used / tool_log / trace / engine / ...
 """
 import argparse
@@ -22,28 +23,81 @@ if REPO_ROOT not in sys.path:
 
 from atomic_base import AtomicAgent            # noqa: E402  仓库内开源壳(纯 stdlib)
 from run_loop import run_loop                  # noqa: E402  引擎核心(自包含)
+import tools                                   # noqa: E402  写盘/执行工具(自包含, patch 与 runloop 共用)
 
 DEFAULT_OUTPUT_DIR = os.path.join(REPO_ROOT, "_impl_output")
-DEFAULT_MAX_ITER = 12
+# 轮数上限：**默认卡 5 轮**。超过 5 轮还没完成 = 这活对当前循环太重/需求没说清，
+# 应当失败退出把问题暴露出来，而不是让它磨（实测磨到 24 轮里有 19 轮是白烧）。
+# 确实需要更长的任务，由派活方显式传 max_iterations（知情才加，别拿它当默认）。
+DEFAULT_MAX_ITER = 5
 TRACE_KEEP = 60
+
 
 
 class CodeRunLoopAgent(AtomicAgent):
     name = "code-runloop"
-    version = "0.1.0"
+    version = "0.3.0"
     domain = "code"
     description = ("写码原子(真跑反馈闭环, agentic run_loop): 纯 stdlib 自包含, 不进 import 跨库活目录; "
                    "一次 LLM generate + 真工具执行回喂(设计v2), verify_cmd DoD 硬校验绿才算完成。")
     open_source = True
-    provides = ["code.runloop"]
+    provides = ["code.runloop", "code.patch"]
     depends_on = []
     inputs = ["task", "path", "output_dir", "verify", "language",
-              "max_iterations", "fake_model"]
+              "max_iterations", "fake_model", "edits", "write_root"]
     outputs = ["files", "summary", "verify_passed", "verify_cmd", "turns_used",
                "tool_log", "trace", "engine", "last_model_text"]
 
     def _register_defaults(self):
         self.register("code.runloop", self._runloop)
+        self.register("code.patch", self._patch)
+
+    def _patch(self, path=None, edits=None, verify=None, output_dir=None,
+               write_root=None, timeout=120):
+        """定点替换：按调用方给的 old→new 直接改盘 —— **零模型调用、零探索**。
+
+        为什么单列一个能力（2026-09-21 用户拍板）：改一两行的活本来不需要模型，走 run_loop 却要
+        5~6 轮云端调用，实测连派 4 次全烧在读文件上、零改动。这条路径只做确定性的事：
+        预检（每条 old 唯一匹配，任一不中就一条也不落盘）→ 落盘 → 可选跑一次 DoD。
+
+        输入: path 目标文件(必给); edits [{old,new},...]（也接受 [[old,new],...]）
+              verify 可选 DoD 命令; output_dir DoD 的工作目录(缺省=目标文件所在目录)
+              write_root 可选写盘白名单根(缺省=目标文件所在目录)
+        输出: {ok, data:{files, changed, applied, verify_passed, verify_cmd,
+                         verify_output, engine}}；ok = 落盘成功 且 (没给 verify 或 verify 绿)
+        """
+        if not path:
+            return {"ok": False, "data": {}, "degraded": True,
+                    "error": "缺少必需参数 path（定点替换要有明确的目标文件）"}
+        if not edits:
+            return {"ok": False, "data": {}, "degraded": True,
+                    "error": "缺少必需参数 edits（[{old,new},...]；old 必须能唯一匹配）"}
+        target = os.path.abspath(str(path))
+        out_dir = os.path.normpath(str(output_dir or os.path.dirname(target)
+                                       or DEFAULT_OUTPUT_DIR))
+        roots = [write_root] if write_root else [os.path.dirname(target) or out_dir]
+
+        r = tools.apply_edits(target, edits, roots=roots)
+        data = {"files": [r.get("path", target)], "changed": bool(r.get("ok")),
+                "applied": r.get("applied", []), "edits_count": len(edits),
+                "output_dir": out_dir,
+                "engine": "code-patch (确定性定点替换, 零模型调用)"}
+        if not r.get("ok"):
+            return {"ok": False, "data": data, "degraded": True,
+                    "error": r.get("error", "定点替换失败")}
+
+        if verify:
+            v = tools.verify_cmd(verify, cwd=out_dir, timeout=int(timeout or 120))
+            data["verify_cmd"] = verify
+            data["verify_passed"] = bool(v.get("ok"))
+            data["verify_output"] = (v.get("output") or "")[-2000:]
+            if not v.get("ok"):
+                return {"ok": False, "data": data, "degraded": True,
+                        "error": "改完了但 DoD 没过(别当成功): %s" % verify}
+        else:
+            data["verify_cmd"] = None
+            data["verify_passed"] = None       # 没给 DoD 就不假装验过
+        return {"ok": True, "data": data}
 
     def _runloop(self, task=None, path=None, output_dir=None, verify=None,
                  language="python", max_iterations=DEFAULT_MAX_ITER,
@@ -129,14 +183,17 @@ if __name__ == "__main__":
     ap.add_argument("--fake-model", default=None, choices=[None, "smoke", "none"],
                     help="smoke=确定性自纠冒烟(不连网); none/省略=读 config 真调模型")
     ap.add_argument("--verbose", action="store_true", help="打印回合轨迹")
+    ap.add_argument("--edits-json", default=None,
+                    help='code.patch 用：JSON 数组，如 [{"old":"a=1","new":"a=2"}]')
     args = ap.parse_args()
 
     agent.load()
     print(f"══ {agent.name} 原子自测 ══ v{agent.version} status={agent.describe()['status']}")
+    _edits = json.loads(args.edits_json) if args.edits_json else None
     r = agent.run(_capability=args.capability, task=args.task, path=args.path,
                   output_dir=args.output_dir, verify=args.verify,
                   language=args.language, max_iterations=args.max_iterations,
-                  fake_model=args.fake_model)
+                  fake_model=args.fake_model, edits=_edits)
     if r.get("ok") and args.verbose:
         _print_trace(r["data"].get("trace", []))
     print(json.dumps(r, ensure_ascii=False, indent=2, default=str))

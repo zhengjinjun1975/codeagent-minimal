@@ -24,20 +24,24 @@ if REPO_ROOT not in sys.path:
     sys.path.insert(0, REPO_ROOT)
 
 from atomic_base import AtomicAgent
+if HERE not in sys.path:
+    sys.path.insert(0, HERE)
 import test_harness as th  # 复用核心：核心零改动
 import reg_guard as rg     # 复用核心：回归快照/增量测试选择，核心零改动
+import project_verify as pv  # 同目录核心模块：项目级验收（吃目录、逐文件 smoke）
 
 
 class CodeTestAgent(AtomicAgent):
     name = "code-test"
-    version = "0.2.0"
+    version = "0.3.0"
     domain = "test"
     description = "测试原子：复用 test_harness 红绿回归 + reg_guard 回归快照/增量测试选择 + P0-3智能测试选择(git diff) + P1-4人类在环 + P1-5覆盖度分析"
     provides = ["test.gen", "test.run", "test.tdd", "test.snapshot", "test.affected",
-                "test.select", "test.coverage_analysis"]
+                "test.select", "test.coverage_analysis", "test.project"]
     depends_on = []
-    inputs = ["code", "path", "target_dir", "task"]
-    outputs = ["test_files", "smoke", "coverage", "unit", "boundary", "mutation", "stability", "red_green"]
+    inputs = ["code", "path", "target_dir", "task", "timeout", "exclude"]
+    outputs = ["test_files", "smoke", "coverage", "unit", "boundary", "mutation", "stability", "red_green",
+               "root", "files", "smoke_passed", "smoke_failed", "summary", "skipped"]
 
     def _register_defaults(self):
         self.register("test.gen", self._gen)
@@ -47,6 +51,15 @@ class CodeTestAgent(AtomicAgent):
         self.register("test.affected", self._affected)
         self.register("test.select", self._select)
         self.register("test.coverage_analysis", self._coverage_analysis)
+        self.register("test.project", self._project)
+
+    # ── test.project：项目级验收入口（吃目录、逐文件 smoke、汇总与明细同口径）──
+    def _project(self, path=".", timeout=120, exclude=None):
+        """吃目录：walk *.py 逐文件 smoke，再跑项目自带测试命令；ok 与明细必须同口径。"""
+        r = pv.verify_project(path, timeout=timeout, exclude=exclude)
+        ok = bool(r.get("ok"))
+        err = "" if ok else str(r.get("summary") or "项目验收未通过")
+        return self._envelope(ok, data=r, degraded=not ok, error=err)
 
     # ── test.select：智能测试选择（P0-3）git diff → 受影响测试 ──
     def _select(self, project_root=".", test_map=None, transitive=True, run=False):
@@ -150,12 +163,16 @@ class CodeTestAgent(AtomicAgent):
         report = th.run_all(path, target_dir,
                             do_mutation=do_mutation, do_stability=do_stability,
                             do_boundary=do_boundary, n=10, max_mutants=10)
-        # 红绿推导：unit(测试)绿 且 boundary 绿 = 绿；任一红 = 红
+        # 红绿推导：smoke(模块导入) 且 unit(测试) 且 boundary 全绿 = 绿；任一红 = 红
+        # 🔴 smoke 失败时 unit/boundary 会被跳过并默认 ok=True，旧口径只算 unit+bnd 就会报"全绿"，
+        #    而目标模块根本 import 不进来（2026-09-22 在真项目 D:/opa-monitor 实测的假绿）。
+        smoke_ok = (report.get("smoke") or {}).get("ok", True)
         unit_ok = report["unit"].get("ok", True)
         bnd_ok = report["boundary"].get("ok", True) if "boundary" in report else True
+        all_ok = bool(smoke_ok and unit_ok and bnd_ok)
         report["red_green"] = {
-            "red": not (unit_ok and bnd_ok),
-            "green": bool(unit_ok and bnd_ok),
+            "red": not all_ok,
+            "green": all_ok,
         }
         # P1-5 覆盖度分析：报告哪些函数/分支未测，提示补测
         try:
@@ -170,7 +187,10 @@ class CodeTestAgent(AtomicAgent):
                 "progressive": True,
                 "auto_pass": False,
             }
-        report["summary"] = ("全绿" if report["red_green"]["green"] else "红（存在失败项，见边界/单元）")
+        if not smoke_ok:
+            report["summary"] = "红（模块导入失败，unit/boundary 已跳过——不算通过）"
+        else:
+            report["summary"] = ("全绿" if report["red_green"]["green"] else "红（存在失败项，见边界/单元）")
         return report
 
     # ── test.tdd：红→绿→回归 反馈闭环 ────────────────────
@@ -224,7 +244,7 @@ if __name__ == "__main__":
     ap.add_argument("--dir", default=".", help="测试文件所在目录")
     ap.add_argument("--capability", default="test.run",
                     choices=["test.gen", "test.run", "test.tdd", "test.snapshot", "test.affected",
-                             "test.select", "test.coverage_analysis"])
+                             "test.select", "test.coverage_analysis", "test.project"])
     args = ap.parse_args()
 
     agent.load()
@@ -235,6 +255,8 @@ if __name__ == "__main__":
         r = agent.run(_capability="test.gen", code={args.path: content})
     elif args.capability == "test.tdd":
         r = agent.run(_capability="test.tdd", path=args.path, target_dir=args.dir)
+    elif args.capability == "test.project":
+        r = agent.run(_capability="test.project", path=args.path)
     else:
         r = agent.run(_capability="test.run", path=args.path, target_dir=args.dir)
     print(json.dumps(r, ensure_ascii=False, indent=2, default=str))

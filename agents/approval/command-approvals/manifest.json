@@ -1,8 +1,8 @@
 {
   "name": "command-approvals",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "domain": "approval",
-  "description": "高危命令/工具审批原子（P0，借鉴Codex approvals.rs/execpolicy）: 命令/工具/文件/网络 allow/ask/deny 细粒度判定+高危命令表+人工确认。复用code-dispatch权限模型, 算法进开源approval_policy.py。",
+  "description": "高危命令/工具审批原子（P0，借鉴Codex approvals.rs/execpolicy）: 命令/工具/文件/网络 allow/ask/deny 细粒度判定+高危命令表(含Windows)+人工确认+审批→执行→被拒升级重试编排(拒绝缓存)。复用code-dispatch权限模型, 算法进开源approval_policy.py。",
   "open_source": true,
   "agent_class": "CommandApprovalsAgent",
   "entry": "main.py",
@@ -10,7 +10,8 @@
     "approval.check",
     "approval.classify",
     "approval.resolve",
-    "approval.policy"
+    "approval.policy",
+    "approval.orchestrate"
   ],
   "depends_on": [],
   "inputs": [
@@ -18,7 +19,10 @@
     "resource_type",
     "policy",
     "decision",
-    "user_choice"
+    "user_choice",
+    "runner",
+    "cache_path",
+    "max_escalations"
   ],
   "outputs": [
     "decision",
@@ -28,7 +32,23 @@
     "verdict",
     "granted",
     "matched_keywords",
-    "pending"
+    "pending",
+    "executed",
+    "profile",
+    "attempts",
+    "cached"
   ],
-  "path": "agents/approval/command-approvals"
+  "path": "agents/approval/command-approvals",
+  "permission": {
+    "needs": [
+      "read",
+      "write"
+    ],
+    "network": false
+  },
+  "resource": {
+    "model_calls": 0,
+    "timeout_sec": 120,
+    "memory_mb": 512
+  }
 }

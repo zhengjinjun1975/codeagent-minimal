@@ -196,6 +196,139 @@ def audit_dir(root, docs_path):
     }
 
 
+# ═══════════════════════════════════════════════════════════════════════════
+# P0-1「只报 → 建议性增量重写」：managed/手写 两区纪律 + 补丁草案生成。
+# 借鉴 OpenWiki 的 AGENTS.md marker 协议：HTML 注释包起的
+# `<!-- <LABEL>:START -->…<!-- <LABEL>:END -->` 区域 = 机器可重建（managed），
+# 块外 = 手写区（保留、绝不覆盖）。本组函数**只读**：产出待 CodeAgent/人 review
+# 的补丁草案结构，绝不直接改文档。零 LLM，数据不出厂。
+# ═══════════════════════════════════════════════════════════════════════════
+
+# managed 区 marker：开闭各为独立 HTML 注释，标签须一致（对齐 OpenWiki OPENWIKI:START/END）
+_RE_MANAGED = re.compile(
+    r'<!--\s*([A-Za-z0-9_][A-Za-z0-9_:.-]*):START\s*-->(.*?)<!--\s*\1:END\s*-->',
+    re.S)
+
+
+def managed_zones(text):
+    """识别文档里的 managed（机器可重建）marker 区。
+
+    返回 [{"label", "start", "end"}]，start/end 为该区**内容**（两块注释之间）
+    的字符偏移。手写区 = 这些区间之外的部分（保留不动）。
+    """
+    zones = []
+    for m in _RE_MANAGED.finditer(text):
+        zones.append({"label": m.group(1), "start": m.start(2), "end": m.end(2)})
+    return zones
+
+
+def zone_of(zones, pos):
+    """按字符偏移判断某个锚点落在 managed 区（返回 {zone:'managed', label}）
+    还是手写区（{zone:'handwritten'}）。"""
+    for z in zones:
+        if z["start"] <= pos < z["end"]:
+            return {"zone": "managed", "label": z["label"]}
+    return {"zone": "handwritten"}
+
+
+def _propose_hash_refresh(token_text, cur_hash):
+    """对 `repo://…#L?-?@…` 锚点文本，提出仅刷新哈希的替换 token（其余原样保留）。"""
+    if not token_text.startswith("repo://"):
+        return None
+    idx = token_text.rfind("@")
+    if idx == -1:
+        return token_text + "@sha256:" + cur_hash
+    return token_text[:idx] + "@sha256:" + cur_hash
+
+
+def suggest_drafts(root, md_path):
+    """对单个文档产出「建议性增量重写」草案结构（只读，不落盘、不改源文档）。
+
+    复用 audit_file 定位 stale；再按 managed/手写两区纪律决定是否建议补丁：
+      - stale 落在 managed 区  → 产补丁草案（建议把锚点哈希刷到 current_hash）
+      - stale 落在手写区       → guarded（保护，绝不建议覆盖）→ 只提示不进草案
+      - 文档无任何 managed 区  → 全部 guarded（无处可机器重建，只报人工处理）
+    返回 dict（含 report / zones / drafts / guarded / note）。
+    """
+    try:
+        text = Path(md_path).read_text(encoding="utf-8", errors="ignore")
+    except OSError:
+        return {"file": str(md_path), "readable": False}
+    zones = managed_zones(text)
+    report = audit_file(root, md_path)
+    # stale 是「锚点身份」（path#line-end@expect_hash）。同一身份可能在文档出现多次，
+    # 且可能一次落在 managed 区、一次落在手写区 → 须逐次出现按各自 zone 分类。
+    stale_ids = {(st["path"], st.get("line"), st.get("line_end"), st.get("expect_hash"))
+                 for st in report.get("stale", [])}
+    cur_by_id = {(st["path"], st.get("line"), st.get("line_end"), st.get("expect_hash")): st["current_hash"]
+                 for st in report.get("stale", [])}
+    drafts, guarded = [], []
+    seen_ids = set()
+    for m in _RE_REPO_ANCHOR.finditer(text):
+        ident = (m.group(1), int(m.group(2)),
+                 (int(m.group(3)) if m.group(3) else None), m.group(4))
+        if ident not in stale_ids:
+            continue
+        seen_ids.add(ident[:3])
+        cur_hash = cur_by_id[ident]
+        zn = zone_of(zones, m.start())
+        entry = {
+            "file": str(md_path),
+            "anchor": {"path": ident[0], "line": ident[1], "line_end": ident[2],
+                       "expect_hash": ident[3], "current_hash": cur_hash},
+            "original_anchor": m.group(0),
+            "zone": zn["zone"], "label": zn.get("label"),
+            "reason": "evidence_hash_changed",
+        }
+        if zn["zone"] == "managed":
+            proposed = _propose_hash_refresh(m.group(0), cur_hash)
+            if proposed and proposed != m.group(0):
+                entry.update({
+                    "kind": "managed_patch",
+                    "proposed_anchor": proposed,
+                    "original_hash": ident[3],
+                    "proposed_hash": cur_hash,
+                })
+                drafts.append(entry)
+                continue
+            guarded.append(dict(entry, reason="managed_no_refresh_available"))
+        else:
+            # 手写区或无处可重建 → 保护，不进草案
+            if not zones:
+                reason = "no_managed_marker_no_auto_rewrite"
+            elif zn["zone"] == "handwritten":
+                reason = "protected_handwritten_zone"
+            else:
+                reason = "managed_no_refresh_available"
+            guarded.append(dict(entry, reason=reason))
+    # 兜底：万一 stale 锚点身份在文本里没被 repo 正则再次命中（极端），仍保底记录一次 guarded
+    for st in report.get("stale", []):
+        ident3 = (st["path"], st.get("line"), st.get("line_end"))
+        if ident3 not in seen_ids:
+            guarded.append({
+                "file": str(md_path),
+                "anchor": {"path": st["path"], "line": st.get("line"),
+                           "line_end": st.get("line_end"),
+                           "expect_hash": st.get("expect_hash"),
+                           "current_hash": st.get("current_hash")},
+                "zone": "handwritten", "label": None,
+                "reason": "stale_anchor_token_not_relocated_manual_review",
+            })
+    return {
+        "file": str(md_path), "readable": True,
+        "has_managed_zone": bool(zones),
+        "managed_zones": zones,
+        "report": report,
+        "drafts": drafts,
+        "guarded": guarded,
+        "draft_count": len(drafts),
+        "guarded_count": len(guarded),
+        "note": ("只产出补丁草案，绝不直接改文档；草案仅针对 managed 区提，"
+                 "手写区（marker 块外）保护不覆盖。CodeAgent/人 review 通过后才应用。"),
+    }
+
+
+
 def main():
     import argparse
     ap = argparse.ArgumentParser(description="doc_freshness 文档新鲜度审计")

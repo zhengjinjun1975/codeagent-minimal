@@ -115,7 +115,9 @@ def test_p2_context_compact_estimate_and_budget():
     steps = [{"capability": "a", "output": {"summary": "s" * 300}},
              {"capability": "b", "output": {"summary": "t" * 300}}]
     d = _call(ag, "context-compact", "context.budget", steps=steps, max_tokens=100)
-    assert d["overshoot"] > 0 and d["used_tokens"] > 0
+    assert d["used_tokens"] <= 100, f"预算没生效: used={d['used_tokens']} > 100"
+    assert d["overshoot"] == 0 and d["enforced"] is True, d
+    assert d["action"] in ("compact", "offload"), d["action"]
 
 
 def test_p2_model_fallback_chain():

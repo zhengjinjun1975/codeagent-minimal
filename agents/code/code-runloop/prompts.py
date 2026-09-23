@@ -16,7 +16,7 @@ TOOL_SCHEMAS = """
 4. write  — 整写/覆盖一个文件(新文件推荐)。 args: {"path": str, "content": str}
    仅允许写在 white_root 下, 越界会被拒绝并回理由。
 5. edit   — 对既有文件做 search-replace 字面量替换(唯一匹配才落盘)。
-   args: {"path": str, "old": str, "new": str, "dry_run": bool(可选, 默认 true 先校验)}
+   args: {"path": str, "old": str, "new": str}   # edit 默认直接落盘（要预览才传 dry_run: true）
    失败会回显 "N blocks failed to match" 或 "需唯一锚点" —— 别重发整块, 先 read_file 缩小锚点再 edit。
 6. verify_cmd — 立即跑 DoD 硬校验命令(默认你在收尾时让 harness 跑; 也可中途自查)。
    args: {"cmd": str, "cwd": str(可选)}

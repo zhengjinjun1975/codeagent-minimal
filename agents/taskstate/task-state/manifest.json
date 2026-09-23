@@ -1,13 +1,26 @@
 {
   "name": "task-state",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "domain": "taskstate",
-  "description": "任务状态原子: 复用外置任务状态模块(做到哪/下一步/证据/决策点), 跨会话续跑不丢进度。taskstate.track 跟踪状态。",
+  "description": "任务状态原子: 复用外置任务状态模块(做到哪/下一步/证据/决策点), 跨会话续跑不丢进度。taskstate.track 跟踪状态(action: new/set/ev/gate/read; set state=done 须给 done_evidence 真实产物)。",
   "open_source": true,
   "agent_class": "TaskStateAgent",
   "entry": "main.py",
   "provides": ["taskstate.track"],
   "depends_on": [],
-  "inputs": ["task", "action", "tid", "state", "progress", "evidence", "gate", "status_file"],
-  "outputs": ["status", "task_id", "file", "progress"]
+  "inputs": ["task", "action", "tid", "state", "progress", "evidence", "gate", "status_file", "done_evidence"],
+  "outputs": ["status", "task_id", "file", "progress", "state"],
+  "permission": {
+    "needs": [
+      "read",
+      "write",
+      "exec"
+    ],
+    "network": false
+  },
+  "resource": {
+    "model_calls": 0,
+    "timeout_sec": 600,
+    "memory_mb": 512
+  }
 }

@@ -1,8 +1,8 @@
 {
   "name": "guard",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "domain": "guard",
-  "description": "护栏钩子原子（P2，借鉴Codex guardian）: code变更前置/后置安全审查钩子流水线, 复用security_scan 10维度+secret+误报治理做门禁(pre/post/pipeline/check)。纯stdlib数据不出厂。",
+  "description": "护栏钩子原子: code变更前置/后置安全审查钩子流水线(pre/post/pipeline/check, 复用security_scan 10维度+secret+误报治理) + harness中间件(exit_intercept退出拦截强制清单自检 / selfcheck单次自检 / loop_guard按文件编辑计数检测死循环)。核心在 harness_guard.py, 纯stdlib数据不出厂。",
   "open_source": true,
   "agent_class": "GuardAgent",
   "entry": "main.py",
@@ -10,22 +10,26 @@
     "guard.pre",
     "guard.post",
     "guard.pipeline",
-    "guard.check"
+    "guard.check",
+    "guard.exit_intercept",
+    "guard.selfcheck",
+    "guard.loop_guard"
   ],
   "depends_on": [],
-  "inputs": [
-    "path",
-    "code",
-    "paths",
-    "govern"
-  ],
-  "outputs": [
-    "issues",
-    "secrets",
-    "verdict",
-    "files",
-    "summary",
-    "total"
-  ],
-  "path": "agents/guard/guard"
+  "inputs": ["path", "code", "paths", "govern", "task", "artifacts", "checklist", "session_key", "file_path", "bump", "threshold", "store_dir", "since"],
+  "outputs": ["issues", "secrets", "verdict", "files", "summary", "total", "passed", "failed", "next_prompt", "items", "stalled", "count", "hint", "evidence"],
+  "permission": {
+    "needs": [
+      "read",
+      "write",
+      "exec",
+      "net"
+    ],
+    "network": true
+  },
+  "resource": {
+    "model_calls": 1,
+    "timeout_sec": 600,
+    "memory_mb": 1024
+  }
 }

@@ -25,24 +25,43 @@ if REPO_ROOT not in sys.path:
     sys.path.insert(0, REPO_ROOT)
 
 from atomic_base import AtomicAgent
+import mcp_guard                                          # 工具描述/输出按不可信输入处理（P1-7）
 
 
 class McpClientAgent(AtomicAgent):
     name = "mcp-client"
-    version = "0.1.0"
+    version = "0.2.0"
     domain = "mcp"
     description = ("MCP 客户端原子: 连外部 MCP server(local stdio + remote http/sse), "
-                   "tools/list + tools/call 接入生态工具。默认 local_only 白名单, 远程需显式 allow。")
-    provides = ["mcp.list", "mcp.tools", "mcp.call", "mcp.connect"]
+                   "tools/list + tools/call 接入生态工具。默认 local_only 白名单, 远程需显式 allow。"
+                   "工具描述入上下文前过 mcp_guard 定性(防 tool poisoning), 工具输出统一剥不可见字符 + 数据围栏(防注入)。")
+    provides = ["mcp.list", "mcp.tools", "mcp.call", "mcp.connect", "mcp.guard"]
     depends_on = []
-    inputs = ["server", "endpoint", "command", "tools", "timeout", "local_only", "allow_remote", "allow_tools"]
-    outputs = ["servers", "tools", "result", "server"]
+    inputs = ["server", "endpoint", "command", "tools", "timeout", "local_only", "allow_remote", "allow_tools",
+              "action", "text", "description", "name", "tool"]
+    outputs = ["servers", "tools", "result", "server", "guard", "findings", "text"]
 
     def _register_defaults(self):
         self.register("mcp.list", self._list)
         self.register("mcp.connect", self._connect)
         self.register("mcp.tools", self._tools)
         self.register("mcp.call", self._call)
+        self.register("mcp.guard", self._guard)
+
+    # ── mcp.guard：把"不可信输入"这件事做成可复用的能力（纯本地确定性）──
+    def _guard(self, action="scan_description", text=None, description=None, name=None,
+               tools=None, source="tool", **_):
+        """action: scan_description | scan_payload | guard_tools | sanitize。"""
+        if action == "scan_description":
+            return self._envelope(True, data=mcp_guard.scan_description(name or "", description or text or ""))
+        if action == "scan_payload":
+            return self._envelope(True, data=mcp_guard.scan_payload(text or description or ""))
+        if action == "guard_tools":
+            return self._envelope(True, data=mcp_guard.guard_tools(tools or []))
+        if action == "sanitize":
+            return self._envelope(True, data=mcp_guard.sanitize_text(text or "", source=source))
+        return self._envelope(False, degraded=True,
+                              error="未知 action=%r（可用: scan_description/scan_payload/guard_tools/sanitize）" % action)
 
     # ── JSON-RPC 帧收发（stdio 本地 + http 远程共用）────────────
     def _send_recv_stdio(self, proc, msg: dict, timeout=30):
@@ -182,8 +201,9 @@ class McpClientAgent(AtomicAgent):
             except Exception:
                 pass
         tools = d.get("tools", [])
+        guard = mcp_guard.guard_tools(tools)          # 描述是第三方文本：先定性，再交上层（不静默丢工具）
         return self._envelope(True, data={"server": d.get("server"), "transport": d.get("transport"),
-                                          "tools": tools, "count": len(tools)})
+                                          "tools": tools, "count": len(tools), "guard": guard})
 
     def _call(self, tool, arguments=None, server="demo", endpoint=None, command=None,
               timeout=30, local_only=True, allow_remote=False, allow_tools=None, **_):
@@ -217,19 +237,31 @@ class McpClientAgent(AtomicAgent):
                         pass
                 result = resp.get("result", {})
                 content = result.get("content", [])
-                return self._envelope(True, data={"tool": tool, "result": result,
-                                                  "content": content,
-                                                  "text": _extract_text(content)})
+                return self._envelope(True, data=_guarded_result(tool, result, content))
             elif endpoint:
                 resp = self._http_jsonrpc(endpoint, "tools/call",
                                           {"name": tool, "arguments": arguments or {}}, timeout)
                 result = resp.get("result", {})
-                return self._envelope(True, data={"tool": tool, "result": result,
-                                                  "text": _extract_text(result.get("content", []))})
+                return self._envelope(True, data=_guarded_result(tool, result,
+                                                                 result.get("content", [])))
             return self._envelope(False, degraded=True, error="需 command(local) 或 endpoint(remote)")
         except Exception as e:
             return self._envelope(False, degraded=True,
                                   error=f"MCP 工具调用失败: {type(e).__name__}: {e}")
+
+
+def _guarded_result(tool, result, content):
+    """工具输出 = 不可信数据：剥不可见字符、加数据围栏，并附注入扫描结论。
+
+    围栏只加在 `text` 上（`content`/`result` 原样保留：谁要原始结构谁拿，判断留给上层）。
+    """
+    raw = _extract_text(content)
+    safe = mcp_guard.sanitize_text(raw, source="mcp:%s" % tool)
+    return {"tool": tool, "result": result, "content": content,
+            "text": safe["text"], "raw_text": raw,
+            "guard": {"payload": mcp_guard.scan_payload(raw),
+                      "stripped_invisible": safe["stripped"],
+                      "truncated": safe["truncated"]}}
 
 
 def _extract_text(content):

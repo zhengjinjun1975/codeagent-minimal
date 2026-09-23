@@ -150,10 +150,21 @@ def grep(pattern, path, roots=None):
 
 
 def _apply_edit(path, old, new, dry_run):
-    """search-replace 字面量唯一匹配; dry_run=True 内存模拟不落盘。"""
-    with open(path, encoding="utf-8", errors="replace") as f:
-        content = f.read()
-    idxs = [m.start() for m in re.finditer(re.escape(old), content)]
+    """search-replace 字面量唯一匹配; dry_run=True 内存模拟不落盘。
+
+    行尾必须原样保留（newline="" 关掉换行翻译）：Windows 上默认文本模式读会把 CRLF 翻成 LF、
+    写时又把 LF 翻成 os.linesep(CRLF) —— 于是一次小改就把整个文件的行尾换掉，git diff 变成
+    "整文件重写"，没法审阅（实测：CodeAgent 改一次 security_scan.py，diff 454 增/391 删全是行尾噪音）。
+    """
+    with open(path, encoding="utf-8", errors="replace", newline="") as f:
+        raw = f.read()
+    # 统一到 \n 上做匹配（模型给的 old/new 常带 \r\n，而文件可能是 LF —— 直接字面量比会"找不到"），
+    # 匹配完再按文件**原本的**行尾写回，保证行尾不变。
+    nl = "\r\n" if "\r\n" in raw else "\n"
+    content = raw.replace("\r\n", "\n")
+    old_m = (old or "").replace("\r\n", "\n")
+    new_m = (new or "").replace("\r\n", "\n")
+    idxs = [m.start() for m in re.finditer(re.escape(old_m), content)]
     n = len(idxs)
     if n == 0:
         return {"status": "error",
@@ -161,17 +172,54 @@ def _apply_edit(path, old, new, dry_run):
     if n > 1:
         return {"status": "error",
                 "reason": f"{n} blocks matched, 需唯一锚点; 请加更多上下文(引用上一行/缩进): {old[:120]!r}"}
-    new_content = content[:idxs[0]] + new + content[idxs[0] + len(old):]
+    new_content = content[:idxs[0]] + new_m + content[idxs[0] + len(old_m):]
+    if nl == "\r\n":
+        new_content = new_content.replace("\n", "\r\n")
     if not dry_run:
-        with open(path, "w", encoding="utf-8") as f:
+        with open(path, "w", encoding="utf-8", newline="") as f:
             f.write(new_content)
     before = content[idxs[0] - 0: idxs[0]]
     return {"status": "ok", "path": path, "replaced": 1, "dry_run": dry_run,
             "preview": (old[:60] + " → " + new[:60]).replace("\n", "\\n")}
 
 
-def edit(path, old, new, roots=None, dry_run=True):
-    """edit(path, old, new): 内存 dry-run 校验后才落盘; 失败精确回显只重发失败块。"""
+def _as_bool(v, default=True):
+    """布尔参数容错：模型常有把 dry_run 传成字符串 "false"/"False" 的（bool("false") 是 True → 该落盘的
+    只做了 dry-run，改动静默没落盘，实测一次派活里连吞 3 处编辑）。
+    ponytail: 只认这几个字面量，其它字符串一律用 default。"""
+    if isinstance(v, str):
+        s = v.strip().lower()
+        if s in ("false", "0", "no", "n", "off", ""):
+            return False
+        if s in ("true", "1", "yes", "y", "on"):
+            return True
+        return default
+    if v is None:
+        return default
+    return bool(v)
+
+
+def _unescape_newlines(s):
+    """把"整条里一个真换行都没有、却写了字面 \\n"的参数还原成真换行。
+
+    实测（2026-09-21 派 G3 三次）：模型把 old 传成 '# 注释\\ndef f():\\n    x' 这种**字面反斜杠 n**
+    → 字面量匹配必然失败，报"找不到该 old"，白烧轮次。只在"没有真换行"时才还原，
+    避免动到本来含真换行的正常参数。
+    ponytail: 只处理 \\n；\\t/\\" 这类没见模型写错过，先不猜。
+    """
+    if "\n" not in s and "\\n" in s:
+        return s.replace("\\n", "\n")
+    return s
+
+
+def edit(path, old, new, roots=None, dry_run=False):
+    """edit(path, old, new): 字面量唯一匹配替换，**默认直接落盘**；失败精确回显只重发失败块。
+
+    为什么默认落盘（2026-09-21 改）：原来默认"先 dry-run 校验、再重发 dry_run=false 落盘"的两步设计，
+    实测模型三次栽在这上面（把 dry_run 传成字符串 "false"、干脆不传 → 只干跑不落盘、看着改了其实没写，
+    白烧到上限）。落盘安全性已由 roots 白名单 + 循环自己的 DoD 复跑兜住，不需要再多一道默认干跑。
+    要预览（明确的干跑）才显式传 dry_run=true。
+    """
     if not old:
         return {"status": "error", "reason": "edit 的 old(被替换字面量)不能为空"}
     try:
@@ -180,7 +228,8 @@ def edit(path, old, new, roots=None, dry_run=True):
         return {"status": "error", "reason": str(e)}
     if not os.path.isfile(ap):
         return {"status": "error", "reason": f"文件不存在: {path} (edit 需先 write 创建)"}
-    dry_run = bool(dry_run)
+    dry_run = _as_bool(dry_run, default=False)
+    old, new = _unescape_newlines(old), _unescape_newlines(new)
     r = _apply_edit(ap, old, new, dry_run=dry_run)
     if r["status"] == "ok" and not dry_run:
         r["msg"] = "已落盘替换 1 处"
@@ -189,7 +238,61 @@ def edit(path, old, new, roots=None, dry_run=True):
     return r
 
 
+def apply_edits(path, edits, roots=None):
+    """定点替换：一串 old→new 一次性应用到同一个文件，**全成或全不成**（零模型调用）。
+
+    为什么要有它（2026-09-21 用户拍板）：改一两行的活走 run_loop 要 5~6 轮云端调用，实测模型还把
+    轮次全烧在读文件上（连派 4 次零改动）；而这种活调用方**本来就确切知道改什么**，不需要模型。
+    这里只做三件事：预检（每条都能唯一匹配）→ 落盘 → 交调用方自己跑 DoD。复用 `_apply_edit`，
+    所以行尾保留、字面 \\n 还原、唯一锚点三条纪律全继承。
+    """
+    if not path:
+        return {"ok": False, "error": "缺少 path", "applied": []}
+    p = os.path.abspath(str(path))
+    if roots:
+        # 注意 ensure_inside 的契约：**成功返回规范化路径、越界抛 ValueError**
+        # （第一版把它当成"返回错误串"，结果每次都当越界拒掉 —— 是 verify_code_patch.py 抓出来的）
+        try:
+            p = ensure_inside(p, roots)
+        except ValueError as e:
+            return {"ok": False, "error": "路径越界被拒: %s" % e, "applied": []}
+    if not os.path.exists(p):
+        return {"ok": False, "error": "目标文件不存在: %s" % p, "applied": []}
+    if not edits:
+        return {"ok": False, "error": "缺少 edits（[{old,new},...] 或 [[old,new],...]）", "applied": []}
+
+    items = []
+    for i, e in enumerate(edits):
+        if isinstance(e, (list, tuple)) and len(e) == 2:
+            old, new = e
+        elif isinstance(e, dict):
+            old, new = e.get("old"), e.get("new")
+        else:
+            return {"ok": False, "error": "第 %d 条 edit 形状不对（要 {old,new} 或 [old,new]）" % i,
+                    "applied": []}
+        old, new = _unescape_newlines(old), _unescape_newlines(new or "")
+        if not old:
+            return {"ok": False, "error": "第 %d 条缺 old（必须给要替换掉的原文）" % i, "applied": []}
+        items.append({"index": i, "old": old, "new": new})
+
+    # 预检：每条都必须唯一匹配 —— 任一不匹配就一条也不落盘（不留改一半的文件）
+    for it in items:
+        r = _apply_edit(p, it["old"], it["new"], dry_run=True)
+        if r.get("status") != "ok":
+            return {"ok": False, "applied": [],
+                    "error": "第 %d 条预检失败（未落盘）: %s" % (it["index"], r.get("reason"))}
+
+    applied = []
+    for it in items:
+        r = _apply_edit(p, it["old"], it["new"], dry_run=False)
+        applied.append({"index": it["index"], "ok": r.get("status") == "ok",
+                        "reason": r.get("reason", ""), "preview": r.get("preview", "")})
+    return {"ok": all(a["ok"] for a in applied), "path": p, "applied": applied,
+            "count": len(applied)}
+
+
 def write(path, content, roots=None, overwrite=True):
+    overwrite = _as_bool(overwrite, default=True)
     """write(path, content): 整写(Add/Overwrite)。FS 白名单越界拒绝回理由。"""
     try:
         ap = ensure_inside(path, roots) if roots else os.path.abspath(path)

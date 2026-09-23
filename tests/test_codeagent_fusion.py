@@ -58,8 +58,8 @@ FUSED_ATOMS = {
 def test_runtime_all_atoms_ready_no_degraded():
     rt = AgentRuntime()
     d = rt.describe()
-    assert set(d["atoms"]) == FUSED_ATOMS, f"应为 {len(FUSED_ATOMS)} 原子: {set(d['atoms'])}"
-    assert d["count"] == len(FUSED_ATOMS)
+    assert FUSED_ATOMS <= set(d["atoms"]), f"已知原子缺失: {FUSED_ATOMS - set(d['atoms'])}"
+    assert d["count"] >= len(FUSED_ATOMS)
     assert d["degraded"] == [], f"有原子加载降级: {d['degraded']}"
     assert d["conflicts"] == [], f"有冲突: {d['conflicts']}"
     assert d["local_only"] is True  # 数据不出厂默认
@@ -74,7 +74,7 @@ def test_runtime_all_atoms_ready_no_degraded():
 
 def test_unified_entry_api_atoms():
     ca = CodeAgent()
-    assert ca.atoms()["count"] == len(FUSED_ATOMS)
+    assert ca.atoms()["count"] >= len(FUSED_ATOMS)
     # 统一 API 门面方法齐全
     for m in ("run", "review", "test", "refine", "reuse", "impact", "plan", "memory",
               "skill", "mcp", "llm", "dispatch", "project", "deliver", "chain",

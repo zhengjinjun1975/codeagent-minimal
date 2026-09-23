@@ -4,6 +4,19 @@
 
 格式遵循 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.0.0/)。
 
+## [0.5.0] - 2026-09-23
+
+### 与母版能力同步（10 个原子升版 + code-runloop 入册）
+- **原子 34 → 35、能力 118 → 140**（`codeagent.py status --json` 实测：`degraded=[]`、`conflicts=[]`）。
+- 升版：`code-test` 0.3.0（+`test.project` 项目级验收）、`code-runloop` 0.3.0（+`code.patch`）、`command-approvals` 0.2.0（+`approval.orchestrate`）、`context-compact` 0.5.0（+6 能力，预算**真裁到预算内**）、`code-dispatch` 0.4.0（+3 能力）、`doc-freshness` 0.2.0（+`doc.draft`）、`guard` 0.2.0（+3 能力）、`mcp-client` 0.2.0（+`mcp.guard`）、`model-fallback` 0.2.0（+4 能力）、`process-sandbox` 0.3.0、`task-state` 0.2.0。
+- 同步支撑模块：`capability_scope.py`、`mcp_guard.py`、`context_harness.py`、`chain_selector.py`、`verify_gate.py`、`cascade_router.py`、`harness_guard.py`，并更新 `approval_policy.py` / `doc_freshness.py` / `security_scan.py`。
+- **脱敏**：`llm.py` 的 key 兜底路径与提示不再指向内部目录（改用 `~/.codeagent/.env`）；`task-state` 注释去掉内部名。新增文件内部名复扫 = 0。
+- **文档计数统一**：README / ATOMS_GUIDE（索引表 16 → **35 行**）/ INTEGRATION_GUIDE / PROMOTION / CAPABILITY 全部归 35 原子 / 140 能力；新增 `docs/POSITIONING.md`（与开源生态的真实对照：8 个编码代理类 + 20 个质量治理工具类，优势 8 条 / 短板 6 条逐条显性）。
+- **新增门** `tests/test_capability_consistency.py`（7 项：registry 自洽 / README 计数 / 白名单文档计数 / 指南索引集合 / 前端中文名覆盖 / server 命令白名单 / 分辨力自检）——**上线即抓出 4 处真实不一致**（指南 3 处计数、CAPABILITY.md 与前端中文名表各 1 处），已修。
+
+### 验证
+- `python -m pytest -q`：**188 passed**；`codeagent.py status --json`：35 原子 / 140 能力 / `degraded=[]` / `conflicts=[]`。
+
 ## [0.4.1] - 2026-09-08
 
 ### 修复与 CI

@@ -3,10 +3,10 @@
 > ⭐ 觉得有用就给我们一个 **Star**，支持持续迭代。
 > [![GitHub stars](https://img.shields.io/github/stars/zhengjinjun1975/codeagent-minimal?style=social)](https://github.com/zhengjinjun1975/codeagent-minimal)
 
-> **v0.4.1 · 一体化完整版**：一个本地运行的代码智能体，`git clone` 即用，纯 Python 标准库、零第三方依赖、数据不出厂，Apache-2.0。
+> **v0.5.0 · 一体化完整版**：一个本地运行的代码智能体，`git clone` 即用，纯 Python 标准库、零第三方依赖、数据不出厂，Apache-2.0。
 
 [![License](https://img.shields.io/badge/License-Apache-2.0-blue.svg)](LICENSE)
-[![Version](https://img.shields.io/badge/version-0.4.1-blue.svg)](CHANGELOG.md)
+[![Version](https://img.shields.io/badge/version-0.5.0-blue.svg)](CHANGELOG.md)
 
 ---
 
@@ -60,13 +60,14 @@ python codeagent.py guard   代码目录          # 一键安全·质量检查
 | 影响分析 | `impact` | 改动会影响哪些模块 |
 | 一键检查 | `guard` | 审查 + 安全 + 测试 协同 |
 
-共 **34 个可独立运行、可任意组装的能力原子**，配合本地可视化 Lab 编排与浏览器前端。每个原子的能力 / 入参 / 示例见 [docs/ATOMS_GUIDE.md](docs/ATOMS_GUIDE.md)。
+共 **35 个可独立运行、可任意组装的能力原子**，配合本地可视化 Lab 编排与浏览器前端。每个原子的能力 / 入参 / 示例见 [docs/ATOMS_GUIDE.md](docs/ATOMS_GUIDE.md)。
 
 ## 详细文档（都在这里，不放 README）
 
 | 文档 | 说明 |
 |------|------|
-| [docs/ATOMS_GUIDE.md](docs/ATOMS_GUIDE.md) | 34 原子逐个指南：能力 / 入参 / 返回 / 示例 |
+| [docs/ATOMS_GUIDE.md](docs/ATOMS_GUIDE.md) | 35 原子逐个指南：能力 / 入参 / 返回 / 示例 |
+| [docs/POSITIONING.md](docs/POSITIONING.md) | 与同类开源的真实对照（编码代理类 8 + 质量治理工具类 20）：优势 8 条 / 短板 6 条逐条显性 |
 | [docs/PROMOTION.md](docs/PROMOTION.md) | 宣传与边界：场景痛点 / 方法论 / 诚实边界 |
 | [docs/INTEGRATION_GUIDE.md](docs/INTEGRATION_GUIDE.md) | 对接 LangChain / CrewAI / Claude Code 等框架 |
 | [docs/SECURITY_HARDENING.md](docs/SECURITY_HARDENING.md) | 沙箱 / 子进程 / 路径防护 / 数据不出厂 |
@@ -80,7 +81,7 @@ python codeagent.py guard   代码目录          # 一键安全·质量检查
 
 ## 回归与状态
 
-- `python codeagent.py status --json`：注册 **34 原子 / 118 能力**，`degraded=[]`、`conflicts=[]`（实测）。
+- `python codeagent.py status --json`：注册 **35 原子 / 140 能力**，`degraded=[]`、`conflicts=[]`（实测）。
 - `python -m pytest tests/ -q`：全量单测通过（CI 已接入 GitHub Actions）。
 
 ## 许可

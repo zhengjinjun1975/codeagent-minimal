@@ -16,6 +16,8 @@ import re
 import os
 from pathlib import Path
 
+from fnmatch import fnmatch
+
 from pathguard import safe_resolve, safe_read_text, assert_within
 
 # ── 10 安全维度 ──
@@ -79,6 +81,30 @@ SECRET_PATTERNS = [
 _SELF_NAMES = {"SECURITY_DIMENSIONS", "DANGEROUS_FUNCS", "SECRET_PATTERNS",
                "_SELF_NAMES", "TAINT_SOURCES", "TAINT_SINKS", "SECURITY_DIMENSIONS"}
 
+# ── 项目扫描默认排除清单（治自审 P0 虚高：别把夹具/测试/扫描器自身当真漏洞）──
+DEFAULT_EXCLUDE_DIRS = {".git", "__pycache__", ".venv", "node_modules",
+                        "_impl_output", "_pending_atoms", "lab", "tests",
+                        "examples", "vendor"}
+DEFAULT_EXCLUDE_FILES = ["bad_sample*.py", "_drive_*.py", "_smoke*.py", "test_*.py"]
+DEFAULT_EXCLUDE = sorted(DEFAULT_EXCLUDE_DIRS) + DEFAULT_EXCLUDE_FILES
+
+
+def _excluded(name: str, patterns) -> bool:
+    """名字（目录名或文件名）命中排除清单 → True。
+
+    含通配符的模式走 fnmatch；纯名字（目录名）大小写不敏感全等比较。
+    """
+    if not patterns:
+        return False
+    low = name.lower()
+    for pat in patterns:
+        if any(ch in pat for ch in "*?["):
+            if fnmatch(name, pat) or fnmatch(low, pat.lower()):
+                return True
+        elif pat.lower() == low:
+            return True
+    return False
+
 
 def _strip_self(content: str) -> str:
     """剔除扫描器自身/规则常量/说明注释，防"扫到自己"自指误报。"""
@@ -104,35 +130,55 @@ def _strip_self(content: str) -> str:
     return "\n".join(lines)
 
 
+# ── 行列工具 ──
+def _ln(content: str, m) -> int:
+    """命中位置的真实行号(1 开始, 相对原始 content)。"""
+    return content[:m.start()].count("\n") + 1
+
+
 # ── 维度检查函数 ──
 def _check_injection(content: str) -> list:
     out = []
-    if re.search(r'\b(SELECT|INSERT|UPDATE|DELETE)\b.*?(f["\']|\+\s*["\'a-zA-Z_]|%["\']|\.format\(|\{[^}]*\})', content, re.S):
+    m = re.search(r'\b(SELECT|INSERT|UPDATE|DELETE)\b.*?(f["\']|\+\s*["\'a-zA-Z_]|%["\']|\.format\(|\{[^}]*\})', content, re.S)
+    if m:
         out.append({"dimension": "注入", "severity": "critical", "title": "SQL 注入风险(字符串拼接查询)",
-                    "suggestion": "用参数化查询/占位符，避免把变量直接拼进 SQL", "confidence": "high"})
-    if re.search(r'subprocess\.[a-z]+\([^)]*shell\s*=\s*True', content, re.I):
+                    "suggestion": "用参数化查询/占位符，避免把变量直接拼进 SQL", "confidence": "high",
+                    "line": _ln(content, m)})
+    m = re.search(r'subprocess\.[a-z]+\([^)]*shell\s*=\s*True', content, re.I)
+    if m:
         out.append({"dimension": "注入", "severity": "critical", "title": "命令注入(shell=True)",
-                    "suggestion": "避免 shell=True，用参数列表传命令", "confidence": "high"})
-    if re.search(r'os\.system\s*\([^)]*[\+\{]', content):
+                    "suggestion": "避免 shell=True，用参数列表传命令", "confidence": "high",
+                    "line": _ln(content, m)})
+    m = re.search(r'os\.system\s*\([^)]*[\+\{]', content)
+    if m:
         out.append({"dimension": "注入", "severity": "major", "title": "命令拼接(os.system 动态字符串)",
-                    "suggestion": "改用 subprocess 参数列表传参", "confidence": "high"})
-    if re.search(r'render_template_string\s*\(', content):
+                    "suggestion": "改用 subprocess 参数列表传参", "confidence": "high",
+                    "line": _ln(content, m)})
+    m = re.search(r'render_template_string\s*\(', content)
+    if m:
         out.append({"dimension": "注入", "severity": "critical", "title": "模板注入风险(render_template_string)",
-                    "suggestion": "模板内勿注入用户输入；用沙箱模板", "confidence": "medium"})
-    if re.search(r'\.innerHTML\s*=|dangerouslySetInnerHTML', content):
+                    "suggestion": "模板内勿注入用户输入；用沙箱模板", "confidence": "medium",
+                    "line": _ln(content, m)})
+    m = re.search(r'\.innerHTML\s*=|dangerouslySetInnerHTML', content)
+    if m:
         out.append({"dimension": "注入", "severity": "major", "title": "XSS: innerHTML 注入",
-                    "suggestion": "用 textContent/escape 转义输出", "confidence": "medium"})
+                    "suggestion": "用 textContent/escape 转义输出", "confidence": "medium",
+                    "line": _ln(content, m)})
     return out
 
 
 def _check_auth(content: str) -> list:
     out = []
-    if re.search(r'\b(admin|administrator|root)\b\s*/\s*\1\b|user\s*=\s*["\']admin["\']\s*,\s*pass\s*=\s*["\']admin["\']', content, re.I):
+    m = re.search(r'\b(admin|administrator|root)\b\s*/\s*\1\b|user\s*=\s*["\']admin["\']\s*,\s*pass\s*=\s*["\']admin["\']', content, re.I)
+    if m:
         out.append({"dimension": "认证", "severity": "critical", "title": "默认弱口令(admin/admin)",
-                    "suggestion": "强制强口令+初始化修改机制", "confidence": "medium"})
-    if re.search(r'\b(login|auth|verify)\s*\([^)]*\)\s*:\s*(?=\s*return\s+True)', content):
+                    "suggestion": "强制强口令+初始化修改机制", "confidence": "medium",
+                    "line": _ln(content, m)})
+    m = re.search(r'\b(login|auth|verify)\s*\([^)]*\)\s*:\s*(?=\s*return\s+True)', content)
+    if m:
         out.append({"dimension": "认证", "severity": "major", "title": "认证函数恒真(未校验即通过)",
-                    "suggestion": "补齐密码/凭据校验", "confidence": "medium"})
+                    "suggestion": "补齐密码/凭据校验", "confidence": "medium",
+                    "line": _ln(content, m)})
     if re.search(r'user\s*=\s*request\.[a-z_]+\.get\(["\'](user|name)["\']\)[^;\n]*\bwithout\b|no_auth|@login_required', content, re.I):
         # 注解缺失兜底：handler 无鉴权装饰器难以静态判定，用 @login_required 缺失提示
         pass
@@ -141,105 +187,146 @@ def _check_auth(content: str) -> list:
 
 def _check_authz(content: str) -> list:
     out = []
-    if re.search(r'\.get\([^)]*\.get\(|request\.[a-z_]+\.get\(["\'](id|uid|user_id)["\']\)', content) and "is_admin" not in content and "role" not in content and "authorize" not in content:
+    m = re.search(r'\.get\([^)]*\.get\(|request\.[a-z_]+\.get\(["\'](id|uid|user_id)["\']\)', content)
+    if m and "is_admin" not in content and "role" not in content and "authorize" not in content:
         out.append({"dimension": "授权", "severity": "major", "title": "越权风险(IDOR): 直用请求参数取资源且无权限校验",
-                    "suggestion": "校验当前用户/角色对资源的访问权(对象级授权)", "confidence": "medium"})
-    if re.search(r'if\s+.*(user|role|admin).*:\s*\n\s*[^#]*$', content) and "return False" not in content and "deny" not in content.lower():
+                    "suggestion": "校验当前用户/角色对资源的访问权(对象级授权)", "confidence": "medium",
+                    "line": _ln(content, m)})
+    m = re.search(r'if\s+.*(user|role|admin).*:\s*\n\s*[^#]*$', content)
+    if m and "return False" not in content and "deny" not in content.lower():
         out.append({"dimension": "授权", "severity": "minor", "title": "权限判断可能缺少拒绝分支",
-                    "suggestion": "权限校验失败需显式拒绝并返回 403", "confidence": "low"})
+                    "suggestion": "权限校验失败需显式拒绝并返回 403", "confidence": "low",
+                    "line": _ln(content, m)})
     return out
 
 
 def _check_deserialization(content: str) -> list:
     out = []
-    if re.search(r'pickle\.loads?\s*\(', content):
+    m = re.search(r'pickle\.loads?\s*\(', content)
+    if m:
         out.append({"dimension": "反序列化", "severity": "critical", "title": "不安全反序列化(pickle)",
-                    "suggestion": "勿对不可信数据 pickle.loads；改用 JSON/安全格式", "confidence": "high"})
-    if re.search(r'yaml\.load\s*\([^)]*\)(?!\s*,\s*Loader)', content):
+                    "suggestion": "勿对不可信数据 pickle.loads；改用 JSON/安全格式", "confidence": "high",
+                    "line": _ln(content, m)})
+    m = re.search(r'yaml\.load\s*\([^)]*\)(?!\s*,\s*Loader)', content)
+    if m:
         out.append({"dimension": "反序列化", "severity": "critical", "title": "不安全反序列化(yaml.load 无安全 Loader)",
-                    "suggestion": "用 yaml.safe_load", "confidence": "high"})
-    if re.search(r'\bmarshal\.loads?\s*\(', content):
+                    "suggestion": "用 yaml.safe_load", "confidence": "high",
+                    "line": _ln(content, m)})
+    m = re.search(r'\bmarshal\.loads?\s*\(', content)
+    if m:
         out.append({"dimension": "反序列化", "severity": "major", "title": "不安全反序列化(marshal)",
-                    "suggestion": "marshal 不可信数据可执行任意代码", "confidence": "high"})
+                    "suggestion": "marshal 不可信数据可执行任意代码", "confidence": "high",
+                    "line": _ln(content, m)})
     return out
 
 
 def _check_file(content: str) -> list:
     out = []
-    if re.search(r'open\s*\([^)]*["\']w["\']|\bopen\s*\([^)]*(path|filename|name|user_input)', content):
+    m = re.search(r'open\s*\([^)]*["\']w["\']|\bopen\s*\([^)]*(path|filename|name|user_input)', content)
+    if m:
         out.append({"dimension": "文件", "severity": "major", "title": "任意文件写风险(open 用户可控路径)",
-                    "suggestion": "校验路径在允许目录内，防路径穿越/任意写", "confidence": "medium"})
-    if re.search(r'(path|filename|name|dir|target)\s*=\s*request\.[a-z_]+\.get\([^)]*\)[^;\n]*open\s*\(', content, re.S):
+                    "suggestion": "校验路径在允许目录内，防路径穿越/任意写", "confidence": "medium",
+                    "line": _ln(content, m)})
+    m = re.search(r'(path|filename|name|dir|target)\s*=\s*request\.[a-z_]+\.get\([^)]*\)[^;\n]*open\s*\(', content, re.S)
+    if m:
         out.append({"dimension": "文件", "severity": "critical", "title": "路径穿越风险(请求参数直达 open)",
-                    "suggestion": "限制文件访问于白名单目录，拒绝 ../", "confidence": "medium"})
-    if re.search(r'\.extractall\s*\(|\.extract\s*\(', content):
+                    "suggestion": "限制文件访问于白名单目录，拒绝 ../", "confidence": "medium",
+                    "line": _ln(content, m)})
+    m = re.search(r'\.extractall\s*\(|\.extract\s*\(', content)
+    if m:
         out.append({"dimension": "文件", "severity": "critical", "title": "zip 解压任意写(zip-slip)",
-                    "suggestion": "解压前校验文件名不含 ../ 或绝对路径", "confidence": "medium"})
-    if re.search(r'\bshutil\.rmtree\s*\([^)]*(path|dir|name)', content):
+                    "suggestion": "解压前校验文件名不含 ../ 或绝对路径", "confidence": "medium",
+                    "line": _ln(content, m)})
+    m = re.search(r'\bshutil\.rmtree\s*\([^)]*(path|dir|name)', content)
+    if m:
         out.append({"dimension": "文件", "severity": "major", "title": "递归删除风险(rmtree 用户可控路径)",
-                    "suggestion": "确认路径范围，防误删/穿越删除", "confidence": "medium"})
+                    "suggestion": "确认路径范围，防误删/穿越删除", "confidence": "medium",
+                    "line": _ln(content, m)})
     return out
 
 
 def _check_ssrf(content: str) -> list:
     out = []
-    if re.search(r'(requests\.(get|post)|urlopen)\s*\([^)]*(url|target|host|link|input)', content):
+    m = re.search(r'(requests\.(get|post)|urlopen)\s*\([^)]*(url|target|host|link|input)', content)
+    if m:
         out.append({"dimension": "SSRF", "severity": "major", "title": "SSRF 风险(用户可控 URL 发起请求)",
-                    "suggestion": "校验 URL 协议/域名白名单，禁内网/localhost/元数据", "confidence": "medium"})
-    if re.search(r'(requests\.(get|post)|urlopen)\s*\([^)]*[\+\{]', content):
+                    "suggestion": "校验 URL 协议/域名白名单，禁内网/localhost/元数据", "confidence": "medium",
+                    "line": _ln(content, m)})
+    m = re.search(r'(requests\.(get|post)|urlopen)\s*\([^)]*[\+\{]', content)
+    if m:
         out.append({"dimension": "SSRF", "severity": "major", "title": "SSRF/URL 拼接风险",
-                    "suggestion": "用 allowlist 校验 host，勿拼接用户输入", "confidence": "medium"})
+                    "suggestion": "用 allowlist 校验 host，勿拼接用户输入", "confidence": "medium",
+                    "line": _ln(content, m)})
     return out
 
 
 def _check_crypto(content: str) -> list:
     out = []
-    if re.search(r'hashlib\.(md5|sha1)\s*\(', content):
+    m = re.search(r'hashlib\.(md5|sha1)\s*\(', content)
+    if m:
         out.append({"dimension": "加密", "severity": "major", "title": "弱哈希(md5/sha1 用于安全场景)",
-                    "suggestion": "用 sha256/bcrypt/argon2 等强哈希", "confidence": "medium"})
-    if re.search(r'\bCipher\.(DES|RC4)|MODE_ECB', content):
+                    "suggestion": "用 sha256/bcrypt/argon2 等强哈希", "confidence": "medium",
+                    "line": _ln(content, m)})
+    m = re.search(r'\bCipher\.(DES|RC4)|MODE_ECB', content)
+    if m:
         out.append({"dimension": "加密", "severity": "critical", "title": "弱加密算法(DES/RC4/ECB)",
-                    "suggestion": "用 AES-GCM/ChaCha20 等认证加密", "confidence": "medium"})
-    if re.search(r'http://', content) and re.search(r'(url|endpoint|api|server)', content):
+                    "suggestion": "用 AES-GCM/ChaCha20 等认证加密", "confidence": "medium",
+                    "line": _ln(content, m)})
+    m = re.search(r'http://', content)
+    if m and re.search(r'(url|endpoint|api|server)', content):
         out.append({"dimension": "加密", "severity": "minor", "title": "明文 HTTP 传输",
-                    "suggestion": "生产环境用 HTTPS", "confidence": "low"})
+                    "suggestion": "生产环境用 HTTPS", "confidence": "low",
+                    "line": _ln(content, m)})
     return out
 
 
 def _check_config(content: str) -> list:
     out = []
-    if re.search(r'debug\s*=\s*True', content):
+    m = re.search(r'debug\s*=\s*True', content)
+    if m:
         out.append({"dimension": "配置", "severity": "major", "title": "调试模式开启(debug=True)",
-                    "suggestion": "生产环境关 debug，防泄露堆栈/敏感信息", "confidence": "high"})
-    if re.search(r'CORS|Access-Control-Allow-Origin.*\*|allowed_origins\s*=\s*\[["\']\*', content):
+                    "suggestion": "生产环境关 debug，防泄露堆栈/敏感信息", "confidence": "high",
+                    "line": _ln(content, m)})
+    m = re.search(r'CORS|Access-Control-Allow-Origin.*\*|allowed_origins\s*=\s*\[["\']\*', content)
+    if m:
         out.append({"dimension": "配置", "severity": "major", "title": "宽松 CORS(允许任意源)",
-                    "suggestion": "CORS 白名单具体域名，勿用 *", "confidence": "medium"})
-    if re.search(r'ALLOWED_HOSTS\s*=\s*\[["\']\*', content):
+                    "suggestion": "CORS 白名单具体域名，勿用 *", "confidence": "medium",
+                    "line": _ln(content, m)})
+    m = re.search(r'ALLOWED_HOSTS\s*=\s*\[["\']\*', content)
+    if m:
         out.append({"dimension": "配置", "severity": "major", "title": "ALLOWED_HOSTS=*(Host 头攻击)",
-                    "suggestion": "配置具体域名白名单", "confidence": "high"})
+                    "suggestion": "配置具体域名白名单", "confidence": "high",
+                    "line": _ln(content, m)})
     return out
 
 
 def _check_business(content: str) -> list:
     out = []
-    if re.search(r'(price|amount|quantity|total|count)\s*=\s*request\.[a-z_]+\.get\([^)]*\)[^;\n]*(price|amount|total)', content, re.S):
+    m = re.search(r'(price|amount|quantity|total|count)\s*=\s*request\.[a-z_]+\.get\([^)]*\)[^;\n]*(price|amount|total)', content, re.S)
+    if m:
         out.append({"dimension": "业务", "severity": "critical", "title": "价格/金额由客户端参数直接指定(逻辑篡改)",
-                    "suggestion": "金额/数量以服务端核算为准，勿信客户端", "confidence": "medium"})
-    if re.search(r'float\(request\.[a-z_]+\.get|int\(request\.[a-z_]+\.get', content):
+                    "suggestion": "金额/数量以服务端核算为准，勿信客户端", "confidence": "medium",
+                    "line": _ln(content, m)})
+    m = re.search(r'float\(request\.[a-z_]+\.get|int\(request\.[a-z_]+\.get', content)
+    if m:
         out.append({"dimension": "业务", "severity": "minor", "title": "业务数值未校验范围(负数/越界/超大)",
-                    "suggestion": "校验取值范围/上下限，防业务逻辑滥用", "confidence": "low"})
+                    "suggestion": "校验取值范围/上下限，防业务逻辑滥用", "confidence": "low",
+                    "line": _ln(content, m)})
     return out
 
 
 def _check_supplychain(content: str) -> list:
     out = []
-    if re.search(r'^\s*(requests|flask|django|pip|numpy|pandas|torch|tensorflow|pyyaml|cryptography|httpx|fastapi)\s*[><=!]', content, re.M) \
-            and not re.search(r'==\s*[\'"\d]', content.split("\n")[0] if content else ""):
+    m = re.search(r'^\s*(requests|flask|django|pip|numpy|pandas|torch|tensorflow|pyyaml|cryptography|httpx|fastapi)\s*[><=!]', content, re.M)
+    if m and not re.search(r'==\s*[\'"\d]', content.split("\n")[0] if content else ""):
         out.append({"dimension": "供应链", "severity": "minor", "title": "依赖未锁版本(>=/< 无精确 pin)",
-                    "suggestion": "requirements 用 == 精确锁定版本，防供应链投毒/回归", "confidence": "medium"})
-    if re.search(r'pip\s+install\s+[^>]*\b--[^\n]*(pre|no-deps)|npm\s+install\s+--unsafe', content):
+                    "suggestion": "requirements 用 == 精确锁定版本，防供应链投毒/回归", "confidence": "medium",
+                    "line": _ln(content, m)})
+    m2 = re.search(r'pip\s+install\s+[^>]*\b--[^\n]*(pre|no-deps)|npm\s+install\s+--unsafe', content)
+    if m2:
         out.append({"dimension": "供应链", "severity": "major", "title": "安装命令含不安全标志",
-                    "suggestion": "审查安装来源，避免 --unsafe-perm/预发布", "confidence": "medium"})
+                    "suggestion": "审查安装来源，避免 --unsafe-perm/预发布", "confidence": "medium",
+                    "line": _ln(content, m2)})
     return out
 
 
@@ -288,14 +375,37 @@ def scan_security_file(path: str) -> dict:
     return r
 
 
-def scan_security_project(target: str, file_pattern: str = "*.py") -> dict:
-    """扫描整个项目。target 为文件或目录。返回按文件聚合。"""
+def scan_security_project(target: str, file_pattern: str = "*.py", exclude=None) -> dict:
+    """扫描整个项目。target 为文件或目录。返回按文件聚合。
+
+    exclude：要跳过的目录名/文件名模式清单（fnmatch）。
+      None → 用 DEFAULT_EXCLUDE（默认排夹具/测试/扫描器自身）
+      []   → 一个都不排除；自定义列表 → 用给定的。
+    """
     p = safe_resolve(target)
+    patterns = DEFAULT_EXCLUDE if exclude is None else list(exclude)
+    excluded_count = 0
     if p.is_file():
         files = [p]
     else:
-        files = sorted(f for f in p.rglob(file_pattern)
-                       if ".venv" not in str(f) and "node_modules" not in str(f))
+        files = []
+        for dirpath, dirnames, filenames in os.walk(p):
+            d = Path(dirpath)
+            keep = [dn for dn in dirnames if not _excluded(dn, patterns)]
+            for dn in dirnames:
+                if dn in keep:
+                    continue
+                for _ in (d / dn).rglob(file_pattern):   # 被排除目录：计数但不扫
+                    excluded_count += 1
+            dirnames[:] = keep
+            for fn in sorted(filenames):
+                if not fnmatch(fn, file_pattern):
+                    continue
+                if _excluded(fn, patterns):
+                    excluded_count += 1
+                else:
+                    files.append(d / fn)
+        files.sort()
     results = []
     by_tier = {"P0": 0, "P1": 0, "P2": 0}
     for f in files:
@@ -306,8 +416,8 @@ def scan_security_project(target: str, file_pattern: str = "*.py") -> dict:
             by_tier[k] += r["by_tier"][k]
     total = sum(r["total"] for r in results)
     return {"files": results, "file_count": len(files), "total": total,
-            "by_tier": by_tier,
-            "summary": f"项目安全扫描 {len(files)} 文件, {total} 项 (P0={by_tier['P0']}/P1={by_tier['P1']}/P2={by_tier['P2']})"}
+            "by_tier": by_tier, "excluded_count": excluded_count,
+            "summary": f"项目安全扫描 {len(files)} 文件, {total} 项 (P0={by_tier['P0']}/P1={by_tier['P1']}/P2={by_tier['P2']}), 排除 {excluded_count} 文件"}
 
 
 # ── secret 检测 ──

@@ -13,18 +13,37 @@ import urllib.request
 
 DEFAULT_CONFIG_NAMES = [
     os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "..", "..",
-                 "config", "model_config.json"),  # 仓库 config/model_config.json
+                 "config", "model_config.json"),  # code-agent-lab/config/model_config.json
     os.path.join(os.path.dirname(os.path.abspath(__file__)), "config", "model_config.json"),
 ]
 
 
+def _env_file_hits():
+    """同 code_agent_engine._read_env: 从本地 .env 兜底读 key。"""
+    hits = []
+    home = os.path.expanduser("~")
+    for cand in (os.path.join(home, ".codeagent", ".env"),
+                 os.path.join(home, "AppData", "Local", "codeagent", ".env")):
+        if os.path.isfile(cand):
+            hits.append(cand)
+    return hits
+
+
 def resolve_key(cfg):
-    """api_key 字段可指向环境变量名(如 DEEPSEEK_API_KEY) → 取 os.environ; 未设置返回空。"""
+    """api_key 字段可指向环境变量名(如 DEEPSEEK_API_KEY) → 取 os.environ/.env 兜底。"""
     k = (cfg or {}).get("api_key", "")
     if not k:
         return ""
     if k in os.environ:
         return os.environ[k]
+    for p in _env_file_hits():
+        try:
+            for line in open(p, encoding="utf-8"):
+                line = line.strip()
+                if line.startswith(k + "="):
+                    return line.split("=", 1)[1].strip().strip('"').strip("'")
+        except OSError:
+            continue
     return ""
 
 
@@ -49,7 +68,7 @@ def load_config(config_path=None):
 
 
 def _post_json(url, payload, headers, timeout=120):
-    """纯 stdlib POST; 绕开系统代理直连(不读环境代理), 与 code_agent_engine 一致。"""
+    """纯 stdlib POST; 绕开系统代理(Clash 常未连节点), 与 code_agent_engine 一致。"""
     # 显式空代理表 → 直连, 不复用系统代理
     proxy_handler = urllib.request.ProxyHandler({})
     opener = urllib.request.build_opener(proxy_handler)
@@ -68,7 +87,7 @@ def _call_openai(gen, messages, temp, max_tokens):
     model = gen.get("model", "deepseek-v4-flash")
     key = resolve_key(gen)
     if not key:
-        return {"error": "generate API_KEY 未配置(需 env 设置对应 API_KEY)"}
+        return {"error": "generate API_KEY 未配置(需 env 或 ~/.codeagent/.env)"}
     payload = {"model": model, "messages": messages,
                "temperature": temp, "max_tokens": max_tokens}
     # DeepSeek reasoner: 显式关闭 thinking(兼容 generate 配置带 type 的场景)

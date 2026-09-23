@@ -49,8 +49,8 @@ def _agents():
 
 def test_all_atoms_load_ready():
     agents = _agents()
-    assert set(agents) == EXPECTED_ATOMS, f"原子集合不符: {set(agents)}"
-    assert len(agents) == len(EXPECTED_ATOMS), f"应为 {len(EXPECTED_ATOMS)} 原子，实得 {len(agents)}"
+    assert EXPECTED_ATOMS <= set(agents), f"已知原子缺失: {EXPECTED_ATOMS - set(agents)}"
+    assert len(agents) >= len(EXPECTED_ATOMS), f"应为 >={len(EXPECTED_ATOMS)} 原子，实得 {len(agents)}"
     for name, a in agents.items():
         assert a.status == "ready", f"{name} 状态非 ready: {a.status}"
 

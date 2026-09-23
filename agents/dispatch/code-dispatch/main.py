@@ -19,16 +19,26 @@ from atomic_base import AtomicAgent
 
 import subprocess
 
+# 验收门核心（同目录，纯 stdlib）：脚本断言 + 退出码，替代模型自评 score
+if HERE not in sys.path:
+    sys.path.insert(0, HERE)
+import verify_gate as vg
+
+# 规则层选链核心（同目录，纯 stdlib）：关键词命中模板即出能力序列，省一次模型调用
+import chain_selector as cs
+
+
 class CodeDispatchAgent(AtomicAgent):
     name = "code-dispatch"
-    version = "0.2.0"
+    version = "0.4.0"
     domain = "dispatch"
-    description = "派单原子: 5段模板+自适应预算+背靠背验证+并行冲突防护+allow/ask/deny细粒度权限"
+    description = "派单原子: 5段模板+自适应预算+背靠背验证+并行冲突防护+allow/ask/deny细粒度权限 + 验收门(verify_artifact逐名diff/断言/生产引用, assert_exit退出码) + 规则层选链(chain_select)"
     provides = ["dispatch.template", "dispatch.budget", "dispatch.verify", "dispatch.conflict",
-                "dispatch.permission"]
+                "dispatch.permission", "dispatch.verify_artifact", "dispatch.assert_exit",
+                "dispatch.chain_select"]
     depends_on = []
-    inputs = ["background", "goal", "constraint", "redline", "deliverable", "task", "files_needed", "language", "claims", "workdir", "rerun_cmd", "tasks", "workspace", "policy", "action", "resource", "resource_type"]
-    outputs = ["template", "budget", "items", "summary", "conflicts", "safe", "recommendation", "decision", "policy"]
+    inputs = ["background", "goal", "constraint", "redline", "deliverable", "task", "files_needed", "language", "claims", "workdir", "rerun_cmd", "tasks", "workspace", "policy", "action", "resource", "resource_type", "target", "expect", "mode", "script_path", "templates_path"]
+    outputs = ["template", "budget", "items", "summary", "conflicts", "safe", "recommendation", "decision", "policy", "passed", "checks", "exit_code", "stdout_tail", "matched", "source", "chain", "template_name", "score", "hits", "dropped", "reason", "ok"]
 
     def _register_defaults(self):
         self.register("dispatch.template", self._template)
@@ -36,6 +46,11 @@ class CodeDispatchAgent(AtomicAgent):
         self.register("dispatch.verify", self._verify)
         self.register("dispatch.conflict", self._conflict)
         self.register("dispatch.permission", self._permission)
+        # 验收门（薄壳，核心在 verify_gate.py）
+        self.register("dispatch.verify_artifact", self._verify_artifact)
+        self.register("dispatch.assert_exit", self._assert_exit)
+        # 规则层选链（薄壳，核心在 chain_selector.py）
+        self.register("dispatch.chain_select", self._chain_select)
 
     # ── dispatch.template：派单5段模板 ──
     def _template(self, background="", goal="", constraint="", redline="", deliverable="",
@@ -174,6 +189,38 @@ class CodeDispatchAgent(AtomicAgent):
                 "granted": effect in ("allow", "ask"),
                 "blocked": effect == "deny"}
 
+    # ── 验收门（薄壳：核心实现全在 verify_gate.py，一行不改）──
+    def _verify_artifact(self, target=None, expect=None, mode="auto"):
+        """验收门：脚本断言 + 退出码；passed 只由 checks 决定，不读模型自评 score。"""
+        if not target:
+            return self._envelope(False, degraded=True, error="缺 target 入参")
+        r = vg.verify_artifact(target, expect, mode)
+        if r.get("passed"):
+            return self._envelope(True, data=r)
+        failed = [c["name"] for c in r.get("checks", []) if not c.get("ok")]
+        return self._envelope(False, data=r, degraded=True,
+                              error="验收未通过: " + ", ".join(failed))
+
+    def _assert_exit(self, script_path=None):
+        """跑断言脚本，退出码为准（非 0 即失败）。"""
+        if not script_path:
+            return self._envelope(False, degraded=True, error="缺 script_path 入参")
+        return self._envelope(True, data=vg.assert_exit(script_path))
+
+    def _chain_select(self, task="", templates_path=None, available=None):
+        """规则层选链：关键词命中模板即给能力序列（**0 次模型调用**）。
+        未命中是**正常分支**（不是失败）：ok=True + data.matched=False，由调用方走模型兜底。
+        available = 当前可用能力名集合（None=不过滤）。字段与 chain_selector.select_chain 对齐。
+        """
+        r = cs.select_chain(task, cs.load_templates(templates_path), available)
+        data = {"matched": r["matched"], "source": r["source"], "chain": r["chain"],
+                "template_name": r["template"], "score": r["score"], "hits": r["hits"],
+                "dropped": r["dropped"], "reason": r["reason"]}
+        if not r["matched"] and not r["chain"]:
+            # 完全没得选（规则未命中 / 命中的链一步都用不了）→ 如实标 degraded，让调用方知道要兜底
+            return self._envelope(True, degraded=True, data=data, error=r["reason"])
+        return self._envelope(True, data=data)
+
 
 def _glob_match(pattern, text):
     """轻量通配匹配：`*` 匹配任意串（含空），支持前缀/后缀/中间任意段。无第三方依赖。"""
@@ -193,7 +240,10 @@ if __name__ == "__main__":
     import argparse, json
     ap = argparse.ArgumentParser(description="code-dispatch 原子自测入口")
     ap.add_argument("--capability", default="dispatch.template",
-                    choices=["dispatch.template", "dispatch.budget", "dispatch.verify", "dispatch.conflict", "dispatch.permission"])
+                    choices=["dispatch.template", "dispatch.budget", "dispatch.verify", "dispatch.conflict", "dispatch.permission", "dispatch.verify_artifact", "dispatch.assert_exit", "dispatch.chain_select"])
+    ap.add_argument("--target", default=None)
+    ap.add_argument("--script-path", dest="script_path", default=None)
+    ap.add_argument("--task", default=None)
     args = ap.parse_args()
     agent.load()
     print("══ code-dispatch 原子自测 ══", agent.describe()["name"], "status=" + agent.describe()["status"])
@@ -209,6 +259,13 @@ if __name__ == "__main__":
                       policy={"default": "ask", "rules": [
                           {"type": "command", "pattern": "git *", "effect": "allow"},
                           {"type": "command", "pattern": "rm -rf *", "effect": "deny"}]})
+    elif args.capability == "dispatch.verify_artifact":
+        r = agent.run(_capability="dispatch.verify_artifact", target=args.target or ".")
+    elif args.capability == "dispatch.assert_exit":
+        r = agent.run(_capability="dispatch.assert_exit", script_path=args.script_path)
+    elif args.capability == "dispatch.chain_select":
+        r = agent.run(_capability="dispatch.chain_select",
+                      task=args.task or "修复导入报错")
     else:
         r = agent.run(_capability="dispatch.conflict",
                       tasks=[{"name": "A", "files": ["x.py", "reg.json"]}, {"name": "B", "files": ["reg.json"]}])

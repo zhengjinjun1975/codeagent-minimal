@@ -22,6 +22,11 @@ if REPO_ROOT not in sys.path:
 
 from atomic_base import AtomicAgent
 
+# 三级分流核心（同目录，纯 stdlib）：规则 → 缓存 → 模型
+if HERE not in sys.path:
+    sys.path.insert(0, HERE)
+import cascade_router as cas
+
 # 默认候选链（借鉴 llm-router provider 注册表概念：local/cloud + local_only 红线）
 DEFAULT_CANDIDATES = [
     {"name": "glm", "type": "cloud", "local_only": True},
@@ -85,19 +90,28 @@ def chain(messages=None, call_model=None, purpose="generic",
 
 class ModelFallbackAgent(AtomicAgent):
     name = "model-fallback"
-    version = "0.1.0"
+    version = "0.2.0"
     domain = "model"
     description = ("模型降级链原子（P2，借鉴Codex model-provider fallback）: 按候选链尝试provider, "
-                   "失败自动降级(cloud→local), local_only剔除云端数据不出厂。复用llm-router provider注册表概念。")
-    provides = ["model.chain", "model.route", "model.candidates"]
+                   "失败自动降级(cloud→local), local_only剔除云端数据不出厂。复用llm-router provider注册表概念。"
+                   " + 三级分流(rule/cache/llm 前置, 简单意图不烧token)。核心在 cascade_router.py, 纯stdlib。")
+    provides = ["model.chain", "model.route", "model.candidates",
+                "model.rule_match", "model.cache_lookup", "model.cache_put", "model.cascade"]
     depends_on = ["llm.list_models"]
-    inputs = ["messages", "call_model", "purpose", "preference", "local_only", "candidates"]
-    outputs = ["ok", "verdict", "provider", "type", "result", "fell_back", "candidates", "errors"]
+    inputs = ["messages", "call_model", "purpose", "preference", "local_only", "candidates",
+              "text", "rules", "ttl_sec", "store_dir", "intent"]
+    outputs = ["ok", "verdict", "provider", "type", "result", "fell_back", "candidates", "errors",
+               "layer", "shortcut", "matched", "handler", "confidence", "hit", "key", "size"]
 
     def _register_defaults(self):
         self.register("model.chain", self._chain)
         self.register("model.route", self._route)
         self.register("model.candidates", self._candidates)
+        # 三级分流（薄壳，核心在 cascade_router.py）
+        self.register("model.rule_match", self._rule_match)
+        self.register("model.cache_lookup", self._cache_lookup)
+        self.register("model.cache_put", self._cache_put)
+        self.register("model.cascade", self._cascade)
 
     def _route(self, purpose="generic", preference="local_first", local_only=False):
         return route(purpose=purpose, preference=preference, local_only=local_only)
@@ -110,6 +124,23 @@ class ModelFallbackAgent(AtomicAgent):
         return chain(messages=messages, call_model=call_model, purpose=purpose,
                      preference=preference, local_only=local_only)
 
+    # ── 三级分流（薄壳：核心实现全在 cascade_router.py，一行不改）──
+    def _rule_match(self, text="", rules=None):
+        """规则层：关键词命中即短路，零 token。"""
+        return self._envelope(True, data=cas.rule_match(text, rules))
+
+    def _cache_lookup(self, text="", ttl_sec=604800, store_dir=None):
+        """缓存层：MD5 键命中且未过期即短路，零 token。"""
+        return self._envelope(True, data=cas.cache_lookup(text, ttl_sec, store_dir))
+
+    def _cache_put(self, text="", intent="", store_dir=None):
+        """LLM 层结果回写缓存。"""
+        return self._envelope(True, data=cas.cache_put(text, intent, store_dir))
+
+    def _cascade(self, text="", rules=None, ttl_sec=604800, store_dir=None):
+        """三级串联：rule → cache → llm；本能力不调模型，只给决定。"""
+        return self._envelope(True, data=cas.cascade(text, rules, ttl_sec, store_dir))
+
 
 agent = ModelFallbackAgent
 
@@ -118,4 +149,5 @@ if __name__ == "__main__":
     sys.exit(run_cli(ModelFallbackAgent(), run_args={
         "capability": {"default": "model.route", "choices": list(ModelFallbackAgent.provides)},
         "purpose": {}, "preference": {}, "local_only": {},
+        "text": {}, "intent": {}, "ttl_sec": {"type": int}, "store_dir": {},
     }))

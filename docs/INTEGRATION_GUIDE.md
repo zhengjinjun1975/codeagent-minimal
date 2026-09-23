@@ -1,11 +1,11 @@
 # CodeAgent 对接传统框架指南
 
-> 把 CodeAgent 的 34 个原子作为 **Tool / 子代理节点 / 图编排 / REST / CLI** 集成进主流传统框架：
+> 把 CodeAgent 的 35 个原子作为 **Tool / 子代理节点 / 图编排 / REST / CLI** 集成进主流传统框架：
 > **LangChain · CrewAI · AutoGen · OpenAI Agents SDK · Claude Code**。
 > 所有示例参考 `examples/` 已跑通代码，并遵守两条硬边界：
 >
 > - **本地原子 / 数据不出厂**：默认 `local_only=True`，不注入任何云端密钥；云端 LLM / 远端 OSV 需显式开启。
-> - **一体化完整版开源**：本仓库开源 34 原子 + 统一运行时/入口 + Lab 编排（`lab/`）+ 浏览器前端（`web/`），全部 Apache-2.0、零第三方依赖、克隆即用。
+> - **一体化完整版开源**：本仓库开源 35 原子 + 统一运行时/入口 + Lab 编排（`lab/`）+ 浏览器前端（`web/`），全部 Apache-2.0、零第三方依赖、克隆即用。
 
 ---
 
@@ -258,7 +258,7 @@ python examples/graph_orchestration.py
 | 端点 | 方法 | 说明 |
 |------|------|------|
 | `/api/health` | GET | 探活（不泄露本机绝对路径） |
-| `/api/status` | GET | 34 原子状态（ready/degraded/冲突） |
+| `/api/status` | GET | 35 原子状态（ready/degraded/冲突） |
 | `/api/files` | GET | 可作审查/测试目标的白名单源码文件 |
 | `/api/run` | POST | `{cmd: review|test|chain|guard|evolve|status, payload:{...}}` |
 
@@ -289,7 +289,7 @@ python examples/web_api_client.py
 ## 集成边界与最佳实践
 
 1. **本地原子 / 数据不出厂**：默认 `local_only=True`；`_env()` 剥离云端密钥；`depscan` 默认不查远端 OSV；LLM/MCP 远端需显式 `allow_remote`/`--remote`。
-2. **一体化完整版开源**：本仓库开源 34 原子 + 统一运行时/入口 + Lab 编排（`lab/`，含 `lab/frontend`）+ 最小运行前端（`web/`），全部 Apache-2.0、零第三方依赖、克隆即用；也支持你在外部框架内自行编排原子。
+2. **一体化完整版开源**：本仓库开源 35 原子 + 统一运行时/入口 + Lab 编排（`lab/`，含 `lab/frontend`）+ 最小运行前端（`web/`），全部 Apache-2.0、零第三方依赖、克隆即用；也支持你在外部框架内自行编排原子。
 3. **统一信封**：所有原子返回 `{ok, data}` JSON 字符串，任何框架 `json.loads` 后按 `data` 字段取用；失败自动 `{ok:false, degraded:true}`，下游需做降级判断。
 4. **权限最小化**：`dispatch.permission` 提供 allow/ask/deny 细粒度策略，可拦截工具/命令/文件三类资源，接入高风险动作时建议启用。
 5. **目标白名单**：REST `/api/run` 仅允许 `web/server.py` 白名单内的项目源码文件，防任意文件读取。

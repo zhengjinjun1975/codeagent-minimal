@@ -1,6 +1,6 @@
 {
   "name": "code-test",
-  "version": "0.2.1",
+  "version": "0.3.0",
   "domain": "test",
   "description": "测试原子：复用 test_harness 红绿回归 + reg_guard 回归快照/增量测试选择 + P0-3智能测试选择(git diff→受影响测试省时非全量) + P1-4人类在环(AI结论需人工复核渐进式不自动放行) + P1-5覆盖度分析(报告未测函数/分支提示补测)。",
   "open_source": true,
@@ -13,9 +13,23 @@
     "test.snapshot",
     "test.affected",
     "test.select",
-    "test.coverage_analysis"
+    "test.coverage_analysis",
+    "test.project"
   ],
   "depends_on": [],
-  "inputs": ["code", "path", "target_dir", "task", "project_root", "test_map", "human_review"],
-  "outputs": ["test_files", "smoke", "coverage", "unit", "boundary", "mutation", "stability", "red_green", "coverage_analysis", "human_review"]
+  "inputs": ["code", "path", "target_dir", "task", "project_root", "test_map", "human_review", "timeout", "exclude"],
+  "outputs": ["test_files", "smoke", "coverage", "unit", "boundary", "mutation", "stability", "red_green", "coverage_analysis", "human_review", "smoke_failed", "summary", "skipped"],
+  "permission": {
+    "needs": [
+      "read",
+      "write",
+      "exec"
+    ],
+    "network": false
+  },
+  "resource": {
+    "model_calls": 0,
+    "timeout_sec": 600,
+    "memory_mb": 1024
+  }
 }

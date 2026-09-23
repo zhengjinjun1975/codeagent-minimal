@@ -1,0 +1,60 @@
+{
+  "_note": "规则层链模板：按任务关键词命中即给出能力序列（省一次模型调用，见 P1-4 编排按需编译）。capability 必须是真实能力名；按顺序匹配，同分取先出现的，故更专指的模板排前面。改这张表即热生效，不用改代码。chain 的每一项可以只写能力名（字符串），也可以写 {\"capability\":..., \"inputs\":{...}} 补**静态入参**；inputs 里的两个占位符由运行时解析：$task = 本次任务文本，$upstream_files = 上游第一个产出的文件字典（没有上游产物时解析成 null，该步会如实降级而不是编假产物）。入参名必须与该能力的真实签名一致。",
+  "templates": [
+    {
+      "name": "改缺陷/修回归",
+      "note": "默认走**单发**：定方案 → code.implement 一次写完 → 跑一次测试 → 过一遍审查。2026-09-21 用户口径「大部分事项单次就够，不要那么复杂」→ 由 code.runloop 改回单发；真需要「边跑边改、红了重写」的多步任务时，显式调 code.runloop（能力仍在，见 docs/上下文宪法.md T1）而不是把它当默认。",
+      "keywords": ["修 bug", "修复", "报错", "异常", "崩溃", "不生效", "回归", "还原不了", "跑不起来", "import 失败", "测试红了"],
+      "chain": [
+        {"capability": "plan.think", "inputs": {"task": "$task", "language": "python"}},
+        {"capability": "code.implement", "inputs": {"task": "$task"}},
+        "test.run",
+        {"capability": "codereview.review", "inputs": {"code": "$upstream_files", "use_llm": false, "reuse_atoms": true}}
+      ]
+    },
+    {
+      "name": "写码/新增功能",
+      "note": "从一个可控规模的实现件起步：**单发** code.implement（loop=false，一次写完）→ 过审查。要「边跑边改」的多步活，显式调 code.runloop。",
+      "keywords": ["实现", "新增", "写一个", "写个", "生成", "开发", "加个", "接口", "函数", "脚本"],
+      "chain": [
+        {"capability": "code.implement", "inputs": {"task": "$task"}},
+        {"capability": "codereview.review", "inputs": {"code": "$upstream_files", "use_llm": false, "reuse_atoms": true}}
+      ]
+    },
+    {
+      "name": "代码审查/质量",
+      "note": "目录级审查（安全面 + 死代码面，都是本地确定性能力，0 次模型调用）。文件级精审请直接用 codereview.review 并指定文件——本模板不写死文件名",
+      "keywords": ["审查", "评审", "代码质量", "规范", "review", "重构建议", "问题诊断", "哪里写得不好"],
+      "chain": [
+        {"capability": "security.project", "inputs": {"path": "."}},
+        {"capability": "deadcode.scan", "inputs": {"path": "."}}
+      ]
+    },
+    {
+      "name": "依赖/影响面",
+      "note": "动一处看牵动哪些地方：扫描 + 影响分析，都是本地确定性能力（0 次模型调用）",
+      "keywords": ["依赖", "升级", "断链", "影响面", "影响分析", "引用", "耦合", "版本冲突"],
+      "chain": [
+        {"capability": "depscan.scan", "inputs": {"target": "."}},
+        {"capability": "impact.analyze", "inputs": {"path": ".", "transitive": true}}
+      ]
+    },
+    {
+      "name": "测试/用例",
+      "note": "选并跑当前项目的测试（test.select 自己挑，run=true 真跑；有上游产物时 test.run 会接上游文件——本模板不带上游）",
+      "keywords": ["测试", "用例", "覆盖率", "单元测试", "冒烟", "smoke", "pytest"],
+      "chain": [
+        {"capability": "test.select", "inputs": {"project_root": ".", "run": true}}
+      ]
+    },
+    {
+      "name": "排查/定根因",
+      "note": "还没到动手改：先出方案（模型），再看架构现状（本地）",
+      "keywords": ["复现", "排查", "定位", "根因", "为什么", "查不到"],
+      "chain": [
+        {"capability": "plan.think", "inputs": {"task": "$task", "language": "python"}},
+        {"capability": "archreview.layers", "inputs": {"path": "."}}
+      ]
+    }
+  ]
+}

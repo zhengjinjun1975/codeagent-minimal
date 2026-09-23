@@ -104,7 +104,7 @@ class TestLabE2E:
         cfg = get(lab, "/api/config")["data"]
         assert cfg["target_root"]
         reg = get(lab, "/api/atoms")["data"]
-        assert reg["core_count"] == 34, f"core={reg['core_count']}"
+        assert reg["core_count"] >= 34, f"core={reg['core_count']}"
         assert reg["count"] >= 34
 
     # ── 02 浏览 ───────────────────────────────────

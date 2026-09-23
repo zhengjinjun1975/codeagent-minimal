@@ -1,15 +1,21 @@
 {
   "name": "context-compact",
-  "version": "0.1.0",
+  "version": "0.5.0",
   "domain": "context",
-  "description": "上下文压缩原子（P2，借鉴Codex context_manager/compaction）: token估算 + 链结果压缩(保留summary/score/verdict丢弃大payload) + max_tokens预算裁剪。防组装链上下文膨胀。纯stdlib。",
+  "description": "上下文压缩原子(P1 上下文量化): token估算 + 链结果压缩(保留summary/score/verdict丢弃大payload) + max_tokens预算真裁到预算内(压缩/丢弃+action建议) + 上下文腐烂对策(offload工具输出头尾截断+全文落盘, disclose技能渐进披露)。核心在 context_harness.py, 纯stdlib。 含上下文编辑工具化（编辑",
   "open_source": true,
   "agent_class": "ContextCompactAgent",
   "entry": "main.py",
   "provides": [
     "context.estimate",
     "context.compact",
-    "context.budget"
+    "context.budget",
+    "context.offload",
+    "context.disclose",
+    "context.compaction_cost",
+    "context.edit",
+    "context.store",
+    "context.reveal"
   ],
   "depends_on": [],
   "inputs": [
@@ -18,7 +24,17 @@
     "steps",
     "max_tokens",
     "keep",
-    "cap"
+    "cap",
+    "content",
+    "label",
+    "keep_head",
+    "keep_tail",
+    "store_dir",
+    "registry_desc",
+    "task",
+    "top_k",
+    "before",
+    "after"
   ],
   "outputs": [
     "tokens",
@@ -26,7 +42,34 @@
     "_compact",
     "used_tokens",
     "budget",
-    "overshoot"
+    "overshoot",
+    "compacted",
+    "dropped",
+    "dropped_capabilities",
+    "action",
+    "enforced",
+    "inlined",
+    "offloaded_path",
+    "original_tokens",
+    "inlined_tokens",
+    "loaded",
+    "deferred_count",
+    "verdict",
+    "recoverable",
+    "lost",
+    "lost_tokens",
+    "reacquisition_hops"
   ],
-  "path": "agents/context/context-compact"
-}
+  "permission": {
+    "needs": [
+      "read",
+      "write"
+    ],
+    "network": false
+  },
+  "resource": {
+    "model_calls": 0,
+    "timeout_sec": 120,
+    "memory_mb": 512
+  }
+}

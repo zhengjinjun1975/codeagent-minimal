@@ -23,6 +23,11 @@ if REPO_ROOT not in sys.path:
 from atomic_base import AtomicAgent
 import security_scan as ss
 
+# harness 中间件核心（同目录，纯 stdlib）：退出拦截/自检/死循环检测
+if HERE not in sys.path:
+    sys.path.insert(0, HERE)
+import harness_guard as hg
+
 
 def _verdict(issues, secrets):
     """门禁判定：对齐 security_scan 严重度 schema（tier∈{P0,P1,P2}, severity∈{critical,major,minor}）：
@@ -67,16 +72,23 @@ class GuardAgent(AtomicAgent):
     domain = "guard"
     description = ("护栏钩子原子（P2，借鉴Codex guardian）: code变更前置/后置安全审查钩子流水线, "
                    "复用security_scan 10维度+secret+误报治理做门禁(pre/post/pipeline/check)。纯stdlib数据不出厂。")
-    provides = ["guard.pre", "guard.post", "guard.pipeline", "guard.check"]
+    provides = ["guard.pre", "guard.post", "guard.pipeline", "guard.check",
+                "guard.exit_intercept", "guard.selfcheck", "guard.loop_guard"]
     depends_on = []
-    inputs = ["path", "code", "paths", "govern"]
-    outputs = ["issues", "secrets", "verdict", "files", "summary", "total"]
+    inputs = ["path", "code", "paths", "govern", "task", "artifacts", "checklist",
+              "session_key", "file_path", "bump", "threshold", "store_dir"]
+    outputs = ["issues", "secrets", "verdict", "files", "summary", "total",
+               "passed", "failed", "next_prompt", "items", "stalled", "count", "hint", "evidence"]
 
     def _register_defaults(self):
         self.register("guard.pre", self._pre)
         self.register("guard.post", self._post)
         self.register("guard.pipeline", self._pipeline)
         self.register("guard.check", self._check)
+        # harness 中间件（薄壳，核心在 harness_guard.py）
+        self.register("guard.exit_intercept", self._exit_intercept)
+        self.register("guard.selfcheck", self._selfcheck)
+        self.register("guard.loop_guard", self._loop_guard)
 
     def _content(self, path=None, code=None):
         if path:
@@ -131,6 +143,30 @@ class GuardAgent(AtomicAgent):
         return {"files": files, "count": len(files), "verdict": worst,
                 "summary": f"guard pipeline: {len(files)} 文件, 门禁={worst}"}
 
+    # ── harness 中间件（薄壳：核心实现全在 harness_guard.py，一行不改）──────
+    def _exit_intercept(self, task=None, artifacts=None, checklist=None, since=None):
+        """退出拦截：按清单核验产物；未通过 → ok=false + data.next_prompt（供干净重投）。
+        since（epoch 秒）给定时额外要求产物 mtime 不早于它。"""
+        r = hg.exit_intercept(task, artifacts or [], checklist, since)
+        if r.get("passed"):
+            return self._envelope(True, data=r)
+        failed_items = sorted({f["item"] for f in r.get("failed", [])})
+        return self._envelope(False, data=r, degraded=True,
+                              error="退出自检未通过: " + ", ".join(failed_items))
+
+    def _selfcheck(self, artifacts=None, spec=None):
+        """单次自检（不生成重投提示）。"""
+        return self._envelope(True, data=hg.selfcheck(artifacts or [], spec))
+
+    def _loop_guard(self, session_key=None, file_path=None, bump=False,
+                    threshold=3, store_dir=None):
+        """死循环检测：按文件编辑计数，超阈值 → data.stalled=true + data.hint。"""
+        if not session_key:
+            return self._envelope(False, degraded=True, error="缺 session_key 入参")
+        return self._envelope(True, data=hg.loop_guard(
+            session_key, file_path=file_path, bump=bump,
+            threshold=threshold, store_dir=store_dir))
+
 
 agent = GuardAgent
 
@@ -139,4 +175,7 @@ if __name__ == "__main__":
     sys.exit(run_cli(GuardAgent(), run_args={
         "capability": {"default": "guard.check", "choices": list(GuardAgent.provides)},
         "path": {}, "code": {}, "paths": {},
+        "task": {}, "artifacts": {"nargs": "*"}, "session_key": {},
+        "file_path": {}, "bump": {"action": "store_true"}, "threshold": {"type": int},
+        "since": {"type": float},
     }))

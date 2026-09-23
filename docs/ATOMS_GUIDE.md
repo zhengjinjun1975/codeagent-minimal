@@ -16,24 +16,43 @@
 
 | # | 原子 | 域 | 统一入口子命令 | 能力 (provides 主能力) |
 |---|------|-----|----------------|------------------------|
-| 1 | `code-review` | `codereview` | `review` | `codereview.review/design/layout/content/lsp` |
-| 2 | `code-test` | `test` | `test` | `test.gen/run/tdd/snapshot/affected` |
-| 3 | `dep-scan` | `depscan` | `dep-scan` | `depscan.scan/sca/taint/osv` |
-| 4 | `code-fuzz` | `fuzz` | `fuzz` | `fuzz.gen/run/property/project` |
-| 5 | `code-dispatch` | `dispatch` | `dispatch` | `dispatch.template/budget/verify/conflict/permission` |
-| 6 | `llm-router` | `llm` | `llm` / `models` | `llm.generate/review/list_models/registry` |
-| 7 | `dep-impact` | `impact` | `impact` | `impact.analyze/circular/coupling` |
-| 8 | `code-evolve` | `evolve` | `evolve` | `evolve.refine/skill/self_prompt/tdd` |
-| 9 | `code-plan` | `plan` | `plan` | `plan.think/gen` |
-| 10 | `code-reuse` | `reuse` | `reuse` | `reuse.local/atom/remote` |
-| 11 | `code-memory` | `memory` | `memory` | `memory.save/recall/sediment` |
-| 12 | `code-skill` | `skill` | `skill` | `skill.list/load/export/sediment` |
-| 13 | `mcp-client` | `mcp` | `mcp` | `mcp.list/connect/tools/call` |
-| 14 | `code-project` | `project` | `project` | `project.load/scan/analyze` |
-| 15 | `task-state` | `taskstate` | （无 CLI 子命令） | `taskstate.track` |
-| 16 | `code-deliver` | `deliver` | `deliver` | `deliver.report/package` |
+| 1 | `command-approvals` | `approval` | （原子自带 CLI） | `check/classify/resolve/policy/orchestrate` |
+| 2 | `arch-review` | `archreview` | （原子自带 CLI） | `layers/boundary/surface/intent` |
+| 3 | `atomicity-audit` | `atomic` | （原子自带 CLI） | `manifest/registry/breaks` |
+| 4 | `bug-deep` | `bugdeep` | （原子自带 CLI） | `model/adv/poc/rule` |
+| 5 | `code-implement` | `code` | （原子自带 CLI） | `implement/write` |
+| 6 | `code-runloop` | `code` | （原子自带 CLI） | `runloop/patch` |
+| 7 | `minimalist-style` | `codereview` | （原子自带 CLI） | `style/deps/independent` |
+| 8 | `context-compact` | `context` | （原子自带 CLI） | `estimate/compact/budget/offload/disclose/compaction_cost/edit/store/reveal` |
+| 9 | `code-deliver` | `deliver` | `deliver` | `report/package` |
+| 10 | `dep-scan` | `depscan` | `dep-scan` | `scan/sca/taint/osv/chainbreak` |
+| 11 | `code-dispatch` | `dispatch` | `dispatch` | `template/budget/verify/conflict/permission/verify_artifact/assert_exit/chain_select` |
+| 12 | `doc-freshness` | `docs` | （原子自带 CLI） | `anchor/stale/draft` |
+| 13 | `domain-review` | `domain` | （原子自带 CLI） | `imports/valve` |
+| 14 | `code-fuzz` | `fuzz` | `fuzz` | `gen/run/property/project` |
+| 15 | `guard` | `guard` | `guard` | `pre/post/pipeline/check/exit_intercept/selfcheck/loop_guard` |
+| 16 | `deadcode` | `impact` | （原子自带 CLI） | `scan/stats` |
+| 17 | `dep-impact` | `impact` | `impact` | `analyze/circular/coupling` |
+| 18 | `method-impact` | `impact` | （原子自带 CLI） | `method/kind` |
+| 19 | `llm-router` | `llm` | `llm` / `models` | `generate/review/list_models/registry` |
+| 20 | `localized` | `locality` | （原子自带 CLI） | `audit/chain/route` |
+| 21 | `mcp-client` | `mcp` | `mcp` | `list/tools/call/connect/guard` |
+| 22 | `code-memory` | `memory` | `memory` | `save/recall/sediment` |
+| 23 | `ontology-review` | `ontology` | （原子自带 CLI） | `chain/quality` |
+| 24 | `code-project` | `project` | `project` | `load/scan/analyze` |
+| 25 | `code-reuse` | `reuse` | `reuse` | `local/atom/remote` |
+| 26 | `process-sandbox` | `sandbox` | （原子自带 CLI） | `poc/exec/validate/interpreter/guard` |
+| 27 | `security-scan` | `security` | （原子自带 CLI） | `scan/secret/govern/dim/project` |
+| 28 | `task-state` | `taskstate` | （无 CLI 子命令） | `track` |
+| 29 | `code-test` | `test` | `test` | `gen/run/tdd/snapshot/affected/select/coverage_analysis/project` |
+| 30 | `browser-smoke` | `web` | （原子自带 CLI） | `run/smoke` |
+| 31 | `code-review` | `codereview` | `review` | `review/design/layout/content/lsp/semantic/self_eval/light/deep` |
+| 32 | `model-fallback` | `model` | （原子自带 CLI） | `chain/route/candidates/rule_match/cache_lookup/cache_put/cascade` |
+| 33 | `code-evolve` | `evolve` | `evolve` | `refine/skill/self_prompt/tdd` |
+| 34 | `code-skill` | `skill` | `skill` | `list/load/export/sediment` |
+| 35 | `code-plan` | `plan` | `plan` | `think/gen` |
 
-> 注册索引见 `registry.json`；运行时用 `python codeagent.py status --json` 查看 34 原子 ready/degraded/冲突状态。本指南深入讲解下表精选核心原子；完整 34 原子清单见 [README](../README.md) 的「原子清单」。
+> 注册索引见 `registry.json`；运行时用 `python codeagent.py status --json` 查看 35 原子 ready/degraded/冲突状态。本指南深入讲解下表精选核心原子；完整 35 原子清单见 [README](../README.md) 的「原子清单」。
 
 ---
 
@@ -421,7 +440,7 @@ python codeagent.py deliver --chain "think,gen,review,test,evolve" --json
 
 ## 组装链与护栏
 
-34 原子经统一运行时按能力依赖（`depends_on`）做拓扑排序 + 冲突检测，可任意组装成链：
+35 原子经统一运行时按能力依赖（`depends_on`）做拓扑排序 + 冲突检测，可任意组装成链：
 
 ```bash
 # 安全·质量组装链：review + dep-scan + fuzz 协同
@@ -430,7 +449,7 @@ python codeagent.py guard sample_target.py --json
 # 通用组装链：think→gen→review→test→evolve
 python codeagent.py chain --task "修复登录校验漏洞" --code '<code>' --language python --json
 
-# 运行时全貌（34 原子 ready/degraded/冲突）
+# 运行时全貌（35 原子 ready/degraded/冲突）
 python codeagent.py status --json
 ```
 
