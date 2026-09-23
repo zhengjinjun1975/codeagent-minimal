@@ -50,15 +50,17 @@ const S = {
   providers: [],
   chain: [],
   repTarget: "",
-  view: "workspace",
+  view: "presets",
 };
 
 /* ═══════════ 视图切换 ═══════════ */
 function switchView(v) {
   S.view = v;
+  document.body.classList.toggle("in-canvas", v === "canvas");
   document.querySelectorAll("#tabs .tab").forEach((b) => b.classList.toggle("active", b.dataset.view === v));
   document.querySelectorAll("#main .view").forEach((sec) => sec.classList.toggle("active", sec.id === "view-" + v));
-  if (v === "canvas") renderCanvas();
+  if (v === "canvas") { if (!S.canvas.nodes.length && !S.canvas._blank) { S.canvas._defaultLoaded = false; ensureDefaultPipeline(); } renderOrchPicker(); renderCanvas(); renderProps(); }
+  if (v === "presets") { renderPresets(); refreshPresetHistory(); }
   if (v === "debug") loadDebugHistory();
   if (v === "report") loadReportHistory();
   if (v === "models") loadModels();
@@ -77,9 +79,10 @@ async function boot() {
   S.targetRoot = c.target_root || "";
   if ($("target-input")) $("target-input").value = S.targetRoot;
   loadTargetRecents();
-  loadAtoms();
+  await loadAtoms();
   loadTree();
   loadEvents(true);
+  renderPresets();
   setInterval(() => { loadEvents(false); }, 1500);
   setInterval(() => { pollRunning(); }, 1500);
 }
@@ -145,6 +148,616 @@ async function oneClickReview() {
 /* 审查对象选择器接线：输入 → 切换目标 → 一键审查（运行默认编排图） */
 $("btn-target-apply").addEventListener("click", applyTarget);
 $("btn-review-now").addEventListener("click", oneClickReview);
+
+/* ═══════════ 统一结果区（预设卡片的结果落 #run-log：进行中 / 成功 / 失败原因）═══════════ */
+function runLogLine(label, cls, detail) {
+  const box = $("run-log"); if (!box) return null;
+  box.classList.remove("hidden");
+  const el = document.createElement("div");
+  el.className = "run-line " + cls;
+  el.innerHTML = '<span class="rl-lbl"></span><span class="rl-t"></span>' + (detail ? '<pre class="rl-body"></pre>' : "");
+  el.querySelector(".rl-lbl").textContent = label;
+  el.querySelector(".rl-t").textContent = (cls === "busy" ? "进行中…  " : "") + new Date().toLocaleTimeString("zh-CN", { hour12: false });
+  if (detail) el.querySelector(".rl-body").textContent = detail;
+  box.insertBefore(el, box.firstChild);
+  while (box.children.length > 10) box.removeChild(box.lastChild);
+  return el;
+}
+function runLogUpdate(el, label, r) {
+  if (!el) return;
+  const ok = !!(r && r.ok);
+  el.className = "run-line " + (ok ? "ok" : "err");
+  el.querySelector(".rl-lbl").textContent = (ok ? "✅ " : "❌ ") + label;
+  el.querySelector(".rl-t").textContent = new Date().toLocaleTimeString("zh-CN", { hour12: false })
+    + (ok ? "" : "  失败原因：" + ((r && r.error) || "未知"));
+  if (!ok) {
+    const tip = document.createElement("pre");
+    tip.className = "rl-body";
+    tip.textContent = "提示：先确认顶部「审查对象」是你要处理的目标；需要单文件时先在文件树里选文件，再点动作。";
+    el.appendChild(tip);
+    return;
+  }
+  const payload = (r.data && r.data.result !== undefined) ? r.data.result : r.data;
+  const pre = document.createElement("pre");
+  pre.className = "rl-body";
+  pre.textContent = JSON.stringify(payload, null, 1).slice(0, 1600);
+  el.appendChild(pre);
+}
+
+
+/* ═══════════ 预设模式：点一下就跑（每张卡 = 一条真流程，不是单步动作）═══════════ */
+function targetEntryFile() { return (S.targetRoot || ".").replace(/[\\/]+$/, "") + "/agent_runtime.py"; }
+function mkNode(atom, cap, label, x, y, params) {
+  const a = S.atomMap[atom] || {};
+  const caps = a.provides || [];
+  const p = Object.assign({}, params || {});
+  // 交付报告(deliver.report)要求 outputs（缺则该节点 FAIL："能力 deliver.report 缺参数 outputs"）
+  if (atom === "code-deliver" && p.outputs === undefined) p.outputs = {};
+  return { id: uid("n"), atom, label, x, y, capability: caps.includes(cap) ? cap : (caps[0] || cap), params: p, status: null };
+}
+function chainEdges(nodes) {
+  const e = [];
+  for (let i = 0; i + 1 < nodes.length; i++) e.push({ from: nodes[i].id, to: nodes[i + 1].id });
+  return e;
+}
+function graphVia(builder) {   // 复用既有图构造函数（它们直接写 S.canvas，这里临时换出来）
+  const saved = S.canvas;
+  S.canvas = { nodes: [], edges: [], loopEdges: [], selected: null, linkDraft: null, _defaultLoaded: false };
+  builder();
+  const g = { nodes: S.canvas.nodes, edges: S.canvas.edges, loopEdges: S.canvas.loopEdges, handLayout: true };
+  S.canvas = saved;
+  return g;
+}
+/* 自动布局：按最长路径分层，列=层（主干从左到右横排），同层并行原子竖着叠；列内超过 4 个拆子列 */
+function layoutOrch(g) {
+  const ns = g.nodes, es = g.edges, depth = {};
+  ns.forEach((n) => (depth[n.id] = 0));
+  for (let it = 0; it < ns.length; it++) {          // ponytail: O(n路e) 松弛，节点 ≤ 25 够用
+    let ch = false;
+    es.forEach((e) => { if (depth[e.from] !== undefined && depth[e.to] !== undefined && depth[e.to] < depth[e.from] + 1) { depth[e.to] = depth[e.from] + 1; ch = true; } });
+    if (!ch) break;
+  }
+  const cols = {};
+  ns.forEach((n) => { (cols[depth[n.id]] = cols[depth[n.id]] || []).push(n); });
+  let x = 30;
+  Object.keys(cols).map(Number).sort((a, b) => a - b).forEach((d) => {
+    const list = cols[d], sub = Math.ceil(list.length / 4);
+    list.forEach((n, j) => { n.x = x + 180 * Math.floor(j / 4); n.y = 40 + 110 * (j % 4); });
+    x += 180 * sub;
+  });
+  return g;
+}
+/* 载入/运行前的最小补齐：缺「交付报告」就补一个（保证有产出）；连边/布局/循环回路在这里统一生成。 */
+function ensureDeliver(g) {
+  const nodes = g.nodes;
+  const t = S.targetRoot || ".";
+  let dv = nodes.find((n) => n.atom === "code-deliver");
+  // 交付报告的 chain 一律按图自动算（避免与图脱节）
+  if (dv) dv.params.chain = nodes.filter((n) => n !== dv).map((n) => n.capability);
+  else {
+    dv = mkNode("code-deliver", "deliver.report", "交付报告", 30, 30 + 110 * nodes.length, { path: t, chain: nodes.map((n) => n.capability) });
+    nodes.push(dv);
+  }
+  g.edges = evChain(nodes);
+  if (!g.handLayout) layoutOrch(g);
+  // 循环要看得见：给循环节点画一条回到它目标的反馈回路（虚线）
+  if (!g.loopEdges || !g.loopEdges.length) {
+    const lp = nodes.find((n) => n.atom === "lab-loop");
+    const tg = lp && nodes.find((n) => n.atom === ((lp.params || {}).target_atom || ""));
+    if (lp && tg) g.loopEdges = [{ from: lp.id, to: tg.id, kind: "重试反馈" }];
+  }
+  return g;
+}
+/* 卡上印的步骤：从真实编排图取，保证卡面与图一致 */
+function orchSteps(p) {
+  try {
+    const ns = ensureDeliver(p.graph("")).nodes;
+    // 原子表未就绪时默认图可能被过滤成空 → 退回卡片自带的步骤文案
+    if (ns.length >= 2) return ns.map((n) => n.label).join(" → ");
+  } catch (e) {}
+  return (p.steps || []).join(" → ");
+}
+/* 编排卡边：前导「扫描型」原子（连续 ≥2 个）真并行（各自喂给后继）；其余顺序；门控用 evidence 注入收齐上游 */
+const SCAN_ATOMS = new Set(["code-review", "security-scan", "deadcode", "doc-freshness", "dep-scan", "arch-review", "method-impact", "dep-impact", "atomicity-audit", "domain-review", "localized", "ontology-review", "minimalist-style"]);
+function evChain(ns) {
+  const es = [];
+  let head = 0;
+  while (head < ns.length && SCAN_ATOMS.has(ns[head].atom)) head++;
+  const par = head >= 2 ? ns.slice(0, head) : [];
+  const line = ns.slice(par.length);
+  const gi = line.findIndex((n) => n.cap === "harness.gate");
+  par.forEach((h) => es.push({ from: h.id, to: line[0].id, map: "summary", input_name: (line[0] && line[0].cap === "harness.gate") ? "evidence" : "input" }));
+  for (let i = 0; i < line.length - 1; i++) es.push({ from: line[i].id, to: line[i + 1].id, map: "summary", input_name: (i + 1 === gi) ? "evidence" : "input" });
+  if (gi > 1) {
+    for (let i = 0; i < gi - 1; i++) es.push({ from: line[i].id, to: line[gi].id, map: "summary", input_name: "evidence" });
+    par.forEach((h) => es.push({ from: h.id, to: line[gi].id, map: "summary", input_name: "evidence" }));
+  }
+  return es;
+}
+/* 预设编排：每张卡 = 一套完整、典型的代码智能体编排（多步原子 + 控制/门控 + 交付）。
+   steps 印在卡上：点▶开始跑的就是这套，点✎改图到画布上改的是同一套。 */
+/* 旧的逐卡手写图（保留作参考，不再使用） */
+const PRESETS_LEGACY = [
+  { id: "audit_full", ic: "🧾", title: "全量代码审查",
+    desc: "10 项检查 → 编排控制 → 门控 → 交付报告，一次跑完整个仓",
+    steps: ["代码审查", "安全扫描", "单元测试", "方法级影响", "死代码", "文档新鲜度", "依赖SCA", "架构审查", "Git 状态", "项目级验收", "编排控制", "门控", "交付报告"],
+    graph: () => graphVia(defaultReviewPipeline) },
+  { id: "audit_fast", ic: "⚡", title: "快速体检",
+    desc: "只看两样要紧的：代码审查 + 安全扫描，过门控出报告",
+    steps: ["代码审查", "安全扫描", "门控", "交付报告"],
+    graph: () => { const f = targetEntryFile();
+      const n = [ mkNode("code-review", "codereview.review", "代码审查", 30, 30, { path: f }),
+                  mkNode("security-scan", "security.scan", "安全扫描", 30, 150, { path: f }),
+                  mkNode("lab-harness", "harness.gate", "门控:放行判定", 30, 270, { condition: "all_ok" }),
+                  mkNode("code-deliver", "deliver.report", "交付报告", 30, 390, { path: f, chain: ["codereview.review", "security.scan"] }) ];
+      return { nodes: n, edges: evChain(n), loopEdges: [] }; } },
+  { id: "fix_bug", ic: "🐞", title: "修 bug / 修回归", ask: "要修的问题（现象 / 报错原文）",
+    desc: "定方案 → 改代码 → 跑测试 → 失败自动重试 → 过审查 → 门控 → 交付",
+    steps: ["定方案", "改代码", "跑测试", "循环:失败重试(2轮)", "过审查", "门控", "交付报告"],
+    graph: (task) => { const f = targetEntryFile();
+      const n = [ mkNode("code-plan", "plan.think", "定方案", 30, 30, { task, language: "python" }),
+                  mkNode("code-implement", "code.implement", "改代码", 30, 150, { task }),
+                  mkNode("code-test", "test.run", "跑测试", 30, 270, { path: f }),
+                  mkNode("lab-loop", "loop.retry", "循环:失败重试", 30, 390, { target_atom: "code-test", target_cap: "test.run", attempts: 2, params: { path: f } }),
+                  mkNode("code-review", "codereview.review", "过审查", 30, 510, { path: f }),
+                  mkNode("lab-harness", "harness.gate", "门控:放行判定", 30, 630, { condition: "all_ok" }),
+                  mkNode("code-deliver", "deliver.report", "交付报告", 30, 750, { path: f, chain: ["plan.think", "code.implement", "test.run", "loop.retry", "codereview.review"] }) ];
+      return { nodes: n, edges: evChain(n), loopEdges: [] }; } },
+  { id: "write_new", ic: "✍️", title: "写个新功能 / 小脚本", ask: "要实现什么（一句话说清）",
+    desc: "定方案 → 写代码 → 生成测试 → 跑测试 → 过审查 → 门控 → 交付",
+    steps: ["定方案", "写代码", "生成测试", "跑测试", "过审查", "门控", "交付报告"],
+    graph: (task) => { const f = targetEntryFile();
+      const n = [ mkNode("code-plan", "plan.think", "定方案", 30, 30, { task, language: "python" }),
+                  mkNode("code-implement", "code.write", "写代码", 30, 150, { task }),
+                  mkNode("code-test", "test.gen", "生成测试", 30, 270, { path: f }),
+                  mkNode("code-test", "test.run", "跑测试", 30, 390, { path: f }),
+                  mkNode("lab-loop", "loop.retry", "循环:失败重试", 30, 510, { target_atom: "code-test", target_cap: "test.run", attempts: 2, params: { path: f } }),
+                  mkNode("code-review", "codereview.review", "过审查", 30, 630, { path: f }),
+                  mkNode("lab-harness", "harness.gate", "门控:放行判定", 30, 750, { condition: "all_ok" }),
+                  mkNode("code-deliver", "deliver.report", "交付报告", 30, 870, { path: f, chain: ["plan.gen", "code.write", "test.gen", "test.run", "loop.retry", "codereview.review"] }) ];
+      return { nodes: n, edges: evChain(n), loopEdges: [] }; } },
+  { id: "tests", ic: "🧪", title: "测试补强 / 覆盖率",
+    desc: "看覆盖缺口 → 生成测试 → 跑测试 → 模糊测试 → 项目级验收 → 交付",
+    steps: ["覆盖率分析", "生成测试", "跑测试", "模糊测试", "项目级验收", "交付报告"],
+    graph: () => { const f = targetEntryFile(); const t = S.targetRoot || ".";
+      const n = [ mkNode("code-test", "test.coverage_analysis", "覆盖率分析", 30, 30, { path: t }),
+                  mkNode("code-test", "test.gen", "生成测试", 30, 150, { path: f }),
+                  mkNode("code-test", "test.run", "跑测试", 30, 270, { path: f }),
+                  mkNode("lab-loop", "loop.retry", "循环:失败重试", 30, 390, { target_atom: "code-test", target_cap: "test.run", attempts: 2, params: { path: f } }),
+                  mkNode("code-fuzz", "fuzz.run", "模糊测试", 30, 510, { path: f }),
+                  mkNode("code-test", "test.project", "项目级验收", 30, 630, { path: t }),
+                  mkNode("lab-harness", "harness.gate", "门控:放行判定", 30, 750, { condition: "all_ok" }),
+                  mkNode("code-deliver", "deliver.report", "交付报告", 30, 870, { path: t, chain: ["test.coverage_analysis", "test.gen", "test.run", "loop.retry", "fuzz.run", "test.project"] }) ];
+      return { nodes: n, edges: evChain(n), loopEdges: [] }; } },
+  { id: "impact", ic: "🧠", title: "影响面分析",
+    desc: "方法级影响 + 依赖影响 + 死代码 → 编排控制 → 交付报告",
+    steps: ["方法级影响", "依赖影响", "死代码", "编排控制", "交付报告"],
+    graph: () => { const t = S.targetRoot || ".";
+      const n = [ mkNode("method-impact", "impact.method", "方法级影响", 30, 30, { path: targetEntryFile() }),
+                  mkNode("dep-impact", "impact.analyze", "依赖影响", 30, 150, { path: t }),
+                  mkNode("deadcode", "deadcode.scan", "死代码", 30, 270, { path: t }),
+                  mkNode("lab-harness", "harness.control", "编排控制", 30, 390, { mode: "seq", retries: 1, steps: [] }),
+                  mkNode("code-deliver", "deliver.report", "交付报告", 30, 510, { path: t, chain: ["impact.method", "impact.analyze", "deadcode.scan"] }) ];
+      return { nodes: n, edges: evChain(n), loopEdges: [] }; } },
+  { id: "refactor", ic: "🧹", title: "重构 / 精简",
+    desc: "极简风格 + 依赖精简 + 影响面 → 编排控制 → 门控 → 交付",
+    steps: ["极简风格", "依赖精简", "方法级影响", "编排控制", "门控", "交付报告"],
+    graph: () => { const f = targetEntryFile();
+      const n = [ mkNode("minimalist-style", "minimal.style", "极简风格", 30, 30, { path: f }),
+                  mkNode("minimalist-style", "minimal.deps", "依赖精简", 30, 150, { path: f }),
+                  mkNode("method-impact", "impact.method", "方法级影响", 30, 270, { path: f }),
+                  mkNode("lab-harness", "harness.control", "编排控制", 30, 390, { mode: "seq", retries: 1, steps: [] }),
+                  mkNode("lab-harness", "harness.gate", "门控:放行判定", 30, 510, { condition: "all_ok" }),
+                  mkNode("code-deliver", "deliver.report", "交付报告", 30, 630, { path: f, chain: ["minimal.style", "minimal.deps", "impact.method"] }) ];
+      return { nodes: n, edges: evChain(n), loopEdges: [] }; } },
+  { id: "guard", ic: "🛡", title: "质量闸门",
+    desc: "安全/依赖/密钥/命令审批四道门，一个不过就不放行交付",
+    steps: ["护栏门禁", "安全扫描", "依赖SCA", "密钥泄露扫描", "命令审批", "门控", "交付报告"],
+    graph: () => { const f = targetEntryFile(); const t = S.targetRoot || ".";
+      const n = [ mkNode("guard", "guard.check", "护栏门禁", 30, 30, { path: f }),
+                  mkNode("security-scan", "security.scan", "安全扫描", 30, 150, { path: f }),
+                  mkNode("dep-scan", "depscan.scan", "依赖SCA", 30, 270, { path: t }),
+                  mkNode("secret-vault", "secrets.mask", "密钥泄露扫描", 30, 390, { path: f }),
+                  mkNode("command-approvals", "approval.check", "命令审批", 30, 510, { path: f, cmd: "git status" }),
+                  mkNode("lab-harness", "harness.gate", "门控:放行判定", 30, 630, { condition: "all_ok" }),
+                  mkNode("code-deliver", "deliver.report", "交付报告", 30, 750, { path: t, chain: ["guard.check", "security.scan", "depscan.scan", "secrets.mask", "approval.check"] }) ];
+      return { nodes: n, edges: evChain(n), loopEdges: [] }; } },
+  { id: "deliver", ic: "📦", title: "交付验收",
+    desc: "跑测试 → 项目级验收 → 门控 → 出一份交付报告",
+    steps: ["跑测试", "项目级验收", "门控", "交付报告"],
+    graph: () => { const t = S.targetRoot || ".";
+      const n = [ mkNode("code-test", "test.run", "跑测试", 30, 30, { path: t }),
+                  mkNode("code-test", "test.project", "项目级验收", 30, 150, { path: t }),
+                  mkNode("lab-harness", "harness.gate", "门控:放行判定", 30, 270, { condition: "all_ok" }),
+                  mkNode("code-deliver", "deliver.report", "交付报告", 30, 390, { path: t, chain: ["test.run", "test.project"] }) ];
+      return { nodes: n, edges: evChain(n), loopEdges: [] }; } },
+  { id: "chain", ic: "🔗", title: "按任务自动选链", ask: "任务描述（例：给 utils.py 加一个去重函数）",
+    desc: "派单编排先按任务自动挑能力序列，再走门控交付",
+    steps: ["派单编排(自动选链)", "门控", "交付报告"],
+    graph: (task) => { const f = targetEntryFile();
+      const n = [ mkNode("code-dispatch", "dispatch.chain_select", "派单编排", 30, 30, { task, path: f }),
+                  mkNode("lab-harness", "harness.gate", "门控:放行判定", 30, 150, { condition: "all_ok" }),
+                  mkNode("code-deliver", "deliver.report", "交付报告", 30, 270, { path: f, chain: ["dispatch.chain_select"] }) ];
+      return { nodes: n, edges: evChain(n), loopEdges: [] }; } },
+  { id: "deliver_trail", ic: "🧾", title: "交付验收 · 事件留痕",
+    desc: "跑测试 → 项目级验收 → 事件账本留痕 → 门控 → 出一份交付报告",
+    steps: ["跑测试", "项目级验收", "事件账本检查点", "门控", "交付报告"],
+    graph: () => { const t = S.targetRoot || ".";
+      const n = [ mkNode("code-test", "test.run", "跑测试", 30, 30, { path: t }),
+                  mkNode("code-test", "test.project", "项目级验收", 30, 150, { path: t }),
+                  mkNode("event-log", "event.checkpoint", "事件账本检查点", 30, 270, { path: t }),
+                  mkNode("lab-harness", "harness.gate", "门控:放行判定", 30, 390, { condition: "all_ok" }),
+                  mkNode("code-deliver", "deliver.report", "交付报告", 30, 510, { path: t, chain: ["test.run", "test.project", "event.checkpoint"] }) ];
+      return { nodes: n, edges: evChain(n), loopEdges: [] }; } },
+  { id: "bug_root", ic: "🐛", title: "深挖 Bug 根因", ask: "现象 / 报错原文（越具体越好）",
+    desc: "深挖根因 → 迭代修复 → 回归测试 → 过审查 → 交付",
+    steps: ["深挖根因", "迭代修复", "回归测试", "过审查", "交付报告"],
+    graph: (task) => { const f = targetEntryFile();
+      const n = [ mkNode("bug-deep", "bugdeep.adv", "深挖根因", 30, 30, { task, path: f }),
+                  mkNode("code-runloop", "code.runloop", "迭代修复", 30, 150, { task, path: f }),
+                  mkNode("code-test", "test.run", "回归测试", 30, 270, { path: f }),
+                  mkNode("lab-loop", "loop.retry", "循环:失败重试", 30, 390, { target_atom: "code-test", target_cap: "test.run", attempts: 2, params: { path: f } }),
+                  mkNode("code-review", "codereview.review", "过审查", 30, 510, { path: f }),
+                  mkNode("lab-harness", "harness.gate", "门控:放行判定", 30, 630, { condition: "all_ok" }),
+                  mkNode("code-deliver", "deliver.report", "交付报告", 30, 750, { path: f, chain: ["bugdeep.adv", "code.runloop", "test.run", "loop.retry", "codereview.review"] }) ];
+      return { nodes: n, edges: evChain(n), loopEdges: [] }; } },
+  { id: "evolve", ic: "🧬", title: "自我进化 · 技能沉淀", task: "从这次任务里提炼可复用经验",
+    desc: "自进化提炼 → 技能沉淀 → 记忆入库 → 交付（越用越强）",
+    steps: ["自进化提炼", "技能沉淀", "记忆入库", "交付报告"],
+    graph: () => { const t = S.targetRoot || ".";
+      const n = [ mkNode("code-evolve", "evolve.refine", "自进化提炼", 30, 30, { path: t, task: "从最近任务里提炼可复用规则" }),
+                  mkNode("code-skill", "skill.sediment", "技能沉淀", 30, 150, { task: "把本次可复用能力沉淀成技能" }),
+                  mkNode("code-memory", "memory.sediment", "记忆入库", 30, 270, { path: t, task: "沉淀到记忆库" }),
+                  mkNode("lab-harness", "harness.control", "编排控制", 30, 390, { mode: "seq", retries: 1, steps: [] }),
+                  mkNode("code-deliver", "deliver.report", "交付报告", 30, 510, { path: t, chain: ["evolve.refine", "skill.sediment", "memory.sediment"] }) ];
+      return { nodes: n, edges: evChain(n), loopEdges: [] }; } },
+  { id: "tools", ic: "🔌", title: "外部工具 · 模型分工",
+    desc: "MCP 工具清单 → 可用模型清单 → 模型候选/降级 → 编排控制 → 交付",
+    steps: ["MCP 能力清单", "模型清单", "模型候选/降级", "编排控制", "交付报告"],
+    graph: () => { const t = S.targetRoot || ".";
+      const n = [ mkNode("mcp-client", "mcp.list", "MCP 能力清单", 30, 30, {}),
+                  mkNode("llm-router", "llm.list_models", "模型清单", 30, 150, {}),
+                  mkNode("model-fallback", "model.candidates", "模型候选/降级", 30, 270, { task: "按任务挑主模型与降级链" }),
+                  mkNode("lab-harness", "harness.control", "编排控制", 30, 390, { mode: "seq", retries: 1, steps: [] }),
+                  mkNode("code-deliver", "deliver.report", "交付报告", 30, 510, { path: t, chain: ["mcp.list", "llm.list_models", "model.candidates"] }) ];
+      return { nodes: n, edges: evChain(n), loopEdges: [] }; } },
+  { id: "smoke", ic: "🖥", title: "前端冒烟验收",
+    desc: "浏览器逐路由真跑 → 沙箱校验 → 门控 → 交付（前端改动后跑这个）",
+    steps: ["浏览器冒烟", "沙箱校验", "门控", "交付报告"],
+    graph: () => { const t = S.targetRoot || ".";
+      const n = [ mkNode("browser-smoke", "browsersmoke.run", "浏览器冒烟", 30, 30, { path: t }),
+                  mkNode("process-sandbox", "sandbox.validate", "沙箱校验", 30, 150, { path: t }),
+                  mkNode("lab-harness", "harness.gate", "门控:放行判定", 30, 270, { condition: "all_ok" }),
+                  mkNode("code-deliver", "deliver.report", "交付报告", 30, 390, { path: t, chain: ["browsersmoke.run", "sandbox.validate"] }) ];
+      return { nodes: n, edges: evChain(n), loopEdges: [] }; } },
+  { id: "resume", ic: "🗂", title: "长任务 · 跨会话续跑",
+    desc: "会话状态 → 任务状态 → 上下文压缩 → 交付（关机不断线）",
+    steps: ["会话状态", "任务状态", "上下文压缩", "交付报告"],
+    graph: () => { const t = S.targetRoot || ".";
+      const n = [ mkNode("session", "session.status", "会话状态", 30, 30, {}),
+                  mkNode("task-state", "taskstate.track", "任务状态", 30, 150, { task: "跟踪当前长任务进度" }),
+                  mkNode("context-compact", "context.budget", "上下文压缩", 30, 270, { path: t }),
+                  mkNode("lab-harness", "harness.control", "编排控制", 30, 390, { mode: "seq", retries: 1, steps: [] }),
+                  mkNode("code-deliver", "deliver.report", "交付报告", 30, 510, { path: t, chain: ["session.status", "taskstate.track", "context.budget"] }) ];
+      return { nodes: n, edges: evChain(n), loopEdges: [] }; } },
+  { id: "onboard", ic: "🧭", title: "上手新项目",
+    desc: "项目骨架扫描 → 分层架构 → 依赖影响 + 可复用既有实现 → 交付",
+    steps: ["项目骨架扫描", "分层架构", "依赖影响", "复用建议", "交付报告"],
+    graph: () => { const t = S.targetRoot || ".";
+      const n = [ mkNode("code-project", "project.scan", "项目骨架扫描", 30, 30, { path: t }),
+                  mkNode("arch-review", "archreview.layers", "分层架构", 30, 150, { path: t }),
+                  mkNode("dep-impact", "impact.analyze", "依赖影响", 30, 270, { path: t }),
+                  mkNode("code-reuse", "reuse.local", "复用建议", 30, 390, { path: t }),
+                  mkNode("lab-harness", "harness.control", "编排控制", 30, 510, { mode: "seq", retries: 1, steps: [] }),
+                  mkNode("code-deliver", "deliver.report", "交付报告", 30, 630, { path: t, chain: ["project.scan", "archreview.layers", "impact.analyze", "reuse.local"] }) ];
+      return { nodes: n, edges: evChain(n), loopEdges: [] }; } },
+];
+/* ── 用「阶段」描述编排：单元素=串行一步；数组=一组并行原子（与下一步全连，形成真并行分支）── */
+function stageGraph(groups) {
+  const nodes = [], edges = [], rows = [];
+  groups.forEach((g) => {
+    const items = (Array.isArray(g) && Array.isArray(g[0])) ? g : [g];
+    const row = items.map((it) => { const n = mkNode(it[0], it[1], it[2], 0, 0, it[3] || {}); nodes.push(n); return n; });
+    rows.push(row);
+  });
+  for (let i = 0; i < rows.length - 1; i++) {
+    rows[i].forEach((a) => rows[i + 1].forEach((b) => edges.push({ from: a.id, to: b.id, map: "summary", input_name: (b.capability === "harness.gate") ? "evidence" : "input" })));
+  }
+  const gi = rows.findIndex((r) => r.some((n) => n.capability === "harness.gate"));
+  if (gi > 0) {
+    const gate = rows[gi].find((n) => n.capability === "harness.gate");
+    for (let i = 0; i < gi; i++) rows[i].forEach((n) => { if (!edges.some((e) => e.from === n.id && e.to === gate.id)) edges.push({ from: n.id, to: gate.id, map: "summary", input_name: "evidence" }); });
+  }
+  return { nodes, edges, loopEdges: [] };
+}
+/* 预设编排（统一用阶段描述，每套都是多阶段完整编排：并行分支 + 按需循环/门控 + 交付） */
+const PRESETS = [
+  { id: "audit_full", ic: "🧾", title: "全量代码审查",
+    desc: "14 项检查并行扫 → 编排控制 → 门控 → 双循环 → 交付",
+    graph: () => graphVia(defaultReviewPipeline) },
+  { id: "audit_fast", ic: "⚡", title: "快速体检",
+    desc: "四项检查并行（审查/安全/死代码/文档） → 门控 → 交付",
+    graph: () => { const f = targetEntryFile(); const t = S.targetRoot || "."; return stageGraph([
+      [["code-review", "codereview.review", "代码审查", { path: f }], ["security-scan", "security.scan", "安全扫描", { path: f }], ["deadcode", "deadcode.scan", "死代码", { path: t }], ["doc-freshness", "doc.stale", "文档新鲜度", { path: t, root: t }]],
+      ["lab-harness", "harness.gate", "门控:放行判定", { condition: "all_ok" }],
+      ["code-deliver", "deliver.report", "交付报告", { path: f }]]); } },
+  { id: "fix_bug", ic: "🐞", title: "修 bug / 修回归", ask: "要修的问题（现象 / 报错原文）",
+    desc: "深挖根因 → 影响面+依赖并行 → 定方案 → 改代码 → 跑测试 → 循环重试 → 审查+安全并行 → 门控 → 交付",
+    graph: (task) => { const f = targetEntryFile(); const t = S.targetRoot || "."; return stageGraph([
+      ["bug-deep", "bugdeep.adv", "深挖根因", { task, path: f }],
+      [["method-impact", "impact.method", "影响面", { path: t }], ["dep-scan", "depscan.scan", "依赖检查", { path: t }]],
+      ["code-plan", "plan.think", "定方案", { task, language: "python" }],
+      ["code-implement", "code.implement", "改代码", { task, path: f }],
+      ["code-test", "test.run", "跑测试", { path: f }],
+      ["lab-loop", "loop.retry", "循环:失败重试", { target_atom: "code-test", target_cap: "test.run", attempts: 2, params: { path: f } }],
+      [["code-review", "codereview.review", "过审查", { path: f }], ["security-scan", "security.scan", "安全扫描", { path: f }]],
+      ["lab-harness", "harness.gate", "门控:放行判定", { condition: "all_ok" }],
+      ["code-deliver", "deliver.report", "交付报告", { path: t }]]); } },
+  { id: "write_new", ic: "✍️", title: "写个新功能 / 小脚本", ask: "要实现什么（一句话说清）",
+    desc: "项目骨架+查可复用并行 → 定方案 → 写代码 → 生成测试 → 跑测试 → 循环重试 → 审查+安全并行 → 门控 → 交付",
+    graph: (task) => { const f = targetEntryFile(); const t = S.targetRoot || "."; return stageGraph([
+      [["code-project", "project.scan", "项目骨架", { path: t }], ["code-reuse", "reuse.local", "查可复用", { path: t }]],
+      ["code-plan", "plan.think", "定方案", { task, language: "python" }],
+      ["code-implement", "code.write", "写代码", { task, path: f }],
+      ["code-test", "test.gen", "生成测试", { path: f }],
+      ["code-test", "test.run", "跑测试", { path: f }],
+      ["lab-loop", "loop.retry", "循环:失败重试", { target_atom: "code-test", target_cap: "test.run", attempts: 2, params: { path: f } }],
+      [["code-review", "codereview.review", "过审查", { path: f }], ["security-scan", "security.scan", "安全扫描", { path: f }]],
+      ["lab-harness", "harness.gate", "门控:放行判定", { condition: "all_ok" }],
+      ["code-deliver", "deliver.report", "交付报告", { path: t }]]); } },
+  { id: "tests", ic: "🧪", title: "测试补强 / 覆盖率",
+    desc: "覆盖率+死代码并行 → 生成测试 → 跑测试 → 循环重试 → 模糊测试 → 项目级验收 → 门控 → 交付",
+    graph: () => { const f = targetEntryFile(); const t = S.targetRoot || "."; return stageGraph([
+      [["code-test", "test.coverage_analysis", "覆盖率分析", { path: t }], ["deadcode", "deadcode.scan", "死代码", { path: t }]],
+      ["code-test", "test.gen", "生成测试", { path: f }],
+      ["code-test", "test.run", "跑测试", { path: f }],
+      ["lab-loop", "loop.retry", "循环:失败重试", { target_atom: "code-test", target_cap: "test.run", attempts: 2, params: { path: f } }],
+      ["code-fuzz", "fuzz.run", "模糊测试", { path: f }],
+      ["code-test", "test.project", "项目级验收", { path: t }],
+      ["lab-harness", "harness.gate", "门控:放行判定", { condition: "all_ok" }],
+      ["code-deliver", "deliver.report", "交付报告", { path: t }]]); } },
+  { id: "impact", ic: "🧠", title: "影响面分析",
+    desc: "方法级影响 + 依赖影响 + 死代码 + 可复用 并行 → 编排控制 → 门控 → 交付",
+    graph: () => { const t = S.targetRoot || "."; return stageGraph([
+      [["method-impact", "impact.method", "方法级影响", { path: t }], ["dep-impact", "impact.analyze", "依赖影响", { path: t }], ["deadcode", "deadcode.scan", "死代码", { path: t }], ["code-reuse", "reuse.local", "可复用", { path: t }]],
+      ["lab-harness", "harness.control", "编排控制", { mode: "seq", retries: 1, steps: [] }],
+      ["lab-harness", "harness.gate", "门控:放行判定", { condition: "all_ok" }],
+      ["code-deliver", "deliver.report", "交付报告", { path: t }]]); } },
+  { id: "refactor", ic: "🧹", title: "重构 / 精简", ask: "重构目标（哪一块、想达到什么效果）",
+    desc: "四项检查并行 → 重构方案 → 重构改写 → 回归测试 → 循环重试 → 过审查 → 门控 → 交付",
+    graph: (task) => { const f = targetEntryFile(); const t = S.targetRoot || "."; return stageGraph([
+      [["minimalist-style", "minimal.style", "极简风格", { path: f }], ["minimalist-style", "minimal.deps", "依赖精简", { path: f }], ["method-impact", "impact.method", "方法级影响", { path: t }], ["deadcode", "deadcode.scan", "死代码", { path: t }]],
+      ["code-plan", "plan.think", "重构方案", { task, language: "python" }],
+      ["code-implement", "code.implement", "重构改写", { task, path: f }],
+      ["code-test", "test.run", "回归测试", { path: f }],
+      ["lab-loop", "loop.retry", "循环:失败重试", { target_atom: "code-test", target_cap: "test.run", attempts: 2, params: { path: f } }],
+      ["code-review", "codereview.review", "过审查", { path: f }],
+      ["lab-harness", "harness.gate", "门控:放行判定", { condition: "all_ok" }],
+      ["code-deliver", "deliver.report", "交付报告", { path: t }]]); } },
+  { id: "guard", ic: "🛡", title: "质量闸门",
+    desc: "护栏+安全+依赖+密钥+命令审批 五项并行 → 门控 → 交付（一个不过就不放行）",
+    graph: () => { const f = targetEntryFile(); const t = S.targetRoot || "."; return stageGraph([
+      [["guard", "guard.check", "护栏门禁", { path: f }], ["security-scan", "security.scan", "安全扫描", { path: f }], ["dep-scan", "depscan.scan", "依赖SCA", { path: t }], ["secret-vault", "secrets.mask", "密钥泄露扫描", { path: f }], ["command-approvals", "approval.check", "命令审批", { path: f, cmd: "git status" }]],
+      ["lab-harness", "harness.gate", "门控:放行判定", { condition: "all_ok" }],
+      ["code-deliver", "deliver.report", "交付报告", { path: t }]]); } },
+  { id: "deliver", ic: "📦", title: "交付验收 · 事件留痕",
+    desc: "跑测试+安全并行 → 项目级验收 → 事件账本留痕 → 门控 → 交付",
+    graph: () => { const t = S.targetRoot || "."; return stageGraph([
+      [["code-test", "test.run", "跑测试", { path: t }], ["security-scan", "security.scan", "安全扫描", { path: targetEntryFile() }]],
+      ["code-test", "test.project", "项目级验收", { path: t }],
+      ["event-log", "event.checkpoint", "事件账本检查点", { path: t }],
+      ["lab-harness", "harness.gate", "门控:放行判定", { condition: "all_ok" }],
+      ["code-deliver", "deliver.report", "交付报告", { path: t }]]); } },
+  { id: "chain", ic: "🔗", title: "按任务自动选链", ask: "任务描述（例：给 utils.py 加一个去重函数）",
+    desc: "上下文预算 + 方法级影响 + 派单自动选链 并行 → 编排控制 → 门控 → 交付",
+    graph: (task) => { const f = targetEntryFile(); const t = S.targetRoot || "."; return stageGraph([
+      [["context-compact", "context.budget", "上下文预算", { path: t }], ["method-impact", "impact.method", "方法级影响", { path: t }], ["code-dispatch", "dispatch.chain_select", "派单自动选链", { task, path: f }]],
+      ["lab-harness", "harness.control", "编排控制", { mode: "seq", retries: 1, steps: [] }],
+      ["lab-harness", "harness.gate", "门控:放行判定", { condition: "all_ok" }],
+      ["code-deliver", "deliver.report", "交付报告", { path: t }]]); } },
+  { id: "bug_root", ic: "🐛", title: "深挖 Bug 根因", ask: "现象 / 报错原文（越具体越好）",
+    desc: "深挖根因 → 复现PoC+沙箱验证并行 → 迭代修复 → 回归测试 → 循环重试 → 审查+安全并行 → 门控 → 交付",
+    graph: (task) => { const f = targetEntryFile(); const t = S.targetRoot || "."; return stageGraph([
+      ["bug-deep", "bugdeep.adv", "深挖根因", { task, path: f }],
+      [["bug-deep", "bugdeep.poc", "复现 PoC", { task, path: f }], ["process-sandbox", "sandbox.validate", "沙箱验证", { path: f }]],
+      ["code-runloop", "code.runloop", "迭代修复", { task, path: f }],
+      ["code-test", "test.run", "回归测试", { path: f }],
+      ["lab-loop", "loop.retry", "循环:失败重试", { target_atom: "code-test", target_cap: "test.run", attempts: 2, params: { path: f } }],
+      [["code-review", "codereview.review", "过审查", { path: f }], ["security-scan", "security.scan", "安全扫描", { path: f }]],
+      ["lab-harness", "harness.gate", "门控:放行判定", { condition: "all_ok" }],
+      ["code-deliver", "deliver.report", "交付报告", { path: t }]]); } },
+  { id: "evolve", ic: "🧬", title: "自我进化 · 技能沉淀",
+    desc: "自进化提炼 + 记忆回顾 并行 → 技能沉淀 → 记忆入库 → 编排控制 → 交付",
+    graph: () => { const t = S.targetRoot || "."; return stageGraph([
+      [["code-evolve", "evolve.refine", "自进化提炼", { path: t, task: "从最近任务里提炼可复用规则" }], ["code-memory", "memory.recall", "记忆回顾", { path: t }]],
+      ["code-skill", "skill.sediment", "技能沉淀", { task: "把本次可复用能力沉淀成技能" }],
+      ["code-memory", "memory.sediment", "记忆入库", { path: t, task: "沉淀到记忆库" }],
+      ["lab-harness", "harness.control", "编排控制", { mode: "seq", retries: 1, steps: [] }],
+      ["code-deliver", "deliver.report", "交付报告", { path: t }]]); } },
+  { id: "tools", ic: "🔌", title: "外部工具 · 模型分工",
+    desc: "MCP 清单 + 模型清单 + 降级候选 + 上下文预算 并行 → 编排控制 → 门控 → 交付",
+    graph: () => { const t = S.targetRoot || "."; return stageGraph([
+      [["mcp-client", "mcp.list", "MCP 能力清单", {}], ["llm-router", "llm.list_models", "模型清单", {}], ["model-fallback", "model.candidates", "降级候选", { task: "按任务挑主模型与降级链" }], ["context-compact", "context.budget", "上下文预算", { path: t }]],
+      ["lab-harness", "harness.control", "编排控制", { mode: "seq", retries: 1, steps: [] }],
+      ["lab-harness", "harness.gate", "门控:放行判定", { condition: "all_ok" }],
+      ["code-deliver", "deliver.report", "交付报告", { path: t }]]); } },
+  { id: "smoke", ic: "🖥", title: "前端冒烟验收",
+    desc: "浏览器冒烟 + 单元测试 并行 → 沙箱校验 → 事件留痕 → 门控 → 交付",
+    graph: () => { const t = S.targetRoot || "."; return stageGraph([
+      [["browser-smoke", "browsersmoke.run", "浏览器冒烟", { url: (location.protocol + "//" + location.host), routes: JSON.stringify([{ path: "/", expectText: ["CodeAgent Lab"] }, { path: "/no-such-route-zzz", expectText: ["这个页面不存在"] }]), wait_sec: "8", min_body: "40" }], ["code-test", "test.run", "单元测试", { path: t }]],
+      ["process-sandbox", "sandbox.validate", "沙箱校验", { path: t }],
+      ["event-log", "event.checkpoint", "事件留痕", { path: t }],
+      ["lab-harness", "harness.gate", "门控:放行判定", { condition: "all_ok" }],
+      ["code-deliver", "deliver.report", "交付报告", { path: t }]]); } },
+  { id: "resume", ic: "🗂", title: "长任务 · 跨会话续跑",
+    desc: "会话状态 + 任务状态 并行 → 上下文压缩 → 事件检查点 → 编排控制 → 交付",
+    graph: () => { const t = S.targetRoot || "."; return stageGraph([
+      [["session", "session.status", "会话状态", {}], ["task-state", "taskstate.track", "任务状态", { task: "跟踪当前长任务进度" }]],
+      ["context-compact", "context.budget", "上下文压缩", { path: t }],
+      ["event-log", "event.checkpoint", "事件检查点", { path: t }],
+      ["lab-harness", "harness.control", "编排控制", { mode: "seq", retries: 1, steps: [] }],
+      ["code-deliver", "deliver.report", "交付报告", { path: t }]]); } },
+  { id: "onboard", ic: "🧭", title: "上手新项目",
+    desc: "六项侦察并行（骨架/分层/依赖/可复用/本地化/本体） → 编排控制 → 门控 → 交付",
+    graph: () => { const t = S.targetRoot || "."; return stageGraph([
+      [["code-project", "project.scan", "项目骨架", { path: t }], ["arch-review", "archreview.layers", "分层架构", { path: t }], ["dep-impact", "impact.analyze", "依赖影响", { path: t }], ["code-reuse", "reuse.local", "可复用", { path: t }], ["localized", "local.audit", "本地化", { path: t }], ["ontology-review", "ontology.quality", "本体审查", { path: t }]],
+      ["lab-harness", "harness.control", "编排控制", { mode: "seq", retries: 1, steps: [] }],
+      ["lab-harness", "harness.gate", "门控:放行判定", { condition: "all_ok" }],
+      ["code-deliver", "deliver.report", "交付报告", { path: t }]]); } },
+];
+function renderPresets() {
+  const box = $("preset-cards"); if (!box || box.dataset.done) return;
+  box.dataset.done = "1";
+  box.innerHTML = PRESETS.map((p, i) =>
+    '<div class="pcard' + (p.dashed ? " dashed" : "") + '">' +
+      '<div class="pt"><span class="ic">' + p.ic + '</span>' + esc(p.title) + '</div>' +
+      '<div class="pd">' + esc(p.desc) + '</div>' +
+      '<div class="psteps">' + esc(orchSteps(p)) + '</div>' +
+      '<div class="pa"><button class="go" data-run="' + i + '">' + (p.gotoLabel || "▶ 开始") + '</button>' +
+      (p.graph ? '<button data-edit="' + i + '">✎ 改图</button>' : "") +
+      '<span class="tag" data-last="' + p.id + '">未跑过</span></div></div>').join("");
+  box.querySelectorAll("[data-run]").forEach((b) => b.addEventListener("click", () => startPreset(PRESETS[+b.dataset.run])));
+  box.querySelectorAll("[data-edit]").forEach((b) => b.addEventListener("click", () => loadPresetToCanvas(PRESETS[+b.dataset.edit])));
+  refreshPresetHistory();
+  renderPresetProgress();
+}
+async function startPreset(p) {
+  if (p.goto) { switchView(p.goto); if (p.id === "debug_loop") flashHint("填好目标文件与报错描述，再点「▶ 启动调试回路」"); return; }
+  const extra = {};
+  if (p.ask) {
+    const v = window.prompt(p.ask, "");
+    if (!v) { flashHint("已取消：先写清要做什么再来"); return; }
+    if (p.action) extra.task = v;
+  }
+  if (p.action) {
+    const el = runLogLine(p.title + " @ " + (S.targetRoot || "."), "busy");
+    const r = await POST("/api/action", Object.assign({}, p.action, extra));
+    runLogUpdate(el, p.title, r); refreshPresetHistory(); return;
+  }
+  const g = ensureDeliver(p.graph(extra.task));
+  const miss = validateRequiredParams(g.nodes);
+  if (miss.length) { flashHint("这张图还缺参数：" + miss[0].label + " 缺 " + miss[0].missing.join(","), "bad"); return; }
+  const el = runLogLine("▶ " + p.title + " @ " + (S.targetRoot || "."), "busy");
+  const r = await POST("/api/pipeline/run", { name: p.title, graph: g });
+  if (!r.ok) { runLogUpdate(el, p.title, { ok: false, error: r.error || "启动失败" }); return; }
+  S.presetRun = { title: p.title, nodeIds: g.nodes.map((n) => n.id), labels: {}, el };
+  g.nodes.forEach((n) => { S.presetRun.labels[n.id] = n.label || n.atom; });
+  S.presetStatus = {}; g.nodes.forEach((n) => { S.presetStatus[n.id] = "todo"; });
+  renderPresetProgress();
+  const b = $("run-log"); if (b) b.classList.remove("hidden");
+}
+/* 画布上挑编排：10 套预设编排 + 空白自搭。切换 = 把那一套铺到画布上（改的就是同一套）。 */
+function renderOrchPicker() {
+  const sel = $("orch-pick"); if (!sel || sel.dataset.done) return;
+  sel.dataset.done = "1";
+  sel.innerHTML = PRESETS.filter((p) => p.graph).map((p) =>
+    '<option value="' + p.id + '">' + esc(p.ic + " " + p.title + "（" + orchSteps(p).split(" → ").length + " 步）") + '</option>').join("") +
+    '<option value="__blank">空白 · 从零自己搭</option>';
+  sel.addEventListener("change", () => {
+    const v = sel.value;
+    if (v === "__blank") {
+      S.canvas.nodes = []; S.canvas.edges = []; S.canvas.loopEdges = []; S.canvas.selected = null;
+      S.canvas._defaultLoaded = true; S.canvas._blank = true;
+      renderCanvas(); renderProps();
+      const lg = $("pipe-log"); if (lg) lg.innerHTML = '<div>[📋] 已清空：从左侧点原子开始搭（点一下即入编排，会自动串起来）。</div>';
+      return;
+    }
+    const p = PRESETS.find((x) => x.id === v);
+    if (!p) return;
+    try { loadPresetToCanvas(p, true); }
+    catch (e) {
+      // 不静默失败：把真实原因显示出来，画布保持原样
+      const msg = String((e && e.message) || e);
+      flashHint("载入这套编排失败：" + msg, "bad");
+      const lg = $("pipe-log");
+      if (lg) { lg.classList.remove("hidden"); lg.innerHTML = '<div>[❌] 载入「' + esc(p.title) + '」失败：' + esc(msg) + '（画布未改动）</div>'; }
+    }
+  });
+  syncOrchPicker();
+}
+function syncOrchPicker() {
+  const sel = $("orch-pick"); if (!sel) return;
+  const first = S.canvas.nodes[0];
+  let hit = null;
+  if (first) for (const p of PRESETS) {
+    if (!p.graph) continue;
+    let g = null;
+    try { g = p.graph(""); } catch (e) { continue; }   // 单张卡构图失败不影响选择器
+    if (g && g.nodes.length === S.canvas.nodes.length && g.nodes[0].atom === first.atom) { hit = p; break; }
+  }
+  sel.value = hit ? hit.id : "__blank";
+}
+function loadPresetToCanvas(p, keepView) {
+  if (!p.graph) return;
+  const g = ensureDeliver(p.graph(null));
+  S.canvas.nodes = g.nodes; S.canvas.edges = g.edges; S.canvas.loopEdges = g.loopEdges || [];
+  S.canvas.selected = null; S.canvas._defaultLoaded = true; S.canvas._blank = false;
+  if ($("pipe-name")) $("pipe-name").value = p.title;   // 运行名跟随所选编排
+  if (!keepView) switchView("canvas"); else syncOrchPicker();
+  renderCanvas(); renderProps();
+  const lg = $("pipe-log");
+  if (lg) lg.innerHTML = '<div>[📋] 已把「' + esc(p.title) + '」的 ' + g.nodes.length + ' 个节点铺到画布 — 改完点「▶ 运行管道」。</div>';
+  flashHint("已铺到画布，可以拖拽改了");
+}
+function renderPresetProgress() {
+  const box = $("preset-progress"); if (!box) return;
+  if (!S.presetRun) { box.innerHTML = '<div class="placeholder">还没有在跑的任务<br>点左边任意一张卡片就开始</div>'; return; }
+  const ids = S.presetRun.nodeIds, st = S.presetStatus || {};
+  const done = ids.filter((i) => st[i] === "done" || st[i] === "fail").length;
+  const pct = Math.round((done / Math.max(1, ids.length)) * 100);
+  box.innerHTML = '<div class="pbar"><i style="width:' + pct + '%"></i></div>' + ids.map((i) => {
+    const s = st[i] || "todo";
+    const ic = s === "done" ? "✔" : s === "fail" ? "✖" : s === "run" ? "⏳" : "○";
+    return '<div class="ps ' + s + '"><span class="pst">' + ic + '</span>' + esc(S.presetRun.labels[i] || i) + '</div>';
+  }).join("");
+  const t = $("preset-run-title"); if (t) t.textContent = "第 " + done + " / " + ids.length + " 步";
+}
+function presetEvent(e) {
+  const p = e.payload || {};
+  const st = S.presetStatus || {};
+  if (e.type === "pipeline.node_started" && p.node in st) { st[p.node] = "run"; renderPresetProgress(); return; }
+  if (e.type === "pipeline.node_done" && p.node in st) { st[p.node] = "done"; renderPresetProgress(); return; }
+  if (e.type === "pipeline.node_failed" && p.node in st) { st[p.node] = "fail"; renderPresetProgress(); return; }
+  if ((e.type === "pipeline.finished" || e.type === "pipeline.failed") && S.presetRun) {
+    const title = S.presetRun.title;
+    if (S.presetRun.el && S.presetRun.el.parentNode) S.presetRun.el.parentNode.removeChild(S.presetRun.el);
+    const failed = Object.keys(st).filter((k) => st[k] === "fail");
+    if (e.type === "pipeline.failed" || failed.length) {
+      runLogLine("❌ " + title + " — 有步骤没跑成" + (p.error ? "：" + String(p.error).slice(0, 140) : ""), "err");
+    } else {
+      runLogLine("✅ " + title + " 跑完了（共 " + Object.keys(st).length + " 步）", "ok");
+    }
+    const b = $("run-log"); if (b) b.classList.remove("hidden");
+    refreshPresetHistory();
+  }
+}
+async function refreshPresetHistory() {
+  const box = $("preset-history");
+  const r = await GET("/api/pipelines"); if (!r.ok) return;
+  const runs = (r.data && r.data.runs) || [];
+  const byName = {};
+  runs.forEach((x) => { if (!(x.name in byName)) byName[x.name] = x; });
+  document.querySelectorAll("#preset-cards [data-last]").forEach((el) => {
+    const p = PRESETS.filter((q) => q.id === el.dataset.last)[0]; if (!p) return;
+    const hit = byName[p.title];
+    if (!hit) { el.textContent = "未跑过"; el.className = "tag"; return; }
+    el.textContent = hit.ok ? "上次 ✓ 通过" : "上次 ✗ 失败";
+    el.className = "tag" + (hit.ok ? " ok" : "");
+  });
+  if (box) box.innerHTML = runs.slice(0, 7).map((x) =>
+    '<div style="font-size:11.5px;line-height:1.8;color:var(--muted)">' + (x.ok ? "✅" : "❌") + " " +
+    esc(String(x.name || "").slice(0, 24)) + ' <span style="color:#94a3b8">#' + x.id + "</span></div>").join("") ||
+    '<div class="placeholder">还没有历史</div>';
+}
+$("btn-tools") && $("btn-tools").addEventListener("click", (ev) => {
+  ev.stopPropagation();
+  $("tools-list").classList.toggle("hidden");
+});
+$("tools-list") && $("tools-list").addEventListener("click", () => $("tools-list").classList.add("hidden"));
+document.addEventListener("click", (ev) => {
+  const l = $("tools-list");
+  if (l && !l.classList.contains("hidden") && !ev.target.closest("#tools-wrap")) l.classList.add("hidden");
+});
 
 /* ═══════════ 浏览器原生文件/目录选择器（现代软件体验：点"浏览/选目录/选文件"弹系统对话框）═══
    沙箱约束：<input type=file> 只给 basename、<input type=file webkitdirectory> 只给目录名/相对结构，
@@ -228,6 +841,9 @@ async function loadAtoms() {
   S.atoms = r.data.atoms || [];
   S.atomMap = {}; S.atoms.forEach((a) => (S.atomMap[a.name] = a));
   $("atom-count").textContent = `原子 ${r.data.core_count}核心 + ${r.data.ext_count}扩展`;
+  const ver = r.data.version || "";
+  if ($("ver-pill")) $("ver-pill").textContent = ver ? ("v" + ver) : "v—";
+  if (ver) document.title = `CodeAgent Lab v${ver} — 本地完整代码智能体`;
   renderPalette();
   ensureDefaultPipeline();   // 打开即加载默认"代码审查"编排图(仅首次/画布为空时)
 }
@@ -272,6 +888,8 @@ function onEvent(e) {
   if (e.type === "atom.registered") { flash("原子已注册: " + p.name); loadAtoms(); loadExtList(); }
   if (e.type === "atom.enabled") { flash("扩展状态已更新: " + p.name); loadAtoms(); loadExtList(); }
   if (e.type === "chat.reply") {}
+  if (e.type === "pipeline.node_started" || e.type === "pipeline.node_done" || e.type === "pipeline.node_failed"
+      || e.type === "pipeline.finished" || e.type === "pipeline.failed") presetEvent(e);
 }
 let lastPipeLogAt = 0;
 function appendPipeLog(line) {
@@ -819,11 +1437,11 @@ const ATOM_CN = {
   "model-fallback": "模型降级", "ontology-review": "本体审查", "code-plan": "编码规划",
   "code-project": "项目骨架", "code-reuse": "复用建议", "process-sandbox": "沙箱执行",
   "security-scan": "安全扫描", "code-skill": "技能管理", "task-state": "任务状态",
-  "code-test": "单元测试", "lab-echo96914": "回显测试", "lab-echo96962": "回显测试",
-  "lab-echo97004": "回显测试3", "lab-echo97043": "回显测试4", "lab-echo97171": "回显测试5",
+  "code-test": "单元测试",
   "lab-harness": "执行编排控制器", "lab-loop": "循环控制",
   "browser-smoke": "浏览器冒烟",
-  "code-implement": "编码实现", "code-runloop": "迭代实现", "git-ops": "Git 操作"
+  "git-ops": "Git 只读工具", "code-implement": "编码实现", "code-runloop": "迭代实现",
+  "event-log": "事件账本", "secret-vault": "密钥保管", "session": "会话管理"
 };
 const cnName = (atom) => ATOM_CN[atom] || atom;
 
@@ -851,53 +1469,69 @@ function defaultReviewPipeline() {
     { atom: "doc-freshness", cap: "doc.stale",          label: "文档新鲜度", x: 300, y: 140, params: { path: tgt, root: tgt } },
     { atom: "dep-scan",      cap: "depscan.scan",       label: "依赖SCA",    x: 300, y: 250, params: { path: tgt } },
     { atom: "arch-review",   cap: "archreview.layers",  label: "架构审查",   x: 300, y: 360, params: { path: tgt } },
-    // ── 扩展原子 ──
-    { atom: "lab-echo96914", cap: "echo.summarize96914", label: "扩展:回显测试", x: 570, y: 60, params: {} },
-    // ── harness 执行编排控制器(执行器/调度器/门控) ──
-    { atom: "lab-harness", cap: "harness.control", label: "执行编排控制器", x: 570, y: 270,
-      params: { mode: "seq", retries: 1, steps: [
-        { atom: "lab-echo96914", capability: "echo.summarize96914", params: { input: "harness二次编排" } },
-        { atom: "lab-echo96962", capability: "echo.summarize96962", params: { input: "harness门控校验" } }
-      ] } },
-    // ── 循环控制原子(重试/迭代, 内部真实循环+反馈) ──
-    { atom: "lab-loop", cap: "loop.retry",  label: "循环:重试控制", x: 900, y: 90,
-      params: { target_atom: "lab-echo96914", target_cap: "echo.summarize96914",
-                attempts: 2, params: { input: "重试控制" } } },
-    { atom: "lab-loop", cap: "loop.iterate", label: "循环:迭代控制", x: 900, y: 320,
-      params: { target_atom: "lab-echo96914", target_cap: "echo.summarize96914",
-                items: ["轮次1", "轮次2"], params: { input: "迭代控制" } } },
+    { atom: "atomicity-audit", cap: "atomicity.breaks", label: "原子化审计", x: 30, y: 580, params: { path: tgt } },
+    { atom: "domain-review",  cap: "domain.imports",     label: "领域审查",   x: 300, y: 580, params: { path: tgt } },
+    { atom: "localized",      cap: "local.audit",        label: "本地化审查", x: 570, y: 580, params: { path: tgt } },
+    { atom: "ontology-review", cap: "ontology.quality",  label: "本体审查",   x: 840, y: 580, params: { path: tgt } },
+    { atom: "git-ops",       cap: "git.status",         label: "Git 状态",   x: 570, y: 430, params: { path: tgt } },
+    { atom: "code-test",     cap: "test.project",       label: "项目级验收", x: 300, y: 470, params: { path: tgt } },
+    // ── harness 执行编排控制器(执行器/调度器): 默认单轮(retries=1) + 聚合上游 evidence（steps 空=只聚合） ──
+    { atom: "lab-harness", cap: "harness.control", label: "执行编排控制器", x: 570, y: 150,
+      params: { mode: "seq", retries: 1, steps: [] } },
+    // ── 门控(放行判定): harness.gate, 以「上游证据的裁决」为准, condition=all_ok 才放行交付 ──
+    { atom: "lab-harness", cap: "harness.gate", label: "门控:放行判定", x: 570, y: 300,
+      params: { condition: "all_ok" } },
+    // ── 循环控制原子(内部真实多轮+失败反馈): 目标用已注册的真实原子(默认可红可绿) ──
+    { atom: "lab-loop", cap: "loop.retry",  label: "循环:重试控制", x: 900, y: 60,
+      params: { target_atom: "code-test", target_cap: "test.run",
+                attempts: 2, params: { path: FILE_TGT } } },
+    { atom: "lab-loop", cap: "loop.iterate", label: "循环:迭代控制", x: 900, y: 300,
+      params: { target_atom: "security-scan", target_cap: "security.scan",
+                items: [FILE_TGT, FILE_TGT], item_param: "path" } },
     // ── 交付报告(聚合汇总) ──
     { atom: "code-deliver", cap: "deliver.report", label: "交付报告", x: 1170, y: 205,
       params: { chain: ["codereview.review", "security.scan", "test.run", "impact.method",
                         "deadcode.scan", "doc.stale", "depscan.scan", "archreview.layers",
-                        "harness.control", "loop.retry", "loop.iterate"],
+                        "atomicity.breaks", "domain.imports", "local.audit", "ontology.quality",
+                        "git.status", "test.project",
+                        "harness.control", "harness.gate", "loop.retry", "loop.iterate"],
                 outputs: {} } }
   ];
-  S.canvas.nodes = defs.map((d) => {
+  S.canvas.nodes = defs.filter((d) => S.atomMap[d.atom]).map((d) => {
     const a = S.atomMap[d.atom] || {};
     return { id: uid("n"), atom: d.atom, label: d.label, x: d.x, y: d.y,
              capability: d.cap || (a.provides && a.provides[0]) || "",
              params: d.params || {}, status: null };
   });
   const byLabel = (l) => S.canvas.nodes.find((n) => n.label === l);
-  const HARNESS = byLabel("执行编排控制器"), DELIVER = byLabel("交付报告"),
-        RETRY = byLabel("循环:重试控制"), ITER = byLabel("循环:迭代控制");
-  // 可执行数据流(实线): 各审查原子+扩展 → harness 聚合 → 交付报告; 循环控制 → 交付报告
+  // 两端节点都在才连线：缺哪个原子就少哪条边，整图仍可执行（按本地已注册原子自适应）
+  const link = (from, to) => {
+    const a = byLabel(from), b = byLabel(to);
+    return (a && b) ? { from: a.id, to: b.id, map: "summary", input_name: "evidence" } : null;
+  };
+  const loopLink = (from, to, kind) => {
+    const a = byLabel(from), b = byLabel(to);
+    return (a && b) ? { from: a.id, to: b.id, kind } : null;
+  };
+  // 可执行数据流(实线): 各审查原子 → 执行编排控制器 → 门控(放行判定) → 交付报告
   const scan = ["代码审查", "安全扫描", "单元测试", "方法级影响",
-                "死代码", "文档新鲜度", "依赖SCA", "架构审查", "扩展:回显测试"];
-  S.canvas.edges = scan.map((l) => ({ from: byLabel(l).id, to: HARNESS.id, map: "summary", input_name: "evidence" }))
+                "死代码", "文档新鲜度", "依赖SCA", "架构审查",
+                "原子化审计", "领域审查", "本地化审查", "本体审查",
+                "Git 状态", "项目级验收"];
+  S.canvas.edges = scan.map((l) => link(l, "执行编排控制器")).filter(Boolean)
     .concat([
-      { from: HARNESS.id, to: DELIVER.id, map: "summary", input_name: "evidence" },
-      { from: RETRY.id,   to: DELIVER.id, map: "summary", input_name: "evidence" },
-      { from: ITER.id,    to: DELIVER.id, map: "summary", input_name: "evidence" }
-    ]);
+      link("执行编排控制器", "门控:放行判定"),
+      link("门控:放行判定", "交付报告"),
+      link("循环:重试控制", "交付报告"),
+      link("循环:迭代控制", "交付报告")
+    ].filter(Boolean));
   // 循环/反馈语义(虚线可视化; 不参与拓扑排序 → 保证可执行)
   S.canvas.loopEdges = [
-    { from: RETRY.id,   to: byLabel("单元测试").id, kind: "重试反馈" },
-    { from: ITER.id,    to: byLabel("代码审查").id, kind: "迭代反馈" },
-    { from: HARNESS.id, to: RETRY.id, kind: "门控调度" },
-    { from: HARNESS.id, to: ITER.id,  kind: "门控调度" }
-  ];
+    loopLink("循环:重试控制", "单元测试", "重试反馈"),
+    loopLink("循环:迭代控制", "安全扫描", "迭代反馈"),
+    loopLink("门控:放行判定", "循环:重试控制", "门控调度"),
+    loopLink("门控:放行判定", "循环:迭代控制", "门控调度")
+  ].filter(Boolean);
   S.canvas.selected = null;
 }
 function ensureDefaultPipeline(force) {
@@ -912,34 +1546,7 @@ function ensureDefaultPipeline(force) {
   $("pipe-log").innerHTML = `<div>[🕘] 已加载默认「最全全原子 + 循环 + harness」编排图（${S.canvas.nodes.length} 节点 / ${S.canvas.edges.length} 实线边 / ${(S.canvas.loopEdges||[]).length} 循环反馈边）— 点「▶ 运行管道」即可执行。实线=可执行数据流, 虚线=循环/反馈语义, 循环体在「循环控制/执行编排控制器」原子内部真实执行。可清空后自行拖拽原子重组。</div>`;
 }
 
-/* 编排预设：真实浏览器 UI 冒烟（browser-smoke）—— 对目标 Web 前端逐路由做无白屏/无错误边界/关键文本/console 检查。
-   目标默认指向本 Lab 自己的前端(当前 origin)做自检；可在节点属性面板改 url。
-   预设图 = 单个 browser-smoke 节点(无需连线, 单节点即可运行)，点按钮载入画布后按「▶ 运行管道」执行。 */
-function uiSmokePreset() {
-  const base = (location.protocol) + "//" + (location.host);   // 默认冒烟本 Lab 自身前端
-  const routes = [
-    { path: "/", expectText: ["CodeAgent Lab", "本地完整代码智能体"] },
-    { path: "/", expectText: ["文件树"] },
-    { path: "/no-such-route-zzz", expectText: ["这个页面不存在"] }  // 期望 FAIL：不存在路由
-  ];
-  const a = S.atomMap["browser-smoke"] || {};
-  const id = uid("n");
-  S.canvas.nodes = [{
-    id, atom: "browser-smoke", label: cnName("browser-smoke"),
-    x: 120, y: 80, capability: (a.provides && a.provides[0]) || "browsersmoke.run",
-    params: { url: base, routes: JSON.stringify(routes, null, 1), wait_sec: "8", min_body: "40" },
-    status: null
-  }];
-  S.canvas.edges = [];
-  S.canvas.loopEdges = [];
-  S.canvas.selected = id;
-  S.canvas._defaultLoaded = true;   // 已载入预设 → 不自动覆盖为默认审查图
-  renderCanvas();
-  renderProps();
-  selectNode(id);
-  const lg = $("pipe-log"); if (lg) lg.innerHTML = `<div>[🧪] 已载入编排预设「浏览器 UI 冒烟」(browser-smoke)：对 <b>${esc(base)}</b> 逐路由冒烟（期望 2 PASS + 1 FAIL:不存在路由）— 点「▶ 运行管道」真起 headless Chrome 执行。目标/路由可在右侧属性面板改。</div>`;
-}
-$("btn-ui-smoke-preset") && $("btn-ui-smoke-preset").addEventListener("click", uiSmokePreset);
+/* （已移除：旧的「UI 冒烟预设」按钮——它的能力已经是「🖥 前端冒烟验收」这张编排卡）*/
 
 /* ═══════════ 原子调色板 ═══════════ */
 function renderPalette() {
@@ -952,10 +1559,10 @@ function renderPalette() {
     const el = document.createElement("div");
     el.className = "atom-chip" + (a.origin === "ext" ? " ext" : "");
     el.draggable = true;
-    el.title = `后端原子: ${a.name} · ${a.domain} · 拖到画布或双击添加`;
+    el.title = `后端原子: ${a.name} · ${a.domain} · 点一下即加入编排（也可拖到画布任意位置）`;
     el.innerHTML = `<div class="a-name">${esc(cn)}</div><div class="a-domain">${esc(a.name)} · ${esc(a.version)} · ${a.origin === "ext" ? "扩展" : "核心"}</div>`;
     el.addEventListener("dragstart", (ev) => { ev.dataTransfer.setData("text/plain", a.name); });
-    el.addEventListener("dblclick", () => addCanvasNode(a.name, 60 + Math.random() * 500, 60 + Math.random() * 300));
+    el.addEventListener("click", () => quickAddAtom(a.name));
     box.appendChild(el);
   }
 }
@@ -1010,6 +1617,40 @@ function addCanvasNode(atom, x, y) {
   renderCanvas();
   selectNode(id);
   appendPipeLog(`＋ 已添加节点 [${cnName(atom)}] (后端: ${atom})`);
+}
+function freeSlot() {
+  // 找一个不与现有节点重叠的空位（左→右、上→下扫描）：新节点一定看得见，不会“藏在”已有节点下面
+  for (let row = 0; row < 8; row++) {
+    for (let col = 0; col < 8; col++) {
+      const x = 44 + col * 205, y = 40 + row * 92;
+      if (x > VBW - 160 || y > VBH - 80) continue;
+      const busy = S.canvas.nodes.some((n) => Math.abs(n.x - x) < 140 && Math.abs(n.y - y) < 62);
+      if (!busy) return { x, y };
+    }
+  }
+  return { x: 44, y: 40 };
+}
+function quickAddAtom(atom) {
+  // 点一下左侧原子 → 右侧编排立刻多一个节点（落在空位并闪一下），并与上一个自动串线
+  const slot = freeSlot();
+  addCanvasNode(atom, slot.x + 55, slot.y + 14);
+  const added = S.canvas.nodes[S.canvas.nodes.length - 1];
+  if (added) {
+    added._flash = true;
+    renderCanvas();
+    setTimeout(() => { if (added) { added._flash = false; renderCanvas(); } }, 2600);
+  }
+  const prev = S._lastQuickNode;
+  if (added && prev && S.canvas.nodes.indexOf(prev) >= 0) {
+    const dup = S.canvas.edges.some((e) => e.from === prev.id && e.to === added.id);
+    if (!dup) {
+      S.canvas.edges.push({ from: prev.id, to: added.id, map: "summary", input_name: "input" });
+      renderCanvas();
+      appendPipeLog("↔ 已自动串线: " + prev.label + " → " + added.label);
+    }
+  }
+  S._lastQuickNode = added;
+  flashHint("已加入编排（蓝色闪动那个就是新节点）；再点下一个会自动串起来，右侧可直接改参数");
 }
 function selectNode(id) {
   S.canvas.selected = id;
@@ -1077,13 +1718,16 @@ function paintCanvasAll() {
 }
 function drawCanvas() {
   const svg = $("canvas-svg");
-  svg.setAttribute("viewBox", `0 0 ${VBW} ${VBH}`);
+  // 自适应虚拟区：按内容包围盒取（窄编排→放大显示，长编排→保证都装得下）
+  const ext = S.canvas.nodes.reduce((a, n) => ({ w: Math.max(a.w, n.x + 200), h: Math.max(a.h, n.y + 116) }), { w: 0, h: 0 });
+  const W = Math.max(430, Math.min(VBW, ext.w)), H = Math.max(300, Math.min(VBH, ext.h));
+  svg.setAttribute("viewBox", `0 0 ${W} ${H}`);
   let html = `<defs><marker id="arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="#94a3b8"/></marker><marker id="arrowLoop" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="#f59e0b"/></marker></defs>`;
   const { nodes, edges } = S.canvas;
   for (const e of edges) {
     const a = nodes.find((n) => n.id === e.from), b = nodes.find((n) => n.id === e.to);
     if (!a || !b) continue;
-    const cx = a.x + 120, cy = a.y + 22, cx2 = b.x, cy2 = b.y + 22;
+    const cx = a.x + 150, cy = a.y + 28, cx2 = b.x, cy2 = b.y + 28;
     let cls = "svg-link";
     if (b.status === "done") cls += " active";
     if (b.status === "fail") cls += " fail";
@@ -1093,8 +1737,8 @@ function drawCanvas() {
   for (const le of (S.canvas.loopEdges || [])) {
     const a = nodes.find((n) => n.id === le.from), b = nodes.find((n) => n.id === le.to);
     if (!a || !b) continue;
-    const cx = a.x + 120, cy = a.y + 22, cx2 = b.x, cy2 = b.y + 22;
-    html += `<path class="svg-link loop-edge" style="stroke:#f59e0b;stroke-dasharray:7 5" marker-end="url(#arrowLoop)" title="${esc(le.kind || "循环/反馈")}" d="M${cx},${cy} C${cx + 80},${cy} ${cx2 - 80},${cy2} ${cx2},${cy2}"/>`;
+    const cx = a.x + 150, cy = a.y + 28, cx2 = b.x, cy2 = b.y + 28;
+    html += `<path class="svg-link loop-edge" style="stroke:#f59e0b;stroke-dasharray:7 5" marker-end="url(#arrowLoop)" title="${esc(le.kind || "循环/反馈")}" d="M${cx},${cy} C${cx + 70},${cy + 90} ${cx2 - 70},${cy2 + 90} ${cx2},${cy2}"/>`;
   }
   if (S.canvas.linkDraft) {
     const a = nodes.find((n) => n.id === S.canvas.linkDraft.from);
@@ -1106,12 +1750,12 @@ function drawCanvas() {
     const border = sel ? "#2563eb" : n.status === "fail" ? "#dc2626" : n.status === "done" ? "#16a34a" : n.status === "running" ? "#d97706" : "#94a3b8";
     const a = S.atomMap[n.atom] || {};
     const capTxt = (n.capability || a.provides?.[0] || "").slice(0, 26);
-    html += `<g class="node-g" data-id="${n.id}" transform="translate(${n.x},${n.y})">` +
-      `<rect x="0" y="0" width="120" height="44" rx="6" fill="${color}" stroke="${border}" stroke-width="${sel ? 3 : 1.6}"/>` +
-      `<circle class="port-in" cx="0" cy="22" r="5.5" fill="#3b82f6" stroke="#fff" title="输入端口"/>` +
-      `<circle class="port-out" cx="120" cy="22" r="6" fill="#2563eb" stroke="#fff" title="输出端口"/>` +
-      `<text class="node-title" x="10" y="19" font-size="13.5" font-weight="700" fill="#1e293b" style="cursor:move">${esc((n.label || cnName(n.atom)).slice(0, 18))}</text>` +
-      `<text x="10" y="34" font-size="10" fill="#64748b">${esc(capTxt)}</text>` +
+    html += `<g class="node-g${n._flash ? " flash" : ""}" data-id="${n.id}" transform="translate(${n.x},${n.y})">` +
+      `<rect x="0" y="0" width="150" height="56" rx="8" fill="${color}" stroke="${border}" stroke-width="${sel ? 3 : 1.6}"/>` +
+      `<circle class="port-in" cx="0" cy="28" r="5.5" fill="#3b82f6" stroke="#fff" title="输入端口"/>` +
+      `<circle class="port-out" cx="150" cy="28" r="6" fill="#2563eb" stroke="#fff" title="输出端口"/>` +
+      `<text class="node-title" x="12" y="25" font-size="19" font-weight="700" fill="#1e293b" style="cursor:move">${esc((n.label || cnName(n.atom)).slice(0, 22))}</text>` +
+      `<text x="12" y="45" font-size="12.5" fill="#64748b">${esc(capTxt)}</text>` +
       `</g>`;
   }
   svg.innerHTML = html;
@@ -1222,7 +1866,7 @@ $("btn-run-pipe").addEventListener("click", async () => {
   // 路径型原子(code-review/code-test 等) 已给 path 则由文件推导 code/content，不误拦。
   const missing = validateRequiredParams(S.canvas.nodes);
   if (missing.length) {
-    const brief = missing.slice(0, 4).join("；") + (missing.length > 4 ? ` …共${missing.length}项` : "");
+    const brief = missing.slice(0, 4).map((m) => `${m.label}(${m.atom}) 缺 ${m.missing.join("、")}`).join("；") + (missing.length > 4 ? ` …共${missing.length}项` : "");
     appendPipeLog("❌ 有节点缺必填参数(已拦截): " + brief);
     flash("缺必填参数: " + brief);
     missing.forEach((m) => selectNode(m.id));
@@ -1577,7 +2221,7 @@ async function loadExtList() {
   }));
 }
 
-/* ═══════════ 架构图(36原子一张图) ═══════════ */
+/* ═══════════ 架构图(39原子一张图) ═══════════ */
 function renderArch() {
   const box = $("arch-svg-box");
   if (!S.atoms.length) { box.innerHTML = "<div class='placeholder'>原子库未加载</div>"; return; }
@@ -1607,7 +2251,7 @@ function renderArch() {
     });
   });
   // 图例
-  svg += `<text x="10" y="${H - 26}" font-size="11" fill="#64748b">图例: ⚙ 核心原子(32, 只读复用) · 🧬 扩展原子(壳层挂接, 不改核心) · 数据全在本机(SQLite/JSON), 模型仅连用户配置端点</text>`;
+  svg += `<text x="10" y="${H - 26}" font-size="11" fill="#64748b">图例: ⚙ 核心原子(只读复用) · 🧬 扩展原子(壳层挂接, 不改核心) · 数据全在本机(SQLite/JSON), 模型仅连用户配置端点</text>`;
   if (S.atoms.length) svg += `<text x="10" y="${H - 10}" font-size="11" fill="#64748b">合计 ${S.atoms.length} 原子 · ${domains.length} 领域 · 中文功能名见原子编排调色板(显示中文, 调用走后端原子名)</text>`;
   svg += "</svg>";
   box.innerHTML = svg;

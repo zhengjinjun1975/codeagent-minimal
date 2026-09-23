@@ -1,11 +1,11 @@
 # CodeAgent 对接传统框架指南
 
-> 把 CodeAgent 的 36 个原子作为 **Tool / 子代理节点 / 图编排 / REST / CLI** 集成进主流传统框架：
+> 把 CodeAgent 的 39 个原子作为 **Tool / 子代理节点 / 图编排 / REST / CLI** 集成进主流传统框架：
 > **LangChain · CrewAI · AutoGen · OpenAI Agents SDK · Claude Code**。
 > 所有示例参考 `examples/` 已跑通代码，并遵守两条硬边界：
 >
 > - **本地原子 / 数据不出厂**：默认 `local_only=True`，不注入任何云端密钥；云端 LLM / 远端 OSV 需显式开启。
-> - **一体化完整版开源**：本仓库开源 36 原子 + 统一运行时/入口 + Lab 编排（`lab/`）+ 浏览器前端（`web/`），全部 Apache-2.0、零第三方依赖、克隆即用。
+> - **一体化完整版开源**：本仓库开源 39 原子 + 统一运行时/入口 + Lab 编排（`lab/`，含完整前端：预设模式 + 拖拽组装），全部 Apache-2.0、零第三方依赖、克隆即用。
 
 ---
 
@@ -28,7 +28,7 @@ res = run_capability("codereview.review", path="sample_target.py", mode="code")
 # ② 命令行子进程
 res2 = cli_tool("review", "sample_target.py")
 
-# ③ REST（需先 python web/server.py）
+# ③ REST（需先 python lab/lab_app.py）
 res3 = http_tool(cmd="review", payload={"path": "sample_target.py"})
 
 # 便捷工厂：返回一个可直接被任意框架 @tool 装饰的普通函数
@@ -253,19 +253,20 @@ python examples/graph_orchestration.py
 
 ## 7. REST 集成（web_api_client）
 
-参考：`examples/web_api_client.py`。最小 web 服务 `web/server.py`（纯标准库 `http.server`）暴露 REST 端点，供任意语言/框架调用：
+参考：`examples/web_api_client.py`。完整编排前端 `lab/lab_app.py`（纯标准库 `http.server`）同时就是 REST 服务端，供任意语言/框架调用：
 
 | 端点 | 方法 | 说明 |
 |------|------|------|
 | `/api/health` | GET | 探活（不泄露本机绝对路径） |
-| `/api/status` | GET | 36 原子状态（ready/degraded/冲突） |
-| `/api/files` | GET | 可作审查/测试目标的白名单源码文件 |
-| `/api/run` | POST | `{cmd: review|test|chain|guard|evolve|status, payload:{...}}` |
+| `/api/atoms` | GET | 原子清单（ready/degraded/冲突） |
+| `/api/action` | POST | 单步动作 `{cmd: status|review|test|chain|guard|evolve|project|git|evals, path?, ...}` |
+| `/api/pipeline/run` | POST | 跑一条编排图 `{name, graph}`（多步流程） |
+| `/api/tree?recursive=1` | GET | 目标仓库文件树 |
 
 ```bash
 # 启动（绑定 127.0.0.1，数据不出厂；可选 --token 加访问令牌）
-python web/server.py --port 8080
-python web/server.py --port 8080 --token mysecret        # 需请求头带 X-Token
+python lab/lab_app.py --port 8087
+python lab/lab_app.py --port 8087 --token mysecret       # 需请求头带 X-Token
 ```
 
 ```python
@@ -278,18 +279,18 @@ print(http_tool(cmd="status"))
 运行自测：
 
 ```bash
-python web/server.py --port 8080 &        # 先启动服务
+python lab/lab_app.py --port 8087 &        # 先启动服务
 python examples/web_api_client.py
 ```
 
-> 安全加固：默认绑定 `127.0.0.1`；路径穿越防护（仅白名单源码文件）；POST body 上限 1MB 防 DoS；跨站 Origin 拦截；可选 `X-Token` 鉴权。
+> 安全加固：默认绑定 `127.0.0.1`；路径穿越防护（仅目标仓库内路径）；POST body 上限 1MB 防 DoS；跨站 Origin 拦截；可选 `X-Token` 鉴权。
 
 ---
 
 ## 集成边界与最佳实践
 
 1. **本地原子 / 数据不出厂**：默认 `local_only=True`；`_env()` 剥离云端密钥；`depscan` 默认不查远端 OSV；LLM/MCP 远端需显式 `allow_remote`/`--remote`。
-2. **一体化完整版开源**：本仓库开源 36 原子 + 统一运行时/入口 + Lab 编排（`lab/`，含 `lab/frontend`）+ 最小运行前端（`web/`），全部 Apache-2.0、零第三方依赖、克隆即用；也支持你在外部框架内自行编排原子。
+2. **一体化完整版开源**：本仓库开源 39 原子 + 统一运行时/入口 + Lab 编排（`lab/`，含 `lab/frontend` 完整前端：预设模式 + 拖拽组装），全部 Apache-2.0、零第三方依赖、克隆即用；也支持你在外部框架内自行编排原子。子。
 3. **统一信封**：所有原子返回 `{ok, data}` JSON 字符串，任何框架 `json.loads` 后按 `data` 字段取用；失败自动 `{ok:false, degraded:true}`，下游需做降级判断。
 4. **权限最小化**：`dispatch.permission` 提供 allow/ask/deny 细粒度策略，可拦截工具/命令/文件三类资源，接入高风险动作时建议启用。
-5. **目标白名单**：REST `/api/run` 仅允许 `web/server.py` 白名单内的项目源码文件，防任意文件读取。
+5. **路径与动作边界**：Lab 的动作口只认登记动作（`status/review/test/chain/guard/evolve/project/git/evals`，git 仅只读）；路径解析仅允许目标仓库内路径，防越界读取。

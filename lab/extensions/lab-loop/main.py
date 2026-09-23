@@ -57,8 +57,8 @@ class LabLoopAgent(AtomicAgent):
         self.register("loop.iterate", self._iterate)
 
     def _retry(self, target_atom=None, target_cap=None, attempts=2, params=None):
-        atom = target_atom or "lab-echo96914"
-        cap = target_cap or "echo.summarize96914"
+        atom = target_atom or "code-test"
+        cap = target_cap or "test.run"
         n = max(1, int(_coerce(attempts) or 2))
         p = dict(_coerce(params) or {})
         p.pop("_retry_error", None)
@@ -81,8 +81,8 @@ class LabLoopAgent(AtomicAgent):
                              atom, cap, attempts_used, "成功" if ok else "失败")}}
 
     def _iterate(self, target_atom=None, target_cap=None, items=None, params=None, item_param="item"):
-        atom = target_atom or "lab-echo96914"
-        cap = target_cap or "echo.summarize96914"
+        atom = target_atom or "code-test"
+        cap = target_cap or "test.run"
         items = _coerce(items)
         if items is None:
             items = []

@@ -52,8 +52,11 @@
 | 34 | `code-skill` | `skill` | `skill` | `list/load/export/sediment` |
 | 35 | `code-plan` | `plan` | `plan` | `think/gen` |
 | 36 | `git-ops` | `tools` | （原子自带 CLI） | `git.status/diff/log/commit/branch` |
+| 37 | `event-log` | `memory` | （原子自带 CLI） | `append/checkpoint/replay/timeline` |
+| 38 | `secret-vault` | `secrets` | （原子自带 CLI） | `encrypt/decrypt/store/load/mask/vault` |
+| 39 | `session` | `session` | （原子自带 CLI） | `start/step/list/get/resume/status` |
 
-> 注册索引见 `registry.json`；运行时用 `python codeagent.py status --json` 查看 36 原子 ready/degraded/冲突状态。本指南深入讲解下表精选核心原子；完整 36 原子清单见 [README](../README.md) 的「原子清单」。
+> 注册索引见 `registry.json`；运行时用 `python codeagent.py status --json` 查看 39 原子 ready/degraded/冲突状态。本指南深入讲解下表精选核心原子；完整 39 原子清单见 [README](../README.md) 的「原子清单」。
 
 ---
 
@@ -441,7 +444,7 @@ python codeagent.py deliver --chain "think,gen,review,test,evolve" --json
 
 ## 组装链与护栏
 
-36 原子经统一运行时按能力依赖（`depends_on`）做拓扑排序 + 冲突检测，可任意组装成链：
+39 原子经统一运行时按能力依赖（`depends_on`）做拓扑排序 + 冲突检测，可任意组装成链：
 
 ```bash
 # 安全·质量组装链：review + dep-scan + fuzz 协同
@@ -450,7 +453,7 @@ python codeagent.py guard sample_target.py --json
 # 通用组装链：think→gen→review→test→evolve
 python codeagent.py chain --task "修复登录校验漏洞" --code '<code>' --language python --json
 
-# 运行时全貌（36 原子 ready/degraded/冲突）
+# 运行时全貌（39 原子 ready/degraded/冲突）
 python codeagent.py status --json
 ```
 

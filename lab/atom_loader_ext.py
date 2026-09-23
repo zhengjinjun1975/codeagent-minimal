@@ -201,7 +201,8 @@ _EDGE_OK_INPUTS = {
 # 复杂参数类型 → 前端用结构化 JSON 编辑
 _JSON_INPUTS = {"steps", "items", "chain", "params", "outputs", "evidence", "findings", "data"}
 # 必填入参（缺了无法运行）
-_REQUIRED_INPUTS = {"path", "chain", "steps", "task", "content", "code"}
+# 注：不含 steps —— lab-harness 的 steps 允许为空（只聚合上游 evidence），空 steps 是合法默认。
+_REQUIRED_INPUTS = {"path", "chain", "task", "content", "code"}
 
 
 def _derive_schema(inputs):

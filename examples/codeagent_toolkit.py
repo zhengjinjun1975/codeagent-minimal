@@ -66,14 +66,17 @@ def cli_tool(capability: str, *args: str, timeout: int = 180) -> str:
         return json.dumps({"ok": False, "raw": out}, ensure_ascii=False)
 
 
-def http_tool(host: str = "127.0.0.1", port: int = 8080,
+def http_tool(host: str = "127.0.0.1", port: int = 8087,
               cmd: str = "review", payload: dict | None = None,
               token: str = "", timeout: int = 180) -> str:
-    """方式③REST：调用最小 web 的 /api/run 端点。返回 JSON 字符串。"""
+    """方式③REST：调用完整编排前端（Lab）的 /api/action 端点。返回 JSON 字符串。
+
+    payload 的键会与 {"cmd": cmd} 合并后作为平铺 JSON 体发出（Lab 接口为平铺入参）。
+    """
     import json as _json
-    body = _json.dumps({"cmd": cmd, "payload": payload or {}}).encode("utf-8")
+    body = _json.dumps(dict({"cmd": cmd}, **(payload or {}))).encode("utf-8")
     req = urllib.request.Request(
-        f"http://{host}:{port}/api/run", data=body,
+        f"http://{host}:{port}/api/action", data=body,
         headers={"Content-Type": "application/json",
                  "X-Token": token} if token else {"Content-Type": "application/json"})
     try:

@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-"""gen_arch_svg.py — 从 registry.json 生成「36 原子架构一张图」SVG(文档落盘 docs/)。
+"""gen_arch_svg.py — 从 registry.json 生成「39 原子架构一张图」SVG(文档落盘 docs/)。
 
 纯 stdlib, 只读 registry, 加壳不改核心。生成的 SVG 同时被前端"架构图"视图参考。
 """

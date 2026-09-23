@@ -1,0 +1,1 @@
+print(open('x.txt').read())

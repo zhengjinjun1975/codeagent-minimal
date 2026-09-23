@@ -1,0 +1,51 @@
+{
+  "name": "session",
+  "version": "0.1.0",
+  "domain": "session",
+  "description": "会话化原子（P1，借鉴Codex CodexThread/ThreadManager/thread-store）: 会话=一串原子调用, JSON持久化记录每步输入/输出摘要+状态, 支持resume续跑。落盘.codeagent/sessions, 纯文本可读数据不出厂。",
+  "open_source": true,
+  "agent_class": "SessionAgent",
+  "entry": "main.py",
+  "provides": [
+    "session.start",
+    "session.step",
+    "session.list",
+    "session.get",
+    "session.resume",
+    "session.status"
+  ],
+  "depends_on": [],
+  "inputs": [
+    "sid",
+    "task",
+    "step_capability",
+    "inputs",
+    "output",
+    "status",
+    "session_dir"
+  ],
+  "outputs": [
+    "sid",
+    "created",
+    "updated",
+    "steps",
+    "status",
+    "step",
+    "next",
+    "sessions",
+    "summary"
+  ],
+  "path": "agents/session/session",
+  "permission": {
+    "needs": [
+      "read",
+      "write"
+    ],
+    "network": false
+  },
+  "resource": {
+    "model_calls": 0,
+    "timeout_sec": 120,
+    "memory_mb": 512
+  }
+}

@@ -116,19 +116,23 @@ def run_capability(atom_name, capability, params=None, timeout=180,
             for opt, an in (("--chain", "chain"), ("--outputs", "outputs")):
                 v = params.get(an)
                 if v is None:
-                    # 缺必参 → 诚实失败（不猜测拼装）
-                    return {"ok": False, "error": f"能力 {capability} 缺参数 {an}",
-                            "degraded": True, "elapsed": round(time.time() - t0, 2),
-                            "source": "runner"}
+                    # 交付原子：chain/outputs 缺省即为空——上游没接就如实报“没有上游”，不把整条编排判红
+                    v = [] if an == "chain" else {}
                 args += [opt, json.dumps(v, ensure_ascii=False)]
         else:
             for an in arg_names:
                 v = params.get(an) or params.get(_alias(an))
                 if v is None:
-                    # 缺必参 → 诚实失败（不猜测拼装）
-                    return {"ok": False, "error": f"能力 {capability} 缺参数 {an}",
-                            "degraded": True, "elapsed": round(time.time() - t0, 2),
-                            "source": "runner"}
+                    # 容器型入参：上游没接 = 空容器（如实表示“没有上游输入”），而不是整条编排判红
+                    if an in ("chain", "items", "steps", "findings", "data"):
+                        v = [] if an != "data" else {}
+                    elif an in ("outputs", "evidence", "artifacts", "params"):
+                        v = {}
+                    else:
+                        # 缺必参 → 诚实失败（不猜测拼装）
+                        return {"ok": False, "error": f"能力 {capability} 缺参数 {an}",
+                                "degraded": True, "elapsed": round(time.time() - t0, 2),
+                                "source": "runner"}
                 if isinstance(v, (dict, list)):
                     args.append(json.dumps(v, ensure_ascii=False))
                 else:

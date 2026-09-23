@@ -32,7 +32,9 @@ class CodeDeliverAgent(AtomicAgent):
         self.register("deliver.report", self._report)
         self.register("deliver.package", self._package)
 
-    def _report(self, chain, outputs, evidence=None):
+    def _report(self, chain=None, outputs=None, evidence=None):
+        chain = chain or []
+        outputs = outputs or {}
         """汇总组装链各环输出为可读验收报告。纯本地聚合。"""
         NL = "\n"
         lines = ["# 组装链验收报告", ""]
@@ -57,7 +59,8 @@ class CodeDeliverAgent(AtomicAgent):
         return {"report": NL.join(lines), "verdict": verdict,
                 "ok_steps": [s for s in ok_steps if s]}
 
-    def _package(self, outputs, artifacts=None):
+    def _package(self, outputs=None, artifacts=None):
+        outputs = outputs or {}
         """收集产物文件清单。"""
         files = []
         if isinstance(artifacts, list):

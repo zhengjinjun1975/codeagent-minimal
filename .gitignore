@@ -14,6 +14,10 @@ lab/**/lab_data/
 .codeagent_snapshots/
 experience/
 *.log
+# 原子运行时数据（事件流落盘 / 修复备份：属本地运行产物，不入库）
+_store/
+*_repair_backup_*/
+.runtime.jsonl
 
 # 测试截图 / 临时图
 *.png

@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-"""web_viz.py — HTTP 端点层（FR1-FR7，纯 stdlib，安全加固沿用 web/server.py 既有模式）。
+"""web_viz.py — HTTP 端点层（FR1-FR7，纯 stdlib，统一安全加固：路径白名单 / 限额 / CSRF / 可选 Token）。
 
 - 统一契约 {ok, data?, error?}（NFR8 可观测全端点）
 - 安全：路径白名单（target_root 内相对路径，拒绝 ../ 与逃逸绝对路径）/
@@ -12,6 +12,8 @@
 import json
 import os
 import re
+import subprocess
+import sys
 import threading
 import time
 import urllib.parse
@@ -19,6 +21,103 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
 from events import get_bus
 from lab_config import get_config
+
+# ── 预设动作（原 web/ 运行前端的 9 个动作，统一收进 Lab 单一前端）──
+ACTIONS = ("status", "review", "test", "chain", "guard", "evolve", "project", "git", "evals")
+ACTION_LABELS = {
+    "status": "运行 status", "review": "运行审查", "test": "运行测试",
+    "chain": "运行组装链", "guard": "guard 链", "evolve": "运行 evolve",
+    "project": "项目验收", "git": "git 状态", "evals": "跑题集",
+}
+
+
+def _run_proc(cmd, cwd, timeout=180):
+    """跑子进程并尽力解析 stdout 的 JSON（cwd 固定仓库根，不经过 shell）。"""
+    try:
+        proc = subprocess.run(cmd, cwd=cwd, capture_output=True, text=True,
+                              timeout=timeout, encoding="utf-8", errors="replace")
+        out = (proc.stdout or "").strip()
+        tail = out[out.index("{"):] if "{" in out else ""
+        for cand in (out, tail):
+            if not cand:
+                continue
+            try:
+                return json.loads(cand)
+            except json.JSONDecodeError:
+                continue
+        return {"raw": out, "stderr": (proc.stderr or "")[-2000:], "code": proc.returncode}
+    except subprocess.TimeoutExpired:
+        return {"error": f"命令超时(>{timeout}s)"}
+    except Exception as e:  # noqa: BLE001
+        return {"error": f"调用失败: {e.__class__.__name__}"}
+
+
+def _run_cli(root, args, timeout=180):
+    """调用仓库统一入口 codeagent.py（--json 输出）。"""
+    return _run_proc([sys.executable, os.path.join(root, "codeagent.py")] + args + ["--json"], root, timeout)
+
+
+def _run_repo_script(root, rel, args, timeout=180):
+    """调用仓库内脚本（路径由调用处写死，不接受外部拼接）。"""
+    return _run_proc([sys.executable, os.path.join(root, rel)] + args, root, timeout)
+
+
+def run_action(root, cmd, body):
+    """执行一个预设动作（映射与原最小前端一致：status/review/test/chain/guard/evolve/project/git/evals）。"""
+    body = body or {}
+    if cmd not in ACTIONS:
+        return {"ok": False, "error": f"未知动作: {cmd}"}
+    target = str(body.get("path") or root)
+    if cmd == "status":
+        return {"ok": True, "cmd": cmd, "result": _run_cli(root, ["status"])}
+    if cmd == "review":
+        return {"ok": True, "cmd": cmd, "target": target, "result": _run_cli(root, ["review", target])}
+    if cmd == "test":
+        args = ["test", target]
+        if body.get("no_mutation"):
+            args.append("--no-mutation")
+        return {"ok": True, "cmd": cmd, "target": target, "result": _run_cli(root, args)}
+    if cmd == "chain":
+        task = str(body.get("task") or "").strip()
+        if not task:
+            return {"ok": False, "error": "请填写组装链任务描述"}
+        args = ["chain", "--task", task]
+        if body.get("code"):
+            args += ["--code", json.dumps(body["code"], ensure_ascii=False)]
+        return {"ok": True, "cmd": cmd, "result": _run_cli(root, args, timeout=300)}
+    if cmd == "guard":
+        return {"ok": True, "cmd": cmd, "target": target, "result": _run_cli(root, ["guard", target])}
+    if cmd == "evolve":
+        task = str(body.get("task") or "").strip()
+        if not task or not body.get("outcome"):
+            return {"ok": False, "error": "evolve 需任务与结果两个参数"}
+        return {"ok": True, "cmd": cmd, "result": _run_cli(
+            root, ["evolve", "--task", task, "--outcome", json.dumps(body["outcome"], ensure_ascii=False)])}
+    if cmd == "project":
+        d = str(body.get("dir") or root)
+        return {"ok": True, "cmd": cmd, "target": d, "result": _run_cli(root, ["project", d], timeout=300)}
+    if cmd == "git":
+        action = str(body.get("action") or "status")
+        if action not in ("status", "diff", "log", "branch"):
+            return {"ok": False, "error": f"git 只开放只读动作: {action}"}
+        args = ["--capability", "git." + action, "--path", str(body.get("dir") or root)]
+        if action == "log":
+            try:
+                n = max(1, min(int(body.get("n") or 10), 50))
+            except (TypeError, ValueError):
+                n = 10
+            args += ["--n", str(n)]
+        if action == "branch":
+            args += ["--action", "list"]
+        return {"ok": True, "cmd": cmd, "capability": "git." + action,
+                "result": _run_repo_script(root, os.path.join("agents", "tools", "git-ops", "main.py"), args)}
+    try:
+        k = max(1, min(int(body.get("k") or 1), 3))
+    except (TypeError, ValueError):
+        k = 1
+    return {"ok": True, "cmd": "evals",
+            "result": _run_repo_script(root, os.path.join("scripts", "run_evals.py"), ["--k", str(k), "--json"], timeout=300)}
+
 
 _MAX_BODY = 1 * 1024 * 1024
 APP = None          # LabApp 实例（lab_app.py 启动时注入）
@@ -191,7 +290,16 @@ class Handler(BaseHTTPRequestHandler):
             return
         if path == "/api/atoms":
             from atom_loader_ext import merged_registry
-            self._ok(merged_registry(cfg.codeagent_root()))
+            import importlib.util as _iu
+            payload = merged_registry(cfg.codeagent_root())
+            try:   # 版本号单点：仓库根 version.py（前端顶部显示）
+                _sp = _iu.spec_from_file_location("_labver", os.path.join(cfg.codeagent_root(), "version.py"))
+                _m = _iu.module_from_spec(_sp)
+                _sp.loader.exec_module(_m)
+                payload["version"] = getattr(_m, "__version__", "")
+            except Exception:   # noqa: BLE001
+                payload["version"] = ""
+            self._ok(payload)
             return
         if path == "/api/fs/roots":
             # 路径边界: 文件/目录选择器允许浏览的根白名单(默认=本机存在的盘符根 +
@@ -443,6 +551,24 @@ class Handler(BaseHTTPRequestHandler):
                                  registry=merged_registry(cfg.codeagent_root()),
                                  codeagent_root=cfg.codeagent_root())
             self._ok(env)
+            return
+        if path == "/api/action":
+            cfg = get_app().cfg
+            act = dict(body)
+            raw = str(act.get("path") or act.get("dir") or "").strip()
+            if raw:
+                real, _rel, terr = cfg.resolve_target(raw)
+                if terr:
+                    self._err(terr, 400)
+                    return
+            else:
+                real = cfg.target_root()
+            act["path"] = act["dir"] = real
+            r = run_action(cfg.codeagent_root(), str(act.get("cmd") or ""), act)
+            if not r.get("ok"):
+                self._err(r.get("error") or "动作执行失败", 400)
+                return
+            self._ok(r)
             return
         self._err("404 未找到", 404)
 

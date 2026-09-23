@@ -4,7 +4,7 @@
 这是「吸收 OpenCode 能力后融合成新 CodeAgent 大整体」的统一运行时核心。
 
 设计目标（融合，非零散原子）：
-- 单一 AgentRuntime：一个运行时统一注册 + 统一调度全部原子（36 原子，数量随 registry 动态）。
+- 单一 AgentRuntime：一个运行时统一注册 + 统一调度全部原子（39 原子，数量随 registry 动态）。
 - 原子协同 / 依赖 / 冲突 / 降级：经 loader 的 manifest 解析 + 拓扑序，本运行时做
   能力级路由（capability → atom）、可选依赖缺省降级、冲突提示。
 - 原子间数据流：`run_capability` 支持把上一原子的 `{ok,data}` 输出注入下一原子的
@@ -121,7 +121,7 @@ class AgentRuntime:
     """CodeAgent 统一运行时：单一运行时调度全部原子，提供协同 / 依赖 / 冲突 / 降级。
 
     用法：
-        rt = AgentRuntime()                 # 统一加载 36 原子
+        rt = AgentRuntime()                 # 统一加载 39 原子
         rt.run_capability("codereview.review", path=...)
         rt.run_chain([...], task=...)       # 原子协同数据流
         rt.evolve_loop(task, outcome)       # 大自进化闭环

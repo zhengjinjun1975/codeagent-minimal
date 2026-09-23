@@ -14,6 +14,7 @@
     <span class="sub">本地完整代码智能体 · 纯 stdlib · 数据不出私域</span>
   </div>
   <div class="top-right">
+    <span id="ver-pill" class="pill" title="版本号（单点来源 = 仓库根 version.py）">v—</span>
     <span id="atom-count" class="pill" title="原子库规模">原子...</span>
     <span id="conn-pill" class="pill ok">服务 ✓</span>
   </div>
@@ -28,21 +29,41 @@
     <span id="target-hint" class="hint"></span>
   </div>
   <nav id="tabs">
-    <button data-view="workspace" class="tab active">代码工作区</button>
-    <button data-view="canvas" class="tab">🧩 原子编排</button>
-    <button data-view="debug" class="tab">🔧 黑箱调试</button>
-    <button data-view="report" class="tab">📋 审查报告</button>
-    <button data-view="models" class="tab">🧠 模型配置</button>
-    <button data-view="ext" class="tab">🧬 原子扩展</button>
-    <button data-view="arch" class="tab">🗺 架构图</button>
-    <button data-view="events" class="tab">📡 事件流</button>
+    <button data-view="presets" class="tab mode active"><span class="ic">✨</span><span class="mt"><b>用预设 · 点一下就跑</b><span>选一件要做的事，剩下的我来</span></span></button>
+    <button data-view="canvas" class="tab mode"><span class="ic">🧩</span><span class="mt"><b>自己组装 · 拖拽搭流程</b><span>从原子列表拖，连成你自己的流程</span></span></button>
+    <div id="tools-wrap">
+      <button id="btn-tools" class="mini">🗂 更多工具 ▾</button>
+      <div id="tools-list" class="hidden">
+        <button data-view="workspace" class="tab">📁 代码工作区</button>
+        <button data-view="debug" class="tab">🔧 黑箱调试</button>
+        <button data-view="report" class="tab">📋 审查报告</button>
+        <button data-view="models" class="tab">🧠 模型配置</button>
+        <button data-view="ext" class="tab">🧬 原子扩展</button>
+        <button data-view="arch" class="tab">🗺 架构图</button>
+        <button data-view="events" class="tab">📡 事件流</button>
+      </div>
+    </div>
   </nav>
 </header>
 
 <main id="main">
 
+  <!-- ══════════ 预设模式: 卡片网格 + 运行进度（主入口） ══════════ -->
+  <section id="view-presets" class="view active">
+    <section class="panel flex-1">
+      <div class="lead">想做什么？<b>点一张卡片就行</b> 👇 <span class="dim">每张卡就是一套完整编排（步骤就印在卡上）· 点「▶ 开始」它自己跑完 · 想改就点「✎ 改图」，到画布上改的是同一套 · 单步工具在「🗂 更多工具 ▾」里</span></div>
+      <div id="preset-cards"></div>
+    </section>
+    <aside class="panel right">
+      <div class="panel-head"><span>▶ 运行进度</span><span id="preset-run-title" class="hint"></span></div>
+      <div id="preset-progress" class="info-box"></div>
+      <div class="panel-head"><span>🕘 最近跑过的</span></div>
+      <div id="preset-history" class="info-box"></div>
+    </aside>
+  </section>
+
   <!-- ══════════ 代码工作区: 文件树 + 编辑器/方法级/图 ══════════ -->
-  <section id="view-workspace" class="view active">
+  <section id="view-workspace" class="view">
     <aside id="tree-panel" class="panel">
       <div class="panel-head">
         <span>文件树</span>
@@ -76,18 +97,18 @@
   <!-- ══════════ 原子编排: 调色板 + 拖拽画布 ══════════ -->
   <section id="view-canvas" class="view">
     <aside id="palette" class="panel">
-      <div class="panel-head"><span>原子调色板 <small>(36核心+扩展, 中文功能名)</small></span></div>
+      <div class="panel-head"><span>原子调色板 <small>(核心 + 扩展, 中文功能名)</small></span></div>
       <div id="palette-search"><input id="palette-q" placeholder="过滤原子(支持中文名)..."></div>
       <div id="palette-box" class="palette-box"></div>
     </aside>
     <section id="canvas-panel" class="panel flex-1">
       <div class="panel-head">
-        <span>拖拽编排画布</span>
+        <span>编排图（选一套载入 → 点节点改参数 → 拖拽改连线 → ▶ 运行）</span>
         <span class="head-actions">
-          <input id="pipe-name" placeholder="管道名称" value="审查-管道">
+          <select id="orch-pick" title="选一套编排载入画布：16 套预设编排 + 空白自搭"></select>
+          <input id="pipe-name" placeholder="这次运行的名字" value="全量代码审查" title="这次运行叫什么名字；载入某套编排时会自动改成它的名字">
           <button id="btn-validate" class="mini">校验</button>
           <button id="btn-run-pipe" class="mini primary">▶ 运行管道</button>
-          <button id="btn-ui-smoke-preset" class="mini" title="载入「浏览器 UI 冒烟」编排预设(browser-smoke)：对当前前端逐路由真实浏览器冒烟(期望 2 PASS+1 FAIL)。载入后点▶运行管道。">🧪 UI冒烟预设</button>
           <button id="btn-clear-canvas" class="mini">清空</button>
         </span>
       </div>
@@ -97,7 +118,7 @@
           <span class="lg-line"><svg width="22" height="4"><line x1="0" y1="2" x2="22" y2="2" stroke="#94a3b8" stroke-width="2"/></svg> 实线 = 数据流(执行)</span>
           <span class="lg-line"><svg width="22" height="4"><line x1="0" y1="2" x2="22" y2="2" stroke="#f59e0b" stroke-width="2" stroke-dasharray="6 4"/></svg> 橙虚线 = 循环反馈环路(语义)</span>
         </div>
-        <div id="canvas-tip" class="canvas-tip">① 左侧拖原子到画布(或双击) → ② 从节点右端 ◉ 拖到另一节点左端 ○ 连线 → ③ 点节点右侧配置参数 → ④ ▶ 运行管道(节点随事件变绿=完成/变红=失败)</div>
+        <div id="canvas-tip" class="canvas-tip">① 点左侧原子即入编排（也可拖到画布任意位置，新节点会蓝色闪一下） → ② 从节点右端 ◉ 拖到另一节点左端 ○ 连线 → ③ 点节点右侧配置参数 → ④ ▶ 运行管道(节点随事件变绿=完成/变红=失败)</div>
       </div>
       <div id="pipe-log" class="pipe-log"></div>
     </section>
@@ -211,8 +232,8 @@
   <!-- ══════════ 架构图 ══════════ -->
   <section id="view-arch" class="view">
     <section class="panel flex-1">
-      <div class="panel-head"><span>🗺 原子架构一张图（36 核心原子 + 扩展 + 壳层）</span></div>
-      <div id="arch-svg-box" class="arch-box"><div class="placeholder">加载 36 原子架构图...</div></div>
+      <div class="panel-head"><span>🗺 原子架构一张图（核心原子 + 扩展 + 壳层）</span></div>
+      <div id="arch-svg-box" class="arch-box"><div class="placeholder">加载原子架构图...</div></div>
     </section>
   </section>
 
@@ -225,6 +246,9 @@
   </section>
 
 </main>
+
+<!-- ══════════ 统一结果区（所有预设动作的结果落这里：进行中 / 成功 / 失败原因）══════════ -->
+<div id="run-log" class="run-log hidden"></div>
 
 <!-- ══════════ 底部: 对话流 ══════════ -->
 <footer id="chatbar">

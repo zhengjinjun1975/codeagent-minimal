@@ -43,6 +43,38 @@ def _coerce(v):
     return v
 
 
+def _verdict_from_evidence(ev):
+    """从上游 evidence 推导裁决（门控的真实输入）：任一 ok=False / verdict!=ALL_OK → PARTIAL_FAIL。
+
+    没有任何可判据时返回 None（门控不臆断，视为无证据）。
+    """
+    state = {"seen": False, "bad": False}
+
+    def walk(x, depth=0):
+        if depth > 4:
+            return
+        if isinstance(x, dict):
+            v = x.get("verdict")
+            if isinstance(v, str):
+                state["seen"] = True
+                if v != "ALL_OK":
+                    state["bad"] = True
+            if "ok" in x:
+                state["seen"] = True
+                if x.get("ok") is False:
+                    state["bad"] = True
+            for sub in x.values():
+                walk(sub, depth + 1)
+        elif isinstance(x, (list, tuple)):
+            for sub in x:
+                walk(sub, depth + 1)
+
+    walk(ev)
+    if not state["seen"]:
+        return None
+    return "PARTIAL_FAIL" if state["bad"] else "ALL_OK"
+
+
 class LabHarnessAgent(AtomicAgent):
     name = "lab-harness"
     version = "0.1.0"
@@ -106,7 +138,9 @@ class LabHarnessAgent(AtomicAgent):
     def _gate(self, condition="all_ok", evidence=None, steps=None, retries=1):
         ctl = self._control(steps=steps, evidence=evidence, retries=retries)
         data = ctl.get("data", {}) if isinstance(ctl.get("data"), dict) else {}
-        verdict = data.get("verdict")
+        # 以「上游证据的裁决」为准：evidence 才是门控的真实输入（上游失败时门必须能关）
+        ev_verdict = _verdict_from_evidence(_coerce(evidence))
+        verdict = ev_verdict or data.get("verdict")
         cond = _coerce(condition)
         if isinstance(cond, (list, tuple)):
             cond = cond[0] if cond else "all_ok"
@@ -115,7 +149,8 @@ class LabHarnessAgent(AtomicAgent):
             (cond == "any_fail" and verdict == "PARTIAL_FAIL") or
             (cond == "always"))
         decision = "放行进入下一阶段(门控通过)" if gate_open else "拦截(门控未通过, 进入重试/迭代反馈)"
-        return {"ok": True, "data": {"verdict": verdict, "gate_open": gate_open,
+        return {"ok": True, "data": {"verdict": verdict, "evidence_verdict": ev_verdict,
+                                     "gate_open": gate_open,
                                      "decision": decision,
                                      "summary": "门控控制器: " + decision}}
 

@@ -67,9 +67,10 @@ def scan_atomcn(js, atoms):
     return sorted(set(atoms) - keys)
 
 
-def scan_server_cmds(text, allowed):
-    cmds = set(re.findall(r'cmd\s*==\s*"([a-z_]+)"', text))
-    return sorted(cmds - set(allowed))
+def scan_action_surface(text):
+    """lab/web_viz.py 的 ACTIONS 动作口集合（原 web/server.py 的命令面已平移过来）。"""
+    m = re.search(r'ACTIONS\s*=\s*\(([^)]*)\)', text)
+    return set(re.findall(r'"([a-z_]+)"', m.group(1))) if m else set()
 
 
 def test_registry_self_consistent():
@@ -105,7 +106,7 @@ def _scan_surfaces(n):
             with open(full, encoding='utf-8', errors='replace') as f:
                 for ln, frag in scan_atom_counts(f.read(), n):
                     bad.append(f'{rel}:{ln} {frag!r} != {n}')
-    for rel in ('agent_runtime.py', 'web/server.py', 'lab/lab_app.py', 'lab/pipeline.py',
+    for rel in ('agent_runtime.py', 'lab/web_viz.py', 'lab/lab_app.py', 'lab/pipeline.py',
                 'lab/atom_extension.py', 'lab/report_gen.py', 'tools/gen_arch_svg.py',
                 'examples/web_api_client.py'):
         for ln, frag in scan_atom_counts(_read(rel), n):
@@ -133,10 +134,13 @@ def test_frontend_atomcn_covers():
     assert not missing, f'ATOM_CN 缺原子: {missing}'
 
 
-def test_server_cmd_whitelist():
+def test_lab_action_surface_whitelist():
     allowed = {'status', 'review', 'test', 'chain', 'guard', 'evolve', 'project', 'git', 'evals'}
-    extra = scan_server_cmds(_read('web/server.py'), allowed)
-    assert not extra, f'server.py 命令超出白名单: {extra}'
+    viz = _read('lab/web_viz.py')
+    acts = scan_action_surface(viz)
+    assert acts == allowed, (f'Lab 动作口与白名单不一致: 缺={sorted(allowed - acts)} '
+                             f'多={sorted(acts - allowed)}')
+    assert 'def run_action' in viz, 'lab/web_viz.py 缺 run_action 执行体'
     caps = _registry_caps()
     assert 'git.status' in caps.get('git-ops', []), 'git-ops 缺 git.status'
     assert 'test.project' in caps.get('code-test', []), 'code-test 缺 test.project'
