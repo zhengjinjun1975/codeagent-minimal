@@ -377,7 +377,7 @@ th{{background:#eef4fb}} .lv-P0 td{{background:#fdecea}} .lv-P1 td{{background:#
 <div class="sec"><h3>分层</h3><ul>{layers or '<li>（无分层输出）</li>'}</ul></div>
 <div class="sec"><h3>依赖拓扑</h3><p>{dep_txt}</p></div>
 <h2>原子章节</h2>{secs}
-<hr><p class="meta">由 lab/report_gen.py 聚合 8 原子生成（code-review / arch-review / security-scan / dep-scan / deadcode / doc-freshness / complexity / method-impact）</p>
+<hr><p class="meta">由 lab/report_gen.py 聚合 8 个指定原子生成（code-review / arch-review / security-scan / dep-scan / deadcode / doc-freshness / complexity / method-impact）</p>
 </body></html>"""
 
 

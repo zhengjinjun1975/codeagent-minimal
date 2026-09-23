@@ -4,7 +4,7 @@
 纯 http.server 实现：
   - 托管静态 index.html（浅色/中文/按钮/结果展示）
   - API 端点真实调用统一入口 codeagent.py（subprocess），
-    显示 16 原子状态(ready/degraded/冲突) + 运行 review/test/chain/guard/evolve/status。
+    显示 35 原子状态(ready/degraded/冲突) + 运行 review/test/chain/guard/evolve/status。
 
 安全加固（codeagent-security-hardening）：
   - P0 路径穿越：review/test/guard 的 target 必须是 ROOT 内 `_code_targets()` 白名单源码文件，
@@ -107,7 +107,7 @@ def _run_codeagent(args, timeout=180):
 
 
 def _status_atoms():
-    """16 原子状态：ready / degraded / 冲突。"""
+    """35 原子状态：ready / degraded / 冲突。"""
     d = _run_codeagent(["status"])
     atoms = d.get("status") or {}
     order = atoms.get("order") or atoms.get("atoms") or []

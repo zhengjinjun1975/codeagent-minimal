@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-"""gen_arch_svg.py — 从 registry.json 生成「32 原子架构一张图」SVG(文档落盘 docs/)。
+"""gen_arch_svg.py — 从 registry.json 生成「35 原子架构一张图」SVG(文档落盘 docs/)。
 
 纯 stdlib, 只读 registry, 加壳不改核心。生成的 SVG 同时被前端"架构图"视图参考。
 """
@@ -68,7 +68,7 @@ def build(atoms):
             s.append(f'<text x="{gx+20:.0f}" y="{ay+9:.0f}" font-size="9.5" fill="#1f2a37">{a["name"]}</text>')
     # 图例
     ly = H - 34
-    s.append(f'<text x="18" y="{ly}" fill="#6b7a90" font-size="11">图例: 6 大领域分组 · 每块=1 原子(manifest: name/domain/provides/depends_on) · 原子全部只读复用, 扩展走 lab/extensions 壳层挂接</text>')
+    s.append(f'<text x="18" y="{ly}" fill="#6b7a90" font-size="11">图例: 6 大领域分组 · 每块=一个原子(manifest: name/domain/provides/depends_on) · 原子全部只读复用, 扩展走 lab/extensions 壳层挂接</text>')
     s.append(f'<text x="18" y="{ly+16}" fill="#6b7a90" font-size="11">架构: Interface 壳 → Application 入口 → {len(domains)} 领域原子 → 根层算法内核(review.py/security_scan.py/dep_scan.py/method_impact.py/...)</text>')
     s.append('</svg>')
     return "\n".join(s)

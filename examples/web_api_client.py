@@ -10,7 +10,7 @@
 
 REST 端点一览（web/server.py）：
     GET  /api/health  探活
-    GET  /api/status  16 原子状态
+    GET  /api/status  35 原子状态
     GET  /api/files   可作审查/测试目标的白名单源码文件
     POST /api/run     {cmd: review|test|chain|guard|evolve|status, payload:{...}}
 

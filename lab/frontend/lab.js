@@ -1577,7 +1577,7 @@ async function loadExtList() {
   }));
 }
 
-/* ═══════════ 架构图(32原子一张图) ═══════════ */
+/* ═══════════ 架构图(35原子一张图) ═══════════ */
 function renderArch() {
   const box = $("arch-svg-box");
   if (!S.atoms.length) { box.innerHTML = "<div class='placeholder'>原子库未加载</div>"; return; }

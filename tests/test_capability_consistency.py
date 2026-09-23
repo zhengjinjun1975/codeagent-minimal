@@ -81,18 +81,32 @@ def test_readme_counts():
     assert int(m2.group(1)) == n, f'README 注册原子 {m2.group(1)} != registry {n}'
 
 
-def test_docs_atom_counts():
-    atoms = _registry_atoms()
-    n = len(atoms)
-    whitelist = ['README.md', 'docs/ATOMS_GUIDE.md', 'docs/INTEGRATION_GUIDE.md',
-                 'docs/PROMOTION.md', 'docs/CAPABILITY.md', 'docs/SECURITY_HARDENING.md']
+def _scan_surfaces(n):
+    """全仓扫计数：所有 .md/.html/.js（CHANGELOG 历史段除外）+ 用户可见代码面；tests/ 除外（用例注释合法描述子集）。"""
     bad = []
-    for rel in whitelist:
-        path = os.path.join(ROOT, rel)
-        if not os.path.exists(path):
-            continue
+    for dirpath, dirnames, filenames in os.walk(ROOT):
+        dirnames[:] = [d for d in dirnames if d not in ('.git', '__pycache__', '.pytest_cache', 'tests')]
+        for fn in filenames:
+            if not fn.endswith(('.md', '.html', '.js')):
+                continue
+            full = os.path.join(dirpath, fn)
+            rel = os.path.relpath(full, ROOT).replace('\\', '/')
+            if rel.lower().startswith('changelog'):
+                continue
+            with open(full, encoding='utf-8', errors='replace') as f:
+                for ln, frag in scan_atom_counts(f.read(), n):
+                    bad.append(f'{rel}:{ln} {frag!r} != {n}')
+    for rel in ('agent_runtime.py', 'web/server.py', 'lab/lab_app.py', 'lab/pipeline.py',
+                'lab/atom_extension.py', 'lab/report_gen.py', 'tools/gen_arch_svg.py',
+                'examples/web_api_client.py'):
         for ln, frag in scan_atom_counts(_read(rel), n):
             bad.append(f'{rel}:{ln} {frag!r} != {n}')
+    return bad
+
+
+def test_docs_atom_counts():
+    n = len(_registry_atoms())
+    bad = _scan_surfaces(n)
     assert not bad, '原子数不一致:\n' + '\n'.join(bad)
 
 
