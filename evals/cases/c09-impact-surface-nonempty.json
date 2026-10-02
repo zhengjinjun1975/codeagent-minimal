@@ -1,0 +1,15 @@
+{
+  "id": "c09-impact-surface-nonempty",
+  "title": "影响面分析：该脚本至少给出 5 个实体",
+  "call": {
+    "capability": "impact.analyze",
+    "arguments": {
+      "path": "scripts/verify_evals.py"
+    }
+  },
+  "expect": {
+    "path": "data.entities",
+    "at_least": 5
+  },
+  "note": "期望值照实跑：entities=14"
+}

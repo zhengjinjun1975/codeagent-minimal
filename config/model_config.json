@@ -1,0 +1,10 @@
+{
+  "_comment": "CodeAgent 模型配置。生成通道(implement/think)读这里: generate段。审查通道(code_review/test/security)不读本文件——审查走确定性路由(env UNIFIED_CLIENT_DIR 启用, 见 code_agent_engine.py _call_router)。review段原为死配置(审查不读), 已废弃。api_key 填环境变量名自动读取。",
+  "generate": {
+    "name": "DeepSeek",
+    "type": "openai",
+    "base_url": "https://api.deepseek.com/v1/chat/completions",
+    "model": "deepseek-v4-flash",
+    "api_key": "DEEPSEEK_API_KEY"
+  }
+}

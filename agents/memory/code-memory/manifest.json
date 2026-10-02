@@ -1,0 +1,13 @@
+{
+  "name": "code-memory",
+  "version": "0.1.1",
+  "domain": "memory",
+  "description": "记忆/经验原子: 主写共享代码经验记忆库(memo note, [code]+[conf]前缀)+本地experience/*.json降级后备。memory.save经验沉淀, memory.recall从共享库跨会话召回(失败回落本地), memory.sediment技能沉淀双写。",
+  "open_source": true,
+  "agent_class": "CodeMemoryAgent",
+  "entry": "main.py",
+  "provides": ["memory.save", "memory.recall", "memory.sediment"],
+  "depends_on": [],
+  "inputs": ["findings", "task", "memdir", "top_k"],
+  "outputs": ["added", "lessons", "prompt", "skills"]
+}

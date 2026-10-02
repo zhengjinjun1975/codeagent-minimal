@@ -1,0 +1,25 @@
+{
+  "name": "event-log",
+  "version": "0.1.0",
+  "domain": "memory",
+  "description": "事件流原子: append-only 事件落盘 + 检查点 + 按事件回放, 用于长任务(生成循环/训练链/采集)事后按事件定位。纯 stdlib, 数据不出厂。",
+  "open_source": true,
+  "agent_class": "EventLogAgent",
+  "entry": "main.py",
+  "provides": ["event.append", "event.checkpoint", "event.replay", "event.timeline"],
+  "depends_on": [],
+  "inputs": ["session_key", "kind", "payload", "outcome", "state", "from_seq", "to_seq", "store_dir"],
+  "outputs": ["seq", "events", "timeline", "restored_state", "up_to_seq", "state_digest"],
+  "permission": {
+    "needs": [
+      "read",
+      "write"
+    ],
+    "network": false
+  },
+  "resource": {
+    "model_calls": 0,
+    "timeout_sec": 120,
+    "memory_mb": 512
+  }
+}

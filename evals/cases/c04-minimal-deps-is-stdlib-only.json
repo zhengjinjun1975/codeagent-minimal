@@ -1,0 +1,15 @@
+{
+  "id": "c04-minimal-deps-is-stdlib-only",
+  "title": "去依赖判定：该脚本是纯标准库可独立部署",
+  "call": {
+    "capability": "minimal.deps",
+    "arguments": {
+      "path": "scripts/verify_evals.py"
+    }
+  },
+  "expect": {
+    "path": "data.independent_deployable",
+    "equals": true
+  },
+  "note": "期望值照实跑：True"
+}

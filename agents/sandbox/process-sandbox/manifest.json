@@ -1,0 +1,61 @@
+{
+  "name": "process-sandbox",
+  "version": "0.3.0",
+  "domain": "sandbox",
+  "description": "沙箱执行原子: 有界执行(argv/shell=False)+超时+输出封顶+环境净化; 执行期审批门(高危默认拒, ask 无裁决不执行); 支持任务级能力作用域(scope)合判。",
+  "open_source": true,
+  "agent_class": "ProcessSandboxAgent",
+  "entry": "main.py",
+  "provides": [
+    "sandbox.poc",
+    "sandbox.exec",
+    "sandbox.validate",
+    "sandbox.interpreter",
+    "sandbox.guard"
+  ],
+  "depends_on": [],
+  "inputs": [
+    "code",
+    "cmd",
+    "timeout",
+    "max_output",
+    "base_dir",
+    "path",
+    "base",
+    "profile",
+    "approval",
+    "scope"
+  ],
+  "outputs": [
+    "ran",
+    "verdict",
+    "rc",
+    "wall_s",
+    "evidence",
+    "out_tail",
+    "err_tail",
+    "timed_out",
+    "overflow",
+    "rejected",
+    "safe",
+    "path",
+    "decision",
+    "refused",
+    "pending"
+  ],
+  "path": "agents/sandbox/process-sandbox",
+  "permission": {
+    "needs": [
+      "read",
+      "write",
+      "exec",
+      "net"
+    ],
+    "network": true
+  },
+  "resource": {
+    "model_calls": 1,
+    "timeout_sec": 600,
+    "memory_mb": 1024
+  }
+}

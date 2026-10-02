@@ -1,0 +1,13 @@
+{
+  "id": "c10-local-models-listed",
+  "title": "模型清单：至少列出 3 个已配模型",
+  "call": {
+    "capability": "llm.list_models",
+    "arguments": {}
+  },
+  "expect": {
+    "path": "data.models",
+    "at_least": 3
+  },
+  "note": "期望值照实跑：6 个"
+}

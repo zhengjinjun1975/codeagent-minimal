@@ -1,0 +1,13 @@
+{
+  "name": "code-project",
+  "version": "0.1.0",
+  "domain": "project",
+  "description": "项目加载/分析原子: 复用 load_project/scan_issues/analyze_project 思路, 产出项目快照+问题清单。project.load 快照, project.scan 扫描问题, project.analyze 分析。",
+  "open_source": true,
+  "agent_class": "CodeProjectAgent",
+  "entry": "main.py",
+  "provides": ["project.load", "project.scan", "project.analyze"],
+  "depends_on": [],
+  "inputs": ["path", "file_pattern", "max_complexity", "impact"],
+  "outputs": ["files", "snapshot", "issues", "summary"]
+}

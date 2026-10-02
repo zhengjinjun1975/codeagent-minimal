@@ -1,0 +1,15 @@
+{
+  "id": "c06-no-circular-import",
+  "title": "循环导入检测：该原子目录无环",
+  "call": {
+    "capability": "impact.circular",
+    "arguments": {
+      "path": "agents/test/code-test"
+    }
+  },
+  "expect": {
+    "path": "data.circular_imports",
+    "equals": []
+  },
+  "note": "期望值照实跑：[]"
+}

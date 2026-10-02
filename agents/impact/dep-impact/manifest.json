@@ -1,0 +1,17 @@
+{
+  "name": "dep-impact",
+  "version": "0.1.0",
+  "domain": "impact",
+  "description": "依赖图影响分析原子：复用 dep_audit.build_graph/dep_report，零 LLM。分析改符号/模块波及谁、循环依赖、模块耦合。",
+  "open_source": true,
+  "agent_class": "DepImpactAgent",
+  "entry": "main.py",
+  "provides": [
+    "impact.analyze",
+    "impact.circular",
+    "impact.coupling"
+  ],
+  "depends_on": [],
+  "inputs": ["path", "symbol", "impact", "transitive"],
+  "outputs": ["files", "entities", "edges", "coupling", "circular_imports", "impact"]
+}

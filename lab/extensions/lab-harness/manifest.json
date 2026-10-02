@@ -1,0 +1,27 @@
+{
+  "name": "lab-harness",
+  "version": "0.1.0",
+  "domain": "harness",
+  "description": "执行编排控制器(执行器/调度器/门控): 顺序编排原子步骤+重试+聚合 evidence+条件门控, 加壳不改核心, 纯 stdlib 数据不出私域。",
+  "open_source": true,
+  "agent_class": "LabHarnessAgent",
+  "entry": "main.py",
+  "provides": [
+    "harness.control",
+    "harness.gate"
+  ],
+  "depends_on": [],
+  "inputs": [
+    "steps",
+    "evidence",
+    "mode",
+    "retries",
+    "condition"
+  ],
+  "outputs": [
+    "results",
+    "summary",
+    "verdict",
+    "ok"
+  ]
+}

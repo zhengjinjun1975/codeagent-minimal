@@ -1,0 +1,29 @@
+{
+  "name": "browser-smoke",
+  "version": "0.1.0",
+  "domain": "web",
+  "description": "浏览器冒烟原子(真实浏览器 UI 冒烟): 起/复用 headless Chrome+CDP, 可选登录→逐路由导航→断言无白屏/无错误边界/关键文本在/console错误数→逐路由PASS/FAIL报告。复用lab/_cdp_frontend.py的CDP写法(websocket-client), 纯stdlib+现成依赖, 不引新pip/npm。真实驱动Web前端而非只审Python代码。",
+  "open_source": true,
+  "agent_class": "BrowserSmokeAgent",
+  "entry": "main.py",
+  "provides": [
+    "browsersmoke.run",
+    "ui.smoke"
+  ],
+  "depends_on": [],
+  "inputs": [
+    "url",
+    "login",
+    "routes",
+    "chrome_path",
+    "port",
+    "headless",
+    "wait_sec",
+    "min_body"
+  ],
+  "outputs": [
+    "results",
+    "summary",
+    "ok"
+  ]
+}

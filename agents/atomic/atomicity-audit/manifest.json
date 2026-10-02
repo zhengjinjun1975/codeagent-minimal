@@ -1,0 +1,28 @@
+{
+  "name": "atomicity-audit",
+  "version": "0.1.0",
+  "domain": "atomic",
+  "description": "原子化审查原子（P0，覆盖 codeagent-minimal 自身）: 复用 agent_loader 审查 manifest(name==目录/字段/entry)/registry 一致性/能力断链。纯 stdlib 数据不出厂。",
+  "open_source": true,
+  "agent_class": "AtomicityAuditAgent",
+  "entry": "main.py",
+  "provides": [
+    "atomicity.manifest",
+    "atomicity.registry",
+    "atomicity.breaks"
+  ],
+  "depends_on": [],
+  "inputs": [
+    "agents_dir",
+    "registry_path"
+  ],
+  "outputs": [
+    "ok",
+    "issues",
+    "agents",
+    "registry_mismatch",
+    "breaks",
+    "verdict"
+  ],
+  "path": "agents/atomic/atomicity-audit"
+}

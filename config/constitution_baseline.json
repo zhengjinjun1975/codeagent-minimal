@@ -1,0 +1,31 @@
+{
+ "files": 141,
+ "counts": {
+  "unregistered": 619,
+  "waived": 10,
+  "hints": 125,
+  "excluded": 1
+ },
+ "by_kind": {
+  "圈复杂度超标": 179,
+  "嵌套过深": 138,
+  "静默吞错": 138,
+  "参数过多": 70,
+  "函数过长": 63,
+  "死导入": 28,
+  "空壳函数": 2,
+  "明文凭据": 1
+ },
+ "top_files": {
+  "code_agent_engine.py": 53,
+  "review.py": 52,
+  "test_harness.py": 40,
+  "agents\\web\\browser-smoke\\main.py": 22,
+  "dep_scan.py": 21,
+  "agents\\codereview\\code-review\\main.py": 17,
+  "lab\\debug_orchestrator.py": 17,
+  "bug_deep.py": 15,
+  "fuzz_engine.py": 14,
+  "lab\\file_viz.py": 13
+ }
+}

@@ -1,0 +1,13 @@
+{
+  "id": "c08-model-preference-local-first",
+  "title": "模型路由默认偏好 local_first",
+  "call": {
+    "capability": "model.candidates",
+    "arguments": {}
+  },
+  "expect": {
+    "path": "data.preference",
+    "equals": "local_first"
+  },
+  "note": "期望值照实跑：local_first"
+}

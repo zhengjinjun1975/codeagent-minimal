@@ -1,0 +1,15 @@
+{
+  "id": "c02-guard-passes-clean-code",
+  "title": "干净代码必须判 pass",
+  "call": {
+    "capability": "guard.check",
+    "arguments": {
+      "code": "def add(a, b):\n    return a + b\n"
+    }
+  },
+  "expect": {
+    "path": "data.verdict",
+    "equals": "pass"
+  },
+  "note": "期望值照实跑：verdict=pass"
+}
