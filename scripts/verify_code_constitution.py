@@ -8,7 +8,7 @@
 断言（任一不成立即退出码非 0）：
   ① docs/代码宪法.md 存在、BEGIN/END 成对、正文非空且在预算内；
   ② 三条档位都在正文里（强宪法 P0 / 重核心 P1 / 轻外围 P2），条文编号完整（S1..S5 / C1..C6 / L1..L5）；
-  ③ code.implement 路径：engine_llm.PONYTAIL_SYSTEM 含宪法正文；
+  ③ code.implement 路径：code_agent_engine.PONYTAIL_SYSTEM 含宪法正文；
   ④ code.runloop 路径：code-runloop/prompts.build_system_prompt() 含宪法正文；
   ⑤ 注入幂等；缺文件/缺标记时抛错（不静默降级）；
   ⑥ 阈值单点 config/constitution_thresholds.json 存在，且文档正文写的阈值与它一致（防两边漂）；
@@ -82,9 +82,9 @@ def main():
     chk("② 评审条文与常驻不重叠", "强宪法" not in rev and "\nS1 " not in rev)
 
     import importlib
-    el = importlib.import_module("engine_llm")
+    el = importlib.import_module("code_agent_engine")
     pony = getattr(el, "PONYTAIL_SYSTEM", "")
-    chk("③ engine_llm.PONYTAIL_SYSTEM 含宪法", body[:80] in pony, "prompt %d 字符" % len(pony))
+    chk("③ code_agent_engine.PONYTAIL_SYSTEM 含宪法", body[:80] in pony, "prompt %d 字符" % len(pony))
     chk("③ 未出现缺失标记", "代码宪法未加载" not in pony)
 
     pr = importlib.import_module("prompts")
