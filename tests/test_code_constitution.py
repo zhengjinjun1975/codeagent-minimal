@@ -44,16 +44,18 @@ def test_all_rules_present_in_both_paths():
     import prompts
     body = cc.constitution_text()
     pony, sysp = engine_llm.PONYTAIL_SYSTEM, prompts.build_system_prompt()
-    # 三档齐（强宪法 P0 / 重核心 P1 / 轻外围 P2）
-    for tier in ("强宪法", "重核心", "轻外围"):
+    # v3：常驻核心 = P0 五条 + 按阈值判的 P1（C1/C3/C4/C6）；P2（L1..L5）在评审条文里，写码路径不带
+    for tier in ("强宪法", "重核心"):
         assert tier in body
-    # 条文编号齐（S1..S5 / C1..C6 / L1..L5），且两条路径一个不缺
-    for pref, n in (("S", 5), ("C", 6), ("L", 5)):
-        for i in range(1, n + 1):
+    for pref, nums in (("S", (1, 2, 3, 4, 5)), ("C", (1, 3, 4, 6))):
+        for i in nums:
             token = "\n%s%d " % (pref, i)
-            assert token in body, "正文缺 %s%d" % (pref, i)
+            assert token in body, "常驻核心缺 %s%d" % (pref, i)
             assert token in pony, "code.implement 路径缺 %s%d" % (pref, i)
             assert token in sysp, "code.runloop 路径缺 %s%d" % (pref, i)
+    # 分级生效：写码路径不带评审条文
+    for k in ("轻外围", "\nL1 "):
+        assert k not in pony and k not in sysp, "写码路径不该带评审条文: %r" % k
 
 
 def test_thresholds_file_matches_doc():

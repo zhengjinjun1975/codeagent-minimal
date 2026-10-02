@@ -16,3 +16,6 @@ docs/_archive/*
 _impl_output/*
 .taskstate/*
 lab_data/*
+
+# 宪法文档本身：它必须把"它禁止的样态"写出来（如 TODO/FIXME/占位），不能当违规算
+docs/代码宪法.md

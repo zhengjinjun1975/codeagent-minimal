@@ -52,7 +52,7 @@ def _bad_sample(tmpdir):
     io.open(p, "w", encoding="utf-8", newline="\n").write(
         '"""反面样本。"""\nimport json\n\n\ndef empty_stub():\n    pass\n'
         '\n\ndef swallow():\n    try:\n        int("x")\n    except Exception:\n        pass\n'
-        '\n\nKEY = "sk-EXAMPLE-NOT-A-REAL-KEY"\n')
+        '\n\nKEY = "sk-abcdefghijklmnopqrstuvwxyz0123"\n')
     return p
 
 
@@ -68,11 +68,19 @@ def main():
     chk("①c 正文非空", len(body) > 500, "%d 字符" % len(body))
     chk("①d 正文在预算内", len(body) <= cc.MAX_CHARS, "上限 %d" % cc.MAX_CHARS)
 
-    for tier in ("强宪法", "重核心", "轻外围"):
-        chk("② 含%s档" % tier, tier in body)
-    for pref, n in (("S", 5), ("C", 6), ("L", 5)):
-        missing = [i for i in range(1, n + 1) if "\n%s%d " % (pref, i) not in body]
-        chk("② 条文 %s1..%s%d 齐全" % (pref, pref, n), not missing, "缺 %s" % missing)
+    # v3：常驻核心只放 P0 与按阈值判的 P1；P2（L1..L5）在评审条文里，按需加载。
+    for tier in ("强宪法", "重核心"):
+        chk("② 常驻核心含%s档" % tier, tier in body)
+    for pref, nums in (("S", (1, 2, 3, 4, 5)), ("C", (1, 3, 4, 6))):
+        missing = [i for i in nums if "\n%s%d " % (pref, i) not in body]
+        chk("② 常驻核心条文 %s 齐全" % ",".join("%s%d" % (pref, i) for i in nums),
+            not missing, "缺 %s" % missing)
+    chk("② 轻外围不在常驻（分级生效）", "轻外围" not in body and "\nL1 " not in body)
+    if hasattr(cc, "review_text"):
+        rev = cc.review_text()
+        missing = [i for i in range(1, 6) if "\nL%d " % i not in rev]
+        chk("② 评审条文 L1..L5 齐全", not missing, "缺 %s" % missing)
+        chk("② 评审条文与常驻不重叠", "强宪法" not in rev and "\nS1 " not in rev)
 
     import importlib
     el = importlib.import_module("code_agent_engine")
