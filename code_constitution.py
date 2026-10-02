@@ -27,6 +27,11 @@ DEFAULT_PATH = os.path.join(ROOT, "docs", "代码宪法.md")
 HEADER = "\n\n──── 代码宪法（docs/代码宪法.md，写码硬口径，逐条可判定）────\n"
 # 体积预算：宪法自己不能变成新的复杂度。超预算即视为膨胀，由 verify 门判红。
 MAX_CHARS = 6000
+# 评审条文（按需加载的那一层）：只在评审/复核路径注入，写码路径不带。
+MAX_REVIEW_CHARS = 2000
+HEADER_REVIEW = "\n\n──── 代码宪法·评审条文（docs/代码宪法.md，评审/复核时用）────\n"
+REVIEW_BEGIN = "<!-- CODE-CONSTITUTION-REVIEW:BEGIN -->"
+REVIEW_END = "<!-- CODE-CONSTITUTION-REVIEW:END -->"
 
 _cache = {}
 
@@ -81,6 +86,51 @@ def inject_or_mark(system_prompt, path=None):
         return inject(system_prompt, path)
     except CodeConstitutionError as e:
         return (system_prompt or "") + "\n\n[代码宪法未加载: %s —— 本次任务的写码口径缺少宪法约束]" % e
+
+
+def _read_raw(path):
+    """读宪法文件原文；文件不存在即抛错（不静默）。"""
+    try:
+        with open(path, encoding="utf-8") as f:
+            return f.read()
+    except FileNotFoundError as e:
+        raise CodeConstitutionError("代码宪法文件不存在: %s" % path) from e
+
+
+def review_text(path=None, use_cache=True):
+    """取评审条文（REVIEW 标记之间）。缺标记/缺文件即抛错——不静默少一层。"""
+    p = constitution_path(path) + "#review"
+    if use_cache and p in _cache:
+        return _cache[p]
+    raw = _read_raw(constitution_path(path))
+    if REVIEW_BEGIN not in raw or REVIEW_END not in raw:
+        raise CodeConstitutionError("代码宪法缺少评审条文标记(%s / %s): %s"
+                                    % (REVIEW_BEGIN, REVIEW_END, constitution_path(path)))
+    body = raw.split(REVIEW_BEGIN, 1)[1].split(REVIEW_END, 1)[0].strip()
+    if not body:
+        raise CodeConstitutionError("代码宪法评审条文标记之间是空的: %s" % constitution_path(path))
+    if len(body) > MAX_REVIEW_CHARS:
+        raise CodeConstitutionError("评审条文 %d 字符，超过预算 %d" % (len(body), MAX_REVIEW_CHARS))
+    if use_cache:
+        _cache[p] = body
+    return body
+
+
+def inject_review(system_prompt, path=None):
+    """把评审条文追加到评审路径的系统提示末尾（幂等）。"""
+    body = review_text(path)
+    prompt = system_prompt or ""
+    if body[:60] in prompt:
+        return prompt
+    return prompt.rstrip() + HEADER_REVIEW + body + "\n"
+
+
+def inject_review_or_mark(system_prompt, path=None):
+    """评审路径用：失败时留显式缺失标记，不静默降级。"""
+    try:
+        return inject_review(system_prompt, path)
+    except CodeConstitutionError as e:
+        return (system_prompt or "") + "\n\n[代码宪法评审条文未加载: %s]" % e
 
 
 def reset_cache():

@@ -76,16 +76,15 @@ def main():
         chk("② 常驻核心条文 %s 齐全" % ",".join("%s%d" % (pref, i) for i in nums),
             not missing, "缺 %s" % missing)
     chk("② 轻外围不在常驻（分级生效）", "轻外围" not in body and "\nL1 " not in body)
-    if hasattr(cc, "review_text"):
-        rev = cc.review_text()
-        missing = [i for i in range(1, 6) if "\nL%d " % i not in rev]
-        chk("② 评审条文 L1..L5 齐全", not missing, "缺 %s" % missing)
-        chk("② 评审条文与常驻不重叠", "强宪法" not in rev and "\nS1 " not in rev)
+    rev = cc.review_text()          # 装载器已支持按层读取（v3 第二步）
+    missing = [i for i in range(1, 6) if "\nL%d " % i not in rev]
+    chk("② 评审条文 L1..L5 齐全", not missing, "缺 %s" % missing)
+    chk("② 评审条文与常驻不重叠", "强宪法" not in rev and "\nS1 " not in rev)
 
     import importlib
-    el = importlib.import_module("code_agent_engine")
+    el = importlib.import_module("engine_llm")
     pony = getattr(el, "PONYTAIL_SYSTEM", "")
-    chk("③ code_agent_engine.PONYTAIL_SYSTEM 含宪法", body[:80] in pony, "prompt %d 字符" % len(pony))
+    chk("③ engine_llm.PONYTAIL_SYSTEM 含宪法", body[:80] in pony, "prompt %d 字符" % len(pony))
     chk("③ 未出现缺失标记", "代码宪法未加载" not in pony)
 
     pr = importlib.import_module("prompts")

@@ -757,6 +757,16 @@ def _call_llm(messages: list, temp: float = 0.3) -> str:
     with urllib.request.urlopen(req, timeout=120) as r:
         return json.load(r)["choices"][0]["message"]["content"]
 
+def _review_system() -> str:
+    """评审路径系统提示：审查口径 + 代码宪法的评审条文（按需加载的那一层）。"""
+    base = "你是代码审查专家。关注极简性和过度工程。输出纯JSON。"
+    try:
+        from code_constitution import inject_review_or_mark as _inj
+        return _inj(base)
+    except Exception as e:                                     # noqa: BLE001
+        return base + "\n\n[代码宪法评审条文未加载: %s]" % e
+
+
 def _llm_review(code_text: str) -> dict:
     """LLM 审查: 过度工程 + 质量 + 可证伪改进建议"""
     prompt = (
@@ -772,7 +782,7 @@ def _llm_review(code_text: str) -> dict:
     )
     try:
         raw = _call_llm([
-            {"role": "system", "content": "你是代码审查专家。关注极简性和过度工程。输出纯JSON。"},
+            {"role": "system", "content": _review_system()},
             {"role": "user", "content": prompt},
         ])
         # 去代码块围栏后解析
