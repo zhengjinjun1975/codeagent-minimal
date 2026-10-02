@@ -77,6 +77,11 @@ def main():
             not missing, "缺 %s" % missing)
     chk("② 轻外围不在常驻（分级生效）", "轻外围" not in body and "\nL1 " not in body)
     rev = cc.review_text()          # 装载器已支持按层读取（v3 第二步）
+    # 功能性分层完整性：两层不重复、无孤儿条文；写时层要写明"判定层"是谁在判
+    _core_nums = ["S1 ", "S2 ", "S3 ", "S4 ", "S5 ", "C1 ", "C3 ", "C4 ", "C5 ", "C6 "]
+    _rev_nums = ["L1 ", "L2 ", "L3 ", "L4 ", "L5 "]
+    chk("② 分层：两层无重复条文", not [x for x in _core_nums if x in _rev_nums])
+    chk("② 分层：写时层指明判定层（门）", "constitution_gate.py" in body)
     missing = [i for i in range(1, 6) if "\nL%d " % i not in rev]
     chk("② 评审条文 L1..L5 齐全", not missing, "缺 %s" % missing)
     chk("② 评审条文与常驻不重叠", "强宪法" not in rev and "\nS1 " not in rev)
