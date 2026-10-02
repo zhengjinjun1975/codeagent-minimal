@@ -71,7 +71,7 @@ def main():
     # v3：常驻核心只放 P0 与按阈值判的 P1；P2（L1..L5）在评审条文里，按需加载。
     for tier in ("强宪法", "重核心"):
         chk("② 常驻核心含%s档" % tier, tier in body)
-    for pref, nums in (("S", (1, 2, 3, 4, 5)), ("C", (1, 3, 4, 6))):
+    for pref, nums in (("S", (1, 2, 3, 4, 5)), ("C", (1, 3, 4, 5, 6))):
         missing = [i for i in nums if "\n%s%d " % (pref, i) not in body]
         chk("② 常驻核心条文 %s 齐全" % ",".join("%s%d" % (pref, i) for i in nums),
             not missing, "缺 %s" % missing)

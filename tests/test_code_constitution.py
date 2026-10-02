@@ -47,7 +47,7 @@ def test_all_rules_present_in_both_paths():
     # v3：常驻核心 = P0 五条 + 按阈值判的 P1（C1/C3/C4/C6）；P2（L1..L5）在评审条文里，写码路径不带
     for tier in ("强宪法", "重核心"):
         assert tier in body
-    for pref, nums in (("S", (1, 2, 3, 4, 5)), ("C", (1, 3, 4, 6))):
+    for pref, nums in (("S", (1, 2, 3, 4, 5)), ("C", (1, 3, 4, 5, 6))):
         for i in nums:
             token = "\n%s%d " % (pref, i)
             assert token in body, "常驻核心缺 %s%d" % (pref, i)
