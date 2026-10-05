@@ -1,0 +1,12 @@
+# 可选依赖：不装也能跑核心（39 个原子里的 38 个只用 Python 标准库）
+# 缺失时的行为：对应能力自动降级，或明确报"需要可选依赖"，不静默失败。
+
+# 浏览器冒烟原子 agents/web/browser-smoke（走 CDP over WebSocket）
+websocket-client>=1.0
+
+# 开发便利（缺失自动跳过，不影响交付物）
+pytest>=7.0
+bandit>=1.7
+pyflakes>=3.0
+coverage>=7.0
+stdlib_list>=0.10

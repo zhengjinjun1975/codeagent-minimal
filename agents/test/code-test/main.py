@@ -165,7 +165,7 @@ class CodeTestAgent(AtomicAgent):
                             do_boundary=do_boundary, n=10, max_mutants=10)
         # 红绿推导：smoke(模块导入) 且 unit(测试) 且 boundary 全绿 = 绿；任一红 = 红
         # 🔴 smoke 失败时 unit/boundary 会被跳过并默认 ok=True，旧口径只算 unit+bnd 就会报"全绿"，
-        #    而目标模块根本 import 不进来（2026-09-22 在真项目 D:/opa-monitor 实测的假绿）。
+        #    而目标模块根本 import 不进来（2026-09-22 在真项目上实测出来的假绿）。
         smoke_ok = (report.get("smoke") or {}).get("ok", True)
         unit_ok = report["unit"].get("ok", True)
         bnd_ok = report["boundary"].get("ok", True) if "boundary" in report else True

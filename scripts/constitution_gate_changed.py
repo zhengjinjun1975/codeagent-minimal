@@ -56,6 +56,19 @@ def pick_base(explicit):
     return None, "取不到基线"
 
 
+def load_baseline():
+    """存量台账：{文件: {越限种类: 条数}}（不记行号，行号会漂）。读不到返回空表。"""
+    p = os.path.join(ROOT, "config", "constitution_baseline.json")
+    try:
+        d = json.load(io.open(p, encoding="utf-8"))
+        return {k: dict(v) for k, v in (d.get("files") or {}).items() if isinstance(v, dict)}
+    except Exception as e:
+        # 读不到台账就按空表处理，但必须留痕（静默吞错是宪法禁止项）
+        print("（提示）存量台账读不到（%s）：本件不扣存量，可能偏严。" % type(e).__name__,
+              file=sys.stderr)
+        return {}
+
+
 def changed_py(base):
     """基线→HEAD 的改动 + 工作区未提交的改动，合并去重（本地跑也能拦住手上的活）。"""
     files = set()
@@ -105,6 +118,25 @@ def main():
         found += f
         waived += w
         hints += h
+
+    # 存量扣减：只判「本次改动新引入」的越限（按 文件+种类 计数比对，容忍行号漂移）
+    BL = load_baseline()
+    if BL:
+        quotas, kept = {}, []
+        for v in found:
+            rel = str(v["file"]).replace("\\", "/")
+            key = (rel, v["kind"])
+            allowed = (BL.get(rel) or {}).get(v["kind"], 0)
+            if quotas.get(key, 0) < allowed:
+                quotas[key] = quotas.get(key, 0) + 1
+                waived.append({"file": rel, "line": v["line"], "kind": v["kind"],
+                               "reason": "存量（基线台账已记）"})
+                continue
+            kept.append(v)
+        found = kept
+    else:
+        print("（提示）未读到 config/constitution_baseline.json：本件不扣存量，可能偏严。",
+              file=sys.stderr)
 
     if a.json:
         print(json.dumps({"base": base, "files": len(cands), "violations": found,

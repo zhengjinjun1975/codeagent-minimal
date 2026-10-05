@@ -13,7 +13,7 @@ import urllib.request
 
 DEFAULT_CONFIG_NAMES = [
     os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "..", "..",
-                 "config", "model_config.json"),  # code-agent-lab/config/model_config.json
+                 "config", "model_config.json"),  # 仓库根目录下的 config/model_config.json
     os.path.join(os.path.dirname(os.path.abspath(__file__)), "config", "model_config.json"),
 ]
 

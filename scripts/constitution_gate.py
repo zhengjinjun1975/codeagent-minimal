@@ -187,7 +187,7 @@ def check_file(path, th, root=ROOT):
             add("P0", "死导入", ln, "导入 %r 在本文件内 0 引用" % nm)
 
     # 死定义只判**私有名**，且只作**提示**：跨文件的字符串查表调用（eng("_name")）单文件证不了，
-    # 不可证的东西不配当 P0 硬门槛（实测踩过：engine_llm 的 _call_generate 被 engine_agent_impl 按名字调用）
+    # 不可证的东西不配当 P0 硬门槛（实测踩过：被另一处的字符串查表按名字调用）
     defined = {}
     for node in tree.body:
         if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)):

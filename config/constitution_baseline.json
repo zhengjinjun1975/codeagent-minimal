@@ -1,31 +1,519 @@
 {
- "files": 141,
+ "generated": "2026-10-05",
+ "note": "存量台账：按 文件+种类 计数（行号会漂，故不记行号）",
+ "files": {
+  "agent_loader.py": {
+   "圈复杂度超标": 3,
+   "嵌套过深": 1
+  },
+  "agent_runtime.py": {
+   "静默吞错": 4,
+   "圈复杂度超标": 6,
+   "嵌套过深": 2,
+   "函数过长": 1,
+   "参数过多": 3
+  },
+  "approval_policy.py": {
+   "静默吞错": 1,
+   "参数过多": 3,
+   "圈复杂度超标": 2,
+   "函数过长": 1,
+   "嵌套过深": 1
+  },
+  "arch_review.py": {
+   "静默吞错": 2,
+   "嵌套过深": 3,
+   "圈复杂度超标": 1
+  },
+  "atomic_base.py": {
+   "空壳函数": 1,
+   "嵌套过深": 1
+  },
+  "bug_deep.py": {
+   "静默吞错": 6,
+   "圈复杂度超标": 4,
+   "函数过长": 2,
+   "嵌套过深": 3
+  },
+  "capability_scope.py": {
+   "参数过多": 2,
+   "圈复杂度超标": 1
+  },
+  "chain_break.py": {
+   "函数过长": 1,
+   "嵌套过深": 2,
+   "圈复杂度超标": 3
+  },
+  "codeagent.py": {
+   "死导入": 2,
+   "函数过长": 1,
+   "嵌套过深": 2,
+   "圈复杂度超标": 1,
+   "参数过多": 1
+  },
+  "code_agent_engine.py": {
+   "静默吞错": 9,
+   "嵌套过深": 16,
+   "圈复杂度超标": 14,
+   "函数过长": 9,
+   "参数过多": 5
+  },
+  "complexity.py": {
+   "嵌套过深": 3,
+   "圈复杂度超标": 1
+  },
+  "cost_ledger.py": {
+   "静默吞错": 1,
+   "参数过多": 1,
+   "嵌套过深": 1,
+   "圈复杂度超标": 1
+  },
+  "deadcode.py": {
+   "静默吞错": 1,
+   "嵌套过深": 3
+  },
+  "dep_audit.py": {
+   "死导入": 1,
+   "函数过长": 1,
+   "嵌套过深": 3,
+   "圈复杂度超标": 5
+  },
+  "dep_scan.py": {
+   "静默吞错": 3,
+   "嵌套过深": 9,
+   "圈复杂度超标": 7,
+   "函数过长": 2
+  },
+  "doc_freshness.py": {
+   "静默吞错": 2,
+   "圈复杂度超标": 2,
+   "函数过长": 1,
+   "嵌套过深": 1
+  },
+  "fuzz_engine.py": {
+   "死导入": 2,
+   "静默吞错": 2,
+   "圈复杂度超标": 5,
+   "嵌套过深": 3,
+   "参数过多": 2
+  },
+  "legacy_cli.py": {
+   "函数过长": 1,
+   "圈复杂度超标": 1
+  },
+  "lsp_test_target.py": {
+   "参数过多": 1
+  },
+  "memory_gate.py": {
+   "静默吞错": 1
+  },
+  "method_impact.py": {
+   "静默吞错": 1,
+   "函数过长": 1,
+   "嵌套过深": 2,
+   "圈复杂度超标": 2
+  },
+  "obsidian_ops.py": {
+   "死导入": 2
+  },
+  "reg_guard.py": {
+   "死导入": 1,
+   "静默吞错": 2,
+   "圈复杂度超标": 3,
+   "嵌套过深": 2,
+   "函数过长": 1
+  },
+  "review.py": {
+   "静默吞错": 20,
+   "嵌套过深": 12,
+   "圈复杂度超标": 14,
+   "函数过长": 6,
+   "参数过多": 1
+  },
+  "security_scan.py": {
+   "圈复杂度超标": 2,
+   "嵌套过深": 1
+  },
+  "self_evolve.py": {
+   "死导入": 1,
+   "静默吞错": 2,
+   "圈复杂度超标": 3,
+   "嵌套过深": 1
+  },
+  "test_harness.py": {
+   "死导入": 2,
+   "静默吞错": 13,
+   "嵌套过深": 10,
+   "圈复杂度超标": 11,
+   "函数过长": 4,
+   "参数过多": 1
+  },
+  "agents/approval/command-approvals/main.py": {
+   "死导入": 1,
+   "参数过多": 1
+  },
+  "agents/code/code-implement/main.py": {
+   "参数过多": 1,
+   "圈复杂度超标": 1
+  },
+  "agents/code/code-runloop/llm.py": {
+   "死导入": 1,
+   "嵌套过深": 2
+  },
+  "agents/code/code-runloop/main.py": {
+   "嵌套过深": 1,
+   "参数过多": 2,
+   "圈复杂度超标": 2
+  },
+  "agents/code/code-runloop/prompts.py": {
+   "参数过多": 1
+  },
+  "agents/code/code-runloop/run_loop.py": {
+   "静默吞错": 2,
+   "圈复杂度超标": 5,
+   "参数过多": 2,
+   "函数过长": 1,
+   "嵌套过深": 1
+  },
+  "agents/code/code-runloop/tools.py": {
+   "参数过多": 1,
+   "嵌套过深": 1,
+   "函数过长": 1,
+   "圈复杂度超标": 1
+  },
+  "agents/codereview/code-review/lsp_mock_server.py": {
+   "死导入": 1,
+   "静默吞错": 2,
+   "函数过长": 2,
+   "圈复杂度超标": 2,
+   "嵌套过深": 2
+  },
+  "agents/codereview/code-review/main.py": {
+   "静默吞错": 7,
+   "嵌套过深": 3,
+   "参数过多": 2,
+   "函数过长": 2,
+   "圈复杂度超标": 3
+  },
+  "agents/codereview/minimalist-style/main.py": {
+   "静默吞错": 1,
+   "嵌套过深": 4,
+   "圈复杂度超标": 1
+  },
+  "agents/context/context-compact/context_harness.py": {
+   "死导入": 1,
+   "静默吞错": 2,
+   "圈复杂度超标": 4,
+   "嵌套过深": 3,
+   "参数过多": 1,
+   "函数过长": 1
+  },
+  "agents/context/context-compact/main.py": {
+   "圈复杂度超标": 3,
+   "函数过长": 2,
+   "嵌套过深": 1,
+   "参数过多": 2
+  },
+  "agents/deliver/code-deliver/main.py": {
+   "圈复杂度超标": 1,
+   "嵌套过深": 1
+  },
+  "agents/dispatch/code-dispatch/chain_selector.py": {
+   "静默吞错": 1
+  },
+  "agents/dispatch/code-dispatch/main.py": {
+   "参数过多": 2,
+   "嵌套过深": 1,
+   "圈复杂度超标": 2
+  },
+  "agents/dispatch/code-dispatch/verify_gate.py": {
+   "死导入": 1,
+   "圈复杂度超标": 2
+  },
+  "agents/domain/domain-review/main.py": {
+   "嵌套过深": 1,
+   "圈复杂度超标": 1
+  },
+  "agents/evolve/code-evolve/main.py": {
+   "参数过多": 1
+  },
+  "agents/fuzz/code-fuzz/main.py": {
+   "参数过多": 2
+  },
+  "agents/guard/guard/harness_guard.py": {
+   "静默吞错": 1,
+   "嵌套过深": 1,
+   "圈复杂度超标": 1
+  },
+  "agents/guard/guard/main.py": {
+   "参数过多": 1
+  },
+  "agents/llm/llm-router/main.py": {
+   "圈复杂度超标": 2,
+   "函数过长": 1,
+   "参数过多": 2
+  },
+  "agents/locality/localized/main.py": {
+   "静默吞错": 2,
+   "嵌套过深": 3,
+   "圈复杂度超标": 3
+  },
+  "agents/mcp/mcp-client/main.py": {
+   "静默吞错": 3,
+   "参数过多": 5,
+   "圈复杂度超标": 3,
+   "嵌套过深": 1
+  },
+  "agents/memory/code-memory/main.py": {
+   "圈复杂度超标": 1
+  },
+  "agents/memory/event-log/main.py": {
+   "参数过多": 1
+  },
+  "agents/model/model-fallback/cascade_router.py": {
+   "死导入": 1,
+   "静默吞错": 5,
+   "嵌套过深": 1
+  },
+  "agents/model/model-fallback/main.py": {
+   "参数过多": 2
+  },
+  "agents/ontology/ontology-review/main.py": {
+   "圈复杂度超标": 2,
+   "函数过长": 1,
+   "嵌套过深": 2
+  },
+  "agents/plan/code-plan/main.py": {
+   "参数过多": 1,
+   "圈复杂度超标": 1
+  },
+  "agents/project/code-project/main.py": {
+   "嵌套过深": 1
+  },
+  "agents/reuse/code-reuse/main.py": {
+   "嵌套过深": 1,
+   "圈复杂度超标": 1
+  },
+  "agents/sandbox/process-sandbox/main.py": {
+   "函数过长": 1,
+   "参数过多": 1,
+   "圈复杂度超标": 1
+  },
+  "agents/secrets/secret-vault/main.py": {
+   "静默吞错": 1
+  },
+  "agents/session/session/main.py": {
+   "圈复杂度超标": 1,
+   "参数过多": 1
+  },
+  "agents/skill/code-skill/main.py": {
+   "嵌套过深": 1,
+   "参数过多": 1
+  },
+  "agents/taskstate/task-state/main.py": {
+   "静默吞错": 1,
+   "函数过长": 1,
+   "参数过多": 2,
+   "嵌套过深": 2,
+   "圈复杂度超标": 1
+  },
+  "agents/test/code-test/main.py": {
+   "静默吞错": 1,
+   "函数过长": 1,
+   "嵌套过深": 1,
+   "圈复杂度超标": 1,
+   "参数过多": 1
+  },
+  "agents/test/code-test/project_verify.py": {
+   "静默吞错": 1,
+   "圈复杂度超标": 2
+  },
+  "agents/tools/git-ops/main.py": {
+   "死导入": 1,
+   "圈复杂度超标": 2
+  },
+  "agents/web/browser-smoke/main.py": {
+   "静默吞错": 13,
+   "嵌套过深": 2,
+   "圈复杂度超标": 3,
+   "函数过长": 2,
+   "参数过多": 2
+  },
+  "examples/codeagent_toolkit.py": {
+   "参数过多": 1
+  },
+  "examples/graph_orchestration.py": {
+   "死导入": 1
+  },
+  "lab/atom_extension.py": {
+   "静默吞错": 1,
+   "参数过多": 1,
+   "圈复杂度超标": 2,
+   "嵌套过深": 2
+  },
+  "lab/atom_loader_ext.py": {
+   "函数过长": 2,
+   "嵌套过深": 1,
+   "圈复杂度超标": 2
+  },
+  "lab/atom_runner.py": {
+   "静默吞错": 2,
+   "函数过长": 1,
+   "参数过多": 1,
+   "嵌套过深": 1,
+   "圈复杂度超标": 1
+  },
+  "lab/chat_router.py": {
+   "静默吞错": 2,
+   "函数过长": 1,
+   "圈复杂度超标": 2
+  },
+  "lab/debug_history.py": {
+   "圈复杂度超标": 1
+  },
+  "lab/debug_orchestrator.py": {
+   "静默吞错": 8,
+   "函数过长": 1,
+   "参数过多": 3,
+   "嵌套过深": 2,
+   "圈复杂度超标": 3
+  },
+  "lab/file_viz.py": {
+   "死导入": 1,
+   "静默吞错": 5,
+   "参数过多": 1,
+   "嵌套过深": 1,
+   "圈复杂度超标": 4,
+   "函数过长": 1
+  },
+  "lab/graph_viz.py": {
+   "死导入": 1,
+   "静默吞错": 1,
+   "嵌套过深": 5,
+   "圈复杂度超标": 3
+  },
+  "lab/history_db.py": {
+   "静默吞错": 1,
+   "参数过多": 4,
+   "圈复杂度超标": 1
+  },
+  "lab/lab_app.py": {
+   "死导入": 1,
+   "函数过长": 1,
+   "圈复杂度超标": 1
+  },
+  "lab/model_config.py": {
+   "静默吞错": 1,
+   "圈复杂度超标": 3
+  },
+  "lab/pipeline.py": {
+   "函数过长": 3,
+   "嵌套过深": 3,
+   "圈复杂度超标": 3
+  },
+  "lab/report_gen.py": {
+   "函数过长": 1,
+   "圈复杂度超标": 3,
+   "参数过多": 3,
+   "嵌套过深": 1
+  },
+  "lab/web_viz.py": {
+   "死导入": 1,
+   "静默吞错": 1,
+   "空壳函数": 1,
+   "函数过长": 3,
+   "圈复杂度超标": 5,
+   "嵌套过深": 1
+  },
+  "lab/extensions/lab-harness/main.py": {
+   "圈复杂度超标": 3,
+   "嵌套过深": 1
+  },
+  "lab/extensions/lab-loop/main.py": {
+   "圈复杂度超标": 2,
+   "参数过多": 1
+  },
+  "scripts/constitution_gate_changed.py": {
+   "死导入": 1,
+   "函数过长": 1,
+   "圈复杂度超标": 1
+  },
+  "scripts/intake_poll.py": {
+   "静默吞错": 2,
+   "嵌套过深": 1,
+   "圈复杂度超标": 2,
+   "参数过多": 1,
+   "函数过长": 1
+  },
+  "scripts/run_evals.py": {
+   "静默吞错": 2,
+   "嵌套过深": 1,
+   "函数过长": 1,
+   "圈复杂度超标": 1
+  },
+  "scripts/verify_evals.py": {
+   "静默吞错": 3
+  },
+  "tests/test_capability_consistency.py": {
+   "静默吞错": 1,
+   "嵌套过深": 1
+  },
+  "tests/test_chainbreak_affected_coverage.py": {
+   "死导入": 1
+  },
+  "tests/test_codeagent_fusion.py": {
+   "死导入": 1
+  },
+  "tests/test_codeagent_opencode_capabilities.py": {
+   "死导入": 1
+  },
+  "tests/test_codex_borrow_atoms.py": {
+   "死导入": 1
+  },
+  "tests/test_security_hardening.py": {
+   "静默吞错": 4,
+   "嵌套过深": 1
+  },
+  "vendor/solo-atoms/clean.py": {
+   "静默吞错": 1,
+   "函数过长": 1,
+   "嵌套过深": 1,
+   "圈复杂度超标": 1
+  },
+  "vendor/solo-atoms/data.py": {
+   "死导入": 1,
+   "静默吞错": 2
+  },
+  "vendor/solo-atoms/geophys.py": {
+   "死导入": 1,
+   "静默吞错": 1,
+   "嵌套过深": 1,
+   "圈复杂度超标": 1
+  },
+  "vendor/solo-atoms/ontology.py": {
+   "静默吞错": 3,
+   "圈复杂度超标": 1
+  },
+  "vendor/solo-atoms/stats.py": {
+   "静默吞错": 1,
+   "嵌套过深": 1
+  },
+  "vendor/solo-atoms/storage.py": {
+   "静默吞错": 1
+  }
+ },
  "counts": {
-  "unregistered": 619,
+  "unregistered": 663,
   "waived": 10,
-  "hints": 125,
-  "excluded": 1
+  "hints": 126
  },
  "by_kind": {
-  "圈复杂度超标": 179,
-  "嵌套过深": 138,
-  "静默吞错": 138,
-  "参数过多": 70,
-  "函数过长": 63,
-  "死导入": 28,
+  "圈复杂度超标": 191,
+  "嵌套过深": 144,
+  "静默吞错": 156,
+  "函数过长": 66,
+  "参数过多": 74,
   "空壳函数": 2,
-  "明文凭据": 1
- },
- "top_files": {
-  "code_agent_engine.py": 53,
-  "review.py": 52,
-  "test_harness.py": 40,
-  "agents\\web\\browser-smoke\\main.py": 22,
-  "dep_scan.py": 21,
-  "agents\\codereview\\code-review\\main.py": 17,
-  "lab\\debug_orchestrator.py": 17,
-  "bug_deep.py": 15,
-  "fuzz_engine.py": 14,
-  "lab\\file_viz.py": 13
+  "死导入": 30
  }
 }

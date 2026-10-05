@@ -4,6 +4,19 @@
 
 格式遵循 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.0.0/)。
 
+## [0.8.1] - 2026-10-05
+
+### 修复
+- 清掉源码与测试里遗留的内部字样：内部目录名（`agents/code/code-runloop/llm.py`）、内部项目名（`agents/test/code-test/main.py`）、母体模块名（`code_constitution.py`、`scripts/constitution_gate.py`、`tests/test_code_constitution.py` 里的 `engine_llm` 改成本库真实模块名 `code_agent_engine`）。
+- 浏览器冒烟原子缺可选依赖 `websocket-client` 时明确报错（此前是底层 `ImportError`），不静默失败。
+
+### 文档
+- README 补四块：**调用方式**（命令行 / 进程内 `run_capability` / Lab 界面）、**接线方式**（原子目录与 manifest、`registry.json` 加载顺序、六条组装链、接单线、三道账）、**依赖**（核心零第三方 + 可选依赖清单）、**代码宪法**（三层结构、三处注入、执法者与基线台账、改法）。
+- 纠正依赖说法：核心零第三方依赖，一个原子需要可选包 `websocket-client`；新增 `requirements-optional.txt`。
+
+### 验证
+- 宪法接线门 29 项断言全过；只判本次改动的宪法门通过；全量单测通过；CI 见 Actions。
+
 ## [0.8.0] - 2026-10-05
 
 ### 接单线（新增）+ 代码宪法收口

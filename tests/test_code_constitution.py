@@ -3,7 +3,7 @@
 """代码宪法接线测试（不调模型，纯接线断言）。
 
 要证的四件事：
-  1. 两条写码路径的系统提示里**都**含宪法正文（code.implement 用 engine_llm.PONYTAIL_SYSTEM；
+  1. 两条写码路径的系统提示里**都**含宪法正文（code.implement 用 code_agent_engine.PONYTAIL_SYSTEM；
      code.runloop 用 agents/code/code-runloop/prompts.build_system_prompt()）；
   2. 注入幂等；
   3. 宪法缺失/标记缺失时**抛错**，不静默降级；
@@ -25,10 +25,10 @@ import code_constitution as cc  # noqa: E402
 
 
 def test_implement_path_carries_constitution():
-    import code_agent_engine as engine_llm
+    import code_agent_engine as engine
     body = cc.constitution_text()
-    assert body[:80] in engine_llm.PONYTAIL_SYSTEM
-    assert "代码宪法未加载" not in engine_llm.PONYTAIL_SYSTEM
+    assert body[:80] in engine.PONYTAIL_SYSTEM
+    assert "代码宪法未加载" not in engine.PONYTAIL_SYSTEM
 
 
 def test_runloop_path_carries_constitution():
@@ -40,10 +40,10 @@ def test_runloop_path_carries_constitution():
 
 
 def test_all_rules_present_in_both_paths():
-    import code_agent_engine as engine_llm
+    import code_agent_engine as engine
     import prompts
     body = cc.constitution_text()
-    pony, sysp = engine_llm.PONYTAIL_SYSTEM, prompts.build_system_prompt()
+    pony, sysp = engine.PONYTAIL_SYSTEM, prompts.build_system_prompt()
     # v3：常驻核心 = P0 五条 + 按阈值判的 P1（C1/C3/C4/C6）；P2（L1..L5）在评审条文里，写码路径不带
     for tier in ("强宪法", "重核心"):
         assert tier in body

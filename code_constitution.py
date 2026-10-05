@@ -3,7 +3,7 @@
 """code_constitution.py — 代码宪法加载/注入（单一真相源，fail-loud）。
 
 真相源：docs/代码宪法.md 里 `<!-- CODE-CONSTITUTION:BEGIN -->` 与 `<!-- CODE-CONSTITUTION:END -->`
-之间的正文。两条写码路径（engine_llm.PONYTAIL_SYSTEM 与 code-runloop 的 build_system_prompt）
+之间的正文。两条写码路径（code_agent_engine.PONYTAIL_SYSTEM 与 code-runloop 的 build_system_prompt）
 都通过这里注入，代码里不另抄一份，避免漂。
 
 设计取舍：
