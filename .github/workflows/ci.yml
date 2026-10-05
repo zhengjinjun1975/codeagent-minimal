@@ -18,3 +18,7 @@ jobs:
         run: python -m pip install pytest
       - name: 运行全量单测(纯标准库零依赖)
         run: python -m pytest tests/ -v --tb=short
+      - name: 代码宪法门（只判本次改动；存量走基线台账）
+        env:
+          CONSTITUTION_BASE: ${{ github.event.pull_request.base.sha || github.event.before }}
+        run: python scripts/constitution_gate_changed.py

@@ -48,7 +48,8 @@ def _clean_sample(tmpdir):
 
 
 def _bad_sample(tmpdir):
-    p = os.path.join(tmpdir, "bad_sample.py")
+    # ⚠️ 文件名不能叫 bad_sample*：那是仓里的夹具前缀约定，会被整份排除 ⇒ 扫不到越限、rc=0，⑦c 假红。
+    p = os.path.join(tmpdir, "violating_sample.py")
     io.open(p, "w", encoding="utf-8", newline="\n").write(
         '"""反面样本。"""\nimport json\n\n\ndef empty_stub():\n    pass\n'
         '\n\ndef swallow():\n    try:\n        int("x")\n    except Exception:\n        pass\n'
@@ -124,6 +125,13 @@ def main():
                                 capture_output=True, text=True).returncode
     chk("⑦b 干净样本 PASS", rc_clean == 0, "rc=%d" % rc_clean)
     chk("⑦c 违规样本 FAIL", rc_bad == 1, "rc=%d" % rc_bad)
+    with tempfile.TemporaryDirectory() as _td2:
+        _fx = os.path.join(_td2, "bad_sample.py")
+        io.open(_fx, "w", encoding="utf-8", newline="\n").write(
+            '"""夹具样本。"""\n\n\ndef stub():\n    pass\n')
+        rc_fx = subprocess.run([sys.executable, gate, _fx], capture_output=True,
+                               text=True).returncode
+    chk("⑦d 夹具前缀(bad_sample*)被排除", rc_fx == 0, "rc=%d" % rc_fx)
 
     print("\n结论: %s（%d 项断言，失败 %d）" % ("PASS" if not FAILS else "FAIL", N_ASSERT, len(FAILS)))
     if FAILS:

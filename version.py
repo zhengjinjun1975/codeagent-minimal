@@ -6,7 +6,7 @@
 Lab 前端顶部显示的就是这里的 __version__（后端 /api/atoms 转发）。
 """
 
-__version__ = "0.7.14"
+__version__ = "0.8.0"
 
 VERSION = __version__        # 兼容旧读法
 

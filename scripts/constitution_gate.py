@@ -304,6 +304,12 @@ def is_ignored(path, pats, root=ROOT):
     except ValueError:
         rel = path.replace("\\", "/")
     for pat in pats:
+        if pat in FIXTURE_PREFIXES:
+            # 内置夹具约定按「文件名前缀」判（与 project_verify.py 同款口径）。
+            # ⚠️ 不能交给下面的 fnmatch —— 无通配符的模式要求**全等**，"bad_sample" 永远匹配不上 bad_sample.py。
+            if base.startswith(pat):
+                return pat
+            continue
         if fnmatch.fnmatch(base, pat) or fnmatch.fnmatch(rel, pat) or fnmatch.fnmatch(rel, pat.rstrip("/") + "/*"):
             return pat
         if pat.endswith("*") and base.startswith(pat[:-1]):

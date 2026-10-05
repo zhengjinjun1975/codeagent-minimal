@@ -4,6 +4,17 @@
 
 格式遵循 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.0.0/)。
 
+## [0.8.0] - 2026-10-05
+
+### 接单线（新增）+ 代码宪法收口
+
+- 新增 `scripts/intake_poll.py`：**接单线**——轮询任务队列（`docs/intake/tasks.md`，可用 `CODEAGENT_INTAKE_QUEUE` 覆盖），
+  领单 → 两条执行路：**显式能力链**（任务块里声明 `能力链:`，逐条走运行时，多能力审计/测试串用这条）或规则层选链（`dispatch.chain_select`）落回 `code.runloop`；回写 `Status` 与结果段；幂等、带锁、不做 git push。
+- 新增 `scripts/constitution_gate_changed.py`：**只判本次改动**的宪法门（存量走 `config/constitution_baseline.json` 基线台账），
+  取不到基线时明确报"不判"，不假装通过；CI 已接这一步。
+- 修 `scripts/constitution_gate.py`：夹具前缀约定（`bad_sample*`）此前交给 `fnmatch` 等于**永不生效**，夹具被当违规报出。
+- 修 `scripts/verify_code_constitution.py`：违规样本改名（原名撞夹具前缀会被整份排除 ⇒ 断言假红），并补 ⑦d 断言锁住该约定。
+
 ## [0.7.14] - 2026-10-02
 
 ### 代码宪法：按功能性分层收口
@@ -215,7 +226,7 @@ v3 去重时把"一次只做一件事 / 无关文件零改动 / 不顺手改格�
 
 ### 一体化完整版（带前端）开源
 
-本版本 = **code-agent-lab 带前端完整版**并入开源仓库 codeagent-minimal，替代旧「纯内核 29 原子 + 闭源编排」形态，`git clone` 即用。
+本版本 = **带前端的完整版**并入开源仓库 codeagent-minimal，替代旧「纯内核 29 原子 + 闭源编排」形态，`git clone` 即用。
 
 - **完整原子集**：统一运行时注册 **34 原子 / 能力全绿**（`codeagent.py status --json`：`degraded=[]`、`conflicts=[]`）。在纯内核基础上补齐 `code-implement`（代码实现/写码）、`browser-smoke`（浏览器冒烟）、`doc-freshness`（文档新鲜度审计）、`deadcode`（死代码检测）、`method-impact`（方法级影响分析）等原子。
 - **Lab 编排 + 浏览器前端开源**：`lab/`（原子库可视化编排系统，含 `lab/frontend`）与 `web/`（最小运行前端 + REST）全部随仓库分发，纯标准库 `http.server` 起服务：
