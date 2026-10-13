@@ -4,6 +4,20 @@
 
 格式遵循 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.0.0/)。
 
+## [0.8.2] - 2026-10-15
+
+### 新增
+- **编排前复杂度闸** `agents/model/complexity-gate/`（能力 `model.assess_complexity`）：
+  长链编排之前先判「这活要不要拆」。规则层零模型调用；规则判不了则保守判复杂并如实标 `degraded`，
+  不假装判断成功。与 `model-fallback`（判意图）互补：那个管「这句话是什么意图」，这个管「这活要不要拆」。
+- **外部 CLI 子代理链** `agents/subagent/cli-providers/`（能力 `subagent.providers/probe/dispatch`）：
+  探测本机装着的代码 CLI，按降级链取第一个可用的派活，拿统一信封回来；provider 表可用环境变量覆盖，
+  不硬编码路径；派活失败 / 超时 / 无可用 provider 一律如实返回 `degraded`，输出有上限截断。
+
+### 变更
+- 原子数 39 → 41，能力数 161 → 165；README / docs / 架构图口径同步。
+- 实测：`python codeagent.py status --json` → **41 原子 / 165 能力**，`degraded=[]`、`conflicts=[]`。
+
 ## [0.8.1] - 2026-10-05
 
 ### 修复
@@ -187,9 +201,9 @@ v3 去重时把"一次只做一件事 / 无关文件零改动 / 不顺手改格�
 ## [0.6.1] - 2026-09-23
 
 ### 与母体对齐到同一口径 + 边界修复
-- **口径对齐**：补齐 3 个核心原子（`event-log` / `secret-vault` / `session`），本库现为 **39 核心原子 / 161 能力**（Lab 加载 41 = 39 核心 + 2 扩展），与母体完全一致；前端与后端接线文件逐字节相同（单一真相源在母体，本库单向同步）。
+- **口径对齐**：补齐 3 个核心原子（`event-log` / `secret-vault` / `session`），本库现为 **39 核心原子 / 165 能力**（Lab 加载 41 = 39 核心 + 2 扩展），与母体完全一致；前端与后端接线文件逐字节相同（单一真相源在母体，本库单向同步）。
 - **仓库只保留 Lab 一个前端**（`web/` 已在前一版移除）：它同时是「用预设·点一下就跑」与「自己组装·拖拽搭流程」的入口。
-- **16 套预设编排（不再有"单原子卡"）**：全量代码审查 / 快速体检 / 修 bug / 写新功能 / 测试补强 / 影响面分析 / 重构精简 / 质量闸门 / 交付验收 / 按任务自动选链 / 深挖 Bug 根因 / 自我进化 / 外部工具·模型分工 / 前端冒烟 / 长任务续跑 / 上手新项目。每张卡 = 一条完整多阶段编排（并行分支 + 按需循环/门控 + 交付），覆盖 39 原子 / 161 能力零遗漏。
+- **16 套预设编排（不再有"单原子卡"）**：全量代码审查 / 快速体检 / 修 bug / 写新功能 / 测试补强 / 影响面分析 / 重构精简 / 质量闸门 / 交付验收 / 按任务自动选链 / 深挖 Bug 根因 / 自我进化 / 外部工具·模型分工 / 前端冒烟 / 长任务续跑 / 上手新项目。每张卡 = 一条完整多阶段编排（并行分支 + 按需循环/门控 + 交付），覆盖 41 原子 / 165 能力零遗漏。
 - **画布**：按依赖自动布局（主干从左到右横排、并行原子竖着叠、宽扇拆子列）；绘图区自适应内容 + 更大的节点与字号；循环以橙色虚线反馈弧画出（回环看得见）。画布标题栏「编排图」下拉可载入任一套编排或空白自搭，运行名跟随所选编排。
 - **边界修复（真机端到端抓出）**：`deliver.report` 缺 `chain`/`outputs` 时不再把整条编排判红——容器型入参缺省即为空（如实表示"没有上游输入"，不猜测拼装）；交付原子的能力签名同步给出默认值。
 - **不静默失败**：载入某套编排失败会在画布上显示真实原因（画布保持原样），选择器里单张卡构图失败也不影响其它卡。
@@ -219,13 +233,13 @@ v3 去重时把"一次只做一件事 / 无关文件零改动 / 不顺手改格�
 - 升版：`code-test` 0.3.0（+`test.project` 项目级验收）、`code-runloop` 0.3.0（+`code.patch`）、`command-approvals` 0.2.0（+`approval.orchestrate`）、`context-compact` 0.5.0（+6 能力，预算**真裁到预算内**）、`code-dispatch` 0.4.0（+3 能力）、`doc-freshness` 0.2.0（+`doc.draft`）、`guard` 0.2.0（+3 能力）、`mcp-client` 0.2.0（+`mcp.guard`）、`model-fallback` 0.2.0（+4 能力）、`process-sandbox` 0.3.0、`task-state` 0.2.0。
 - 同步支撑模块：`capability_scope.py`、`mcp_guard.py`、`context_harness.py`、`chain_selector.py`、`verify_gate.py`、`cascade_router.py`、`harness_guard.py`，并更新 `approval_policy.py` / `doc_freshness.py` / `security_scan.py`。
 - **脱敏**：`llm.py` 的 key 兜底路径与提示不再指向内部目录（改用 `~/.codeagent/.env`）；`task-state` 注释去掉内部名。新增文件内部名复扫 = 0。
-- **文档计数统一**：README / ATOMS_GUIDE（索引表 16 → **36 行**（+`git-ops`））/ INTEGRATION_GUIDE / PROMOTION / CAPABILITY 全部归 36 原子 / 145 能力；新增 `docs/POSITIONING.md`（与开源生态的真实对照：8 个编码代理类 + 20 个质量治理工具类，优势 8 条 / 短板 6 条逐条显性）。
+- **文档计数统一**：README / ATOMS_GUIDE（索引表 16 → **36 行**（+`git-ops`））/ INTEGRATION_GUIDE / PROMOTION / CAPABILITY 全部归 36 原子 / 165 能力；新增 `docs/POSITIONING.md`（与开源生态的真实对照：8 个编码代理类 + 20 个质量治理工具类，优势 8 条 / 短板 6 条逐条显性）。
 - **新增门** `tests/test_capability_consistency.py`（7 项：registry 自洽 / README 计数 / 白名单文档计数 / 指南索引集合 / 前端中文名覆盖 / server 命令白名单 / 分辨力自检）——**上线即抓出多处真实不一致**（指南 3 处计数、CAPABILITY.md 与前端中文名表各 1 处），已修。
 - **新增原子 `git-ops` 0.1.0**（`git.status/diff/log/commit/branch`；只做日常操作，**不暴露 `push`/`reset --hard`/`force`**，`commit` 为受控写）→ 原子 **36**。
 - **题集 + 运行前端同步**：`evals/cases/*`（10 题，按 `pass^k` 口径）+ `scripts/run_evals.py` / `scripts/verify_evals.py`；用例路径改**相对仓库根**（跨机可移植）；`web/` 运行前端同步为 **11 个预设动作**（新增「运行 git / 运行项目验收 / 跑题集」）。
 
 ### 验证
-- `python -m pytest -q`：**195 passed**；`codeagent.py status --json`：36 原子 / 145 能力 / `degraded=[]` / `conflicts=[]`。
+- `python -m pytest -q`：**195 passed**；`codeagent.py status --json`：36 原子 / 165 能力 / `degraded=[]` / `conflicts=[]`。
 - 题集：`python scripts/run_evals.py` → **10/10 通过（pass_k 1.00）**；运行前端（8080）真浏览器实测 11 个预设动作全通（`运行 git` 返回真实分支/改动、`运行项目验收` 返回真实快照、`跑题集` 10/10），零 JS 报错。
 
 ## [0.4.1] - 2026-09-08
@@ -241,7 +255,7 @@ v3 去重时把"一次只做一件事 / 无关文件零改动 / 不顺手改格�
 
 本版本 = **带前端的完整版**并入开源仓库 codeagent-minimal，替代旧「纯内核 29 原子 + 闭源编排」形态，`git clone` 即用。
 
-- **完整原子集**：统一运行时注册 **34 原子 / 能力全绿**（`codeagent.py status --json`：`degraded=[]`、`conflicts=[]`）。在纯内核基础上补齐 `code-implement`（代码实现/写码）、`browser-smoke`（浏览器冒烟）、`doc-freshness`（文档新鲜度审计）、`deadcode`（死代码检测）、`method-impact`（方法级影响分析）等原子。
+- **完整原子集**：统一运行时注册 **41 原子 / 能力全绿**（`codeagent.py status --json`：`degraded=[]`、`conflicts=[]`）。在纯内核基础上补齐 `code-implement`（代码实现/写码）、`browser-smoke`（浏览器冒烟）、`doc-freshness`（文档新鲜度审计）、`deadcode`（死代码检测）、`method-impact`（方法级影响分析）等原子。
 - **Lab 编排 + 浏览器前端开源**：`lab/`（原子库可视化编排系统，含 `lab/frontend`）与 `web/`（最小运行前端 + REST）全部随仓库分发，纯标准库 `http.server` 起服务：
   - `python lab/lab_app.py --port 8087` → http://127.0.0.1:8087（编排画布 / 代码浏览 / 黑箱调试 / 报告 / 对话）
   - `python web/server.py --port 8080` → http://127.0.0.1:8080（状态 / review / test / guard / chain / evolve + REST）

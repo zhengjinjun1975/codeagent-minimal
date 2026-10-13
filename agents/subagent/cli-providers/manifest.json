@@ -1,0 +1,33 @@
+{
+  "name": "cli-providers",
+  "version": "0.1.0",
+  "domain": "subagent",
+  "description": "外部 CLI 子代理 provider 链：探测可用性 + 降级链 + 统一派活信封",
+  "open_source": true,
+  "agent_class": "CliProvidersAgent",
+  "entry": "main.py",
+  "provides": [
+    "subagent.providers",
+    "subagent.dispatch",
+    "subagent.probe"
+  ],
+  "depends_on": [],
+  "inputs": [
+    "text"
+  ],
+  "outputs": [
+    "echo"
+  ],
+  "path": "agents/subagent/cli-providers",
+  "permission": {
+    "needs": [
+      "exec"
+    ],
+    "network": false
+  },
+  "resource": {
+    "model_calls": 0,
+    "timeout_sec": 600,
+    "memory_mb": 512
+  }
+}

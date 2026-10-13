@@ -60,14 +60,14 @@ python codeagent.py guard   代码目录          # 一键安全·质量检查
 | 影响分析 | `impact` | 改动会影响哪些模块 |
 | 一键检查 | `guard` | 审查 + 安全 + 测试 协同 |
 
-共 **39 个可独立运行、可任意组装的能力原子**，配合本地可视化 Lab 编排与浏览器前端。每个原子的能力 / 入参 / 示例见 [docs/ATOMS_GUIDE.md](docs/ATOMS_GUIDE.md)。
+共 **41 个可独立运行、可任意组装的能力原子**，配合本地可视化 Lab 编排与浏览器前端。每个原子的能力 / 入参 / 示例见 [docs/ATOMS_GUIDE.md](docs/ATOMS_GUIDE.md)。
 
 ## 调用方式（三种，任选）
 
 **一、命令行**（最快上手）：
 
 ```bash
-python codeagent.py status --json           # 运行时自省：39 原子 / 161 能力 / degraded / conflicts
+python codeagent.py status --json           # 运行时自省：41 原子 / 165 能力 / degraded / conflicts
 python codeagent.py review 你的代码.py       # 代码审查（0–100 分 + 问题清单）
 python codeagent.py test   你的代码.py       # 测试闭环
 python codeagent.py dep-scan 代码目录        # 依赖漏洞扫描
@@ -85,7 +85,7 @@ python agents/code/code-implement/main.py --task "补一个参数校验" --path 
 ```python
 from agent_runtime import get_runtime
 
-rt = get_runtime()                      # 加载一次，39 个原子全部注册
+rt = get_runtime()                      # 加载一次，41 个原子全部注册
 r = rt.run_capability("code.review", path="你的代码.py")
 print(r["ok"], r["data"]["score"], r["data"]["issues"])
 
@@ -112,7 +112,7 @@ python lab/lab_app.py --port 8087      # 浏览器打开 http://127.0.0.1:8087
 - `manifest.json`：声明 `provides`（对外能力名）、`inputs` / `outputs`、`depends_on`；
 - `main.py`：实现本体，能力在 `load()` 里注册（`AtomicAgent.register`）。
 
-**加载顺序**由 `registry.json` 的 `order` 决定（39 项）。`agent_runtime.get_runtime()` 按序加载并统一注册，加载不起来的会如实出现在 `degraded`，冲突出现在 `conflicts`，不静默吞。
+**加载顺序**由 `registry.json` 的 `order` 决定（41 项）。`agent_runtime.get_runtime()` 按序加载并统一注册，加载不起来的会如实出现在 `degraded`，冲突出现在 `conflicts`，不静默吞。
 
 **组装链**：`agents/dispatch/code-dispatch/` 下备了六条链——改缺陷/修回归、写码/新增功能、代码审查/质量、依赖/影响面、测试/用例、排查/定根因；模板在 `chain_templates.json`，`chain_selector.py` 在规则层按关键词选链（不花模型的钱），命不中才落回默认写码闭环。链里前一步的产物会作为后一步的输入。
 
@@ -138,7 +138,7 @@ python lab/lab_app.py --port 8087      # 浏览器打开 http://127.0.0.1:8087
 |------|------|
 | [docs/代码宪法.md](docs/代码宪法.md) | 代码宪法正文（唯一来源）与三层结构 |
 | [docs/CAPABILITY.md](docs/CAPABILITY.md) | 能力与原子清单 |
-| [docs/ATOMS_GUIDE.md](docs/ATOMS_GUIDE.md) | 39 原子逐个指南：能力 / 入参 / 返回 / 示例 |
+| [docs/ATOMS_GUIDE.md](docs/ATOMS_GUIDE.md) | 41 原子逐个指南：能力 / 入参 / 返回 / 示例 |
 | [docs/POSITIONING.md](docs/POSITIONING.md) | 与同类开源的真实对照（编码代理类 8 + 质量治理工具类 20）：优势 8 条 / 短板 6 条逐条显性 |
 | [docs/PROMOTION.md](docs/PROMOTION.md) | 宣传与边界：场景痛点 / 方法论 / 诚实边界 |
 | [docs/INTEGRATION_GUIDE.md](docs/INTEGRATION_GUIDE.md) | 对接 LangChain / CrewAI / Claude Code 等框架 |
@@ -156,7 +156,7 @@ python lab/lab_app.py --port 8087      # 浏览器打开 http://127.0.0.1:8087
 
 ## 回归与状态
 
-- `python codeagent.py status --json`：注册 **39 原子 / 161 能力**，`degraded=[]`、`conflicts=[]`（实测）。
+- `python codeagent.py status --json`：注册 **41 原子 / 165 能力**，`degraded=[]`、`conflicts=[]`（实测）。
 - `python -m pytest tests/ -q`：全量单测通过（CI 已接入 GitHub Actions）。
 
 ## 许可

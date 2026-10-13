@@ -1,0 +1,29 @@
+{
+  "name": "complexity-gate",
+  "version": "0.1.0",
+  "domain": "model",
+  "description": "编排前复杂度闸：先判任务要不要走长链，简单任务不进编排（规则层零模型调用，判不了保守判复杂）",
+  "open_source": true,
+  "agent_class": "ComplexityGateAgent",
+  "entry": "main.py",
+  "provides": [
+    "model.assess_complexity"
+  ],
+  "depends_on": [],
+  "inputs": [
+    "text"
+  ],
+  "outputs": [
+    "echo"
+  ],
+  "path": "agents/model/complexity-gate",
+  "permission": {
+    "needs": [],
+    "network": false
+  },
+  "resource": {
+    "model_calls": 0,
+    "timeout_sec": 120,
+    "memory_mb": 512
+  }
+}

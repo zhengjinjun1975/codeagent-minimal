@@ -989,6 +989,82 @@
       ],
       "path": "agents/memory/code-memory"
     },
+    "event-log": {
+      "name": "event-log",
+      "version": "0.1.0",
+      "domain": "memory",
+      "description": "事件流原子: append-only 事件落盘 + 检查点 + 按事件回放, 用于长任务(生成循环/训练链/采集)事后按事件定位。纯 stdlib, 数据不出厂。",
+      "open_source": true,
+      "agent_class": "EventLogAgent",
+      "entry": "main.py",
+      "provides": [
+        "event.append",
+        "event.checkpoint",
+        "event.replay",
+        "event.timeline"
+      ],
+      "depends_on": [],
+      "inputs": [
+        "session_key",
+        "kind",
+        "payload",
+        "outcome",
+        "state",
+        "from_seq",
+        "to_seq",
+        "store_dir"
+      ],
+      "outputs": [
+        "seq",
+        "events",
+        "timeline",
+        "restored_state",
+        "up_to_seq",
+        "state_digest"
+      ],
+      "permission": {
+        "needs": [
+          "read",
+          "write"
+        ],
+        "network": false
+      },
+      "resource": {
+        "model_calls": 0,
+        "timeout_sec": 120,
+        "memory_mb": 512
+      },
+      "path": "agents/memory/event-log"
+    },
+    "complexity-gate": {
+      "name": "complexity-gate",
+      "version": "0.1.0",
+      "domain": "model",
+      "description": "编排前复杂度闸：先判任务要不要走长链，简单任务不进编排（规则层零模型调用，判不了保守判复杂）",
+      "open_source": true,
+      "agent_class": "ComplexityGateAgent",
+      "entry": "main.py",
+      "provides": [
+        "model.assess_complexity"
+      ],
+      "depends_on": [],
+      "inputs": [
+        "text"
+      ],
+      "outputs": [
+        "echo"
+      ],
+      "path": "agents/model/complexity-gate",
+      "permission": {
+        "needs": [],
+        "network": false
+      },
+      "resource": {
+        "model_calls": 0,
+        "timeout_sec": 120,
+        "memory_mb": 512
+      }
+    },
     "model-fallback": {
       "name": "model-fallback",
       "version": "0.2.0",
@@ -1231,6 +1307,57 @@
         "memory_mb": 1024
       }
     },
+    "secret-vault": {
+      "name": "secret-vault",
+      "version": "0.1.0",
+      "domain": "secrets",
+      "description": "密钥加密存储原子（P0，借鉴Codex keyring-store）: api_key等PBKDF2派生密钥+HMAC密钥流XOR静态加密落盘, 按需解密, 掩码展示。纯stdlib(静态混淆非强加密如实标注)。",
+      "open_source": true,
+      "agent_class": "SecretVaultAgent",
+      "entry": "main.py",
+      "provides": [
+        "secrets.encrypt",
+        "secrets.decrypt",
+        "secrets.store",
+        "secrets.load",
+        "secrets.mask",
+        "secrets.vault"
+      ],
+      "depends_on": [],
+      "inputs": [
+        "plaintext",
+        "value",
+        "passphrase",
+        "name",
+        "vault_dir",
+        "bundle",
+        "keep"
+      ],
+      "outputs": [
+        "salt",
+        "iv",
+        "ciphertext",
+        "tag",
+        "decrypted",
+        "stored",
+        "name",
+        "masked",
+        "names"
+      ],
+      "path": "agents/secrets/secret-vault",
+      "permission": {
+        "needs": [
+          "read",
+          "write"
+        ],
+        "network": false
+      },
+      "resource": {
+        "model_calls": 0,
+        "timeout_sec": 120,
+        "memory_mb": 512
+      }
+    },
     "security-scan": {
       "name": "security-scan",
       "version": "0.1.0",
@@ -1262,6 +1389,57 @@
         "files"
       ],
       "path": "agents/security/security-scan"
+    },
+    "session": {
+      "name": "session",
+      "version": "0.1.0",
+      "domain": "session",
+      "description": "会话化原子（P1，借鉴Codex CodexThread/ThreadManager/thread-store）: 会话=一串原子调用, JSON持久化记录每步输入/输出摘要+状态, 支持resume续跑。落盘.codeagent/sessions, 纯文本可读数据不出厂。",
+      "open_source": true,
+      "agent_class": "SessionAgent",
+      "entry": "main.py",
+      "provides": [
+        "session.start",
+        "session.step",
+        "session.list",
+        "session.get",
+        "session.resume",
+        "session.status"
+      ],
+      "depends_on": [],
+      "inputs": [
+        "sid",
+        "task",
+        "step_capability",
+        "inputs",
+        "output",
+        "status",
+        "session_dir"
+      ],
+      "outputs": [
+        "sid",
+        "created",
+        "updated",
+        "steps",
+        "status",
+        "step",
+        "next",
+        "sessions",
+        "summary"
+      ],
+      "path": "agents/session/session",
+      "permission": {
+        "needs": [
+          "read",
+          "write"
+        ],
+        "network": false
+      },
+      "resource": {
+        "model_calls": 0,
+        "timeout_sec": 120,
+        "memory_mb": 512
+      }
     },
     "code-skill": {
       "name": "code-skill",
@@ -1298,6 +1476,39 @@
         "path"
       ],
       "path": "agents/skill/code-skill"
+    },
+    "cli-providers": {
+      "name": "cli-providers",
+      "version": "0.1.0",
+      "domain": "subagent",
+      "description": "外部 CLI 子代理 provider 链：探测可用性 + 降级链 + 统一派活信封",
+      "open_source": true,
+      "agent_class": "CliProvidersAgent",
+      "entry": "main.py",
+      "provides": [
+        "subagent.providers",
+        "subagent.dispatch",
+        "subagent.probe"
+      ],
+      "depends_on": [],
+      "inputs": [
+        "text"
+      ],
+      "outputs": [
+        "echo"
+      ],
+      "path": "agents/subagent/cli-providers",
+      "permission": {
+        "needs": [
+          "exec"
+        ],
+        "network": false
+      },
+      "resource": {
+        "model_calls": 0,
+        "timeout_sec": 600,
+        "memory_mb": 512
+      }
     },
     "task-state": {
       "name": "task-state",
@@ -1486,155 +1697,6 @@
         "ok"
       ],
       "path": "agents/web/browser-smoke"
-    },
-    "event-log": {
-      "name": "event-log",
-      "version": "0.1.0",
-      "domain": "memory",
-      "description": "事件流原子: append-only 事件落盘 + 检查点 + 按事件回放, 用于长任务(生成循环/训练链/采集)事后按事件定位。纯 stdlib, 数据不出厂。",
-      "open_source": true,
-      "agent_class": "EventLogAgent",
-      "entry": "main.py",
-      "provides": [
-        "event.append",
-        "event.checkpoint",
-        "event.replay",
-        "event.timeline"
-      ],
-      "depends_on": [],
-      "inputs": [
-        "session_key",
-        "kind",
-        "payload",
-        "outcome",
-        "state",
-        "from_seq",
-        "to_seq",
-        "store_dir"
-      ],
-      "outputs": [
-        "seq",
-        "events",
-        "timeline",
-        "restored_state",
-        "up_to_seq",
-        "state_digest"
-      ],
-      "permission": {
-        "needs": [
-          "read",
-          "write"
-        ],
-        "network": false
-      },
-      "resource": {
-        "model_calls": 0,
-        "timeout_sec": 120,
-        "memory_mb": 512
-      },
-      "path": "agents/memory/event-log"
-    },
-    "secret-vault": {
-      "name": "secret-vault",
-      "version": "0.1.0",
-      "domain": "secrets",
-      "description": "密钥加密存储原子（P0，借鉴Codex keyring-store）: api_key等PBKDF2派生密钥+HMAC密钥流XOR静态加密落盘, 按需解密, 掩码展示。纯stdlib(静态混淆非强加密如实标注)。",
-      "open_source": true,
-      "agent_class": "SecretVaultAgent",
-      "entry": "main.py",
-      "provides": [
-        "secrets.encrypt",
-        "secrets.decrypt",
-        "secrets.store",
-        "secrets.load",
-        "secrets.mask",
-        "secrets.vault"
-      ],
-      "depends_on": [],
-      "inputs": [
-        "plaintext",
-        "value",
-        "passphrase",
-        "name",
-        "vault_dir",
-        "bundle",
-        "keep"
-      ],
-      "outputs": [
-        "salt",
-        "iv",
-        "ciphertext",
-        "tag",
-        "decrypted",
-        "stored",
-        "name",
-        "masked",
-        "names"
-      ],
-      "path": "agents/secrets/secret-vault",
-      "permission": {
-        "needs": [
-          "read",
-          "write"
-        ],
-        "network": false
-      },
-      "resource": {
-        "model_calls": 0,
-        "timeout_sec": 120,
-        "memory_mb": 512
-      }
-    },
-    "session": {
-      "name": "session",
-      "version": "0.1.0",
-      "domain": "session",
-      "description": "会话化原子（P1，借鉴Codex CodexThread/ThreadManager/thread-store）: 会话=一串原子调用, JSON持久化记录每步输入/输出摘要+状态, 支持resume续跑。落盘.codeagent/sessions, 纯文本可读数据不出厂。",
-      "open_source": true,
-      "agent_class": "SessionAgent",
-      "entry": "main.py",
-      "provides": [
-        "session.start",
-        "session.step",
-        "session.list",
-        "session.get",
-        "session.resume",
-        "session.status"
-      ],
-      "depends_on": [],
-      "inputs": [
-        "sid",
-        "task",
-        "step_capability",
-        "inputs",
-        "output",
-        "status",
-        "session_dir"
-      ],
-      "outputs": [
-        "sid",
-        "created",
-        "updated",
-        "steps",
-        "status",
-        "step",
-        "next",
-        "sessions",
-        "summary"
-      ],
-      "path": "agents/session/session",
-      "permission": {
-        "needs": [
-          "read",
-          "write"
-        ],
-        "network": false
-      },
-      "resource": {
-        "model_calls": 0,
-        "timeout_sec": 120,
-        "memory_mb": 512
-      }
     }
   },
   "order": [
@@ -1661,6 +1723,7 @@
     "mcp-client",
     "code-memory",
     "event-log",
+    "complexity-gate",
     "ontology-review",
     "code-project",
     "code-reuse",
@@ -1668,6 +1731,7 @@
     "secret-vault",
     "security-scan",
     "session",
+    "cli-providers",
     "task-state",
     "code-test",
     "git-ops",
