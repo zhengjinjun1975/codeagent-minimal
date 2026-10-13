@@ -7,7 +7,7 @@
 
 断言（任一不成立即退出码非 0）：
   ① docs/代码宪法.md 存在、BEGIN/END 成对、正文非空且在预算内；
-  ② 三条档位都在正文里（强宪法 P0 / 重核心 P1 / 轻外围 P2），条文编号完整（S1..S5 / C1..C6 / L1..L5）；
+  ② 三条档位都在正文里（强宪法 P0 / 重核心 P1 / 轻外围 P2），条文编号完整（S1..S5 / C1..C6 / L1..L7）；
   ③ code.implement 路径：code_agent_engine.PONYTAIL_SYSTEM 含宪法正文；
   ④ code.runloop 路径：code-runloop/prompts.build_system_prompt() 含宪法正文；
   ⑤ 注入幂等；缺文件/缺标记时抛错（不静默降级）；
@@ -69,7 +69,7 @@ def main():
     chk("①c 正文非空", len(body) > 500, "%d 字符" % len(body))
     chk("①d 正文在预算内", len(body) <= cc.MAX_CHARS, "上限 %d" % cc.MAX_CHARS)
 
-    # v3：常驻核心只放 P0 与按阈值判的 P1；P2（L1..L5）在评审条文里，按需加载。
+    # v3：常驻核心只放 P0 与按阈值判的 P1；P2（L1..L7）在评审条文里，按需加载。
     for tier in ("强宪法", "重核心"):
         chk("② 常驻核心含%s档" % tier, tier in body)
     for pref, nums in (("S", (1, 2, 3, 4, 5)), ("C", (1, 3, 4, 5, 6))):
@@ -80,11 +80,11 @@ def main():
     rev = cc.review_text()          # 装载器已支持按层读取（v3 第二步）
     # 功能性分层完整性：两层不重复、无孤儿条文；写时层要写明"判定层"是谁在判
     _core_nums = ["S1 ", "S2 ", "S3 ", "S4 ", "S5 ", "C1 ", "C3 ", "C4 ", "C5 ", "C6 "]
-    _rev_nums = ["L1 ", "L2 ", "L3 ", "L4 ", "L5 "]
+    _rev_nums = ["L1 ", "L2 ", "L3 ", "L4 ", "L5 ", "L6 ", "L7 "]
     chk("② 分层：两层无重复条文", not [x for x in _core_nums if x in _rev_nums])
     chk("② 分层：写时层指明判定层（门）", "constitution_gate.py" in body)
-    missing = [i for i in range(1, 6) if "\nL%d " % i not in rev]
-    chk("② 评审条文 L1..L5 齐全", not missing, "缺 %s" % missing)
+    missing = [i for i in range(1, 8) if "\nL%d " % i not in rev]
+    chk("② 评审条文 L1..L7 齐全", not missing, "缺 %s" % missing)
     chk("② 评审条文与常驻不重叠", "强宪法" not in rev and "\nS1 " not in rev)
 
     import importlib

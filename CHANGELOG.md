@@ -16,6 +16,7 @@
 
 ### 变更
 - 原子数 39 → 41，能力数 161 → 165；README / docs / 架构图口径同步。
+- 代码宪法补 L6/L7（测试质量；修 bug 先有红命令），`scripts/verify_code_constitution.py` 的评审条文完整性检查同步扩到 L1..L7。
 - 实测：`python codeagent.py status --json` → **41 原子 / 165 能力**，`degraded=[]`、`conflicts=[]`。
 
 ## [0.8.1] - 2026-10-05
