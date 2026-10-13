@@ -55,6 +55,8 @@
 | 37 | `event-log` | `memory` | （原子自带 CLI） | `append/checkpoint/replay/timeline` |
 | 38 | `secret-vault` | `secrets` | （原子自带 CLI） | `encrypt/decrypt/store/load/mask/vault` |
 | 39 | `session` | `session` | （原子自带 CLI） | `start/step/list/get/resume/status` |
+| 40 | `complexity-gate` | `model` | （原子自带 CLI） | `model.assess_complexity` |
+| 41 | `cli-providers` | `subagent` | （原子自带 CLI） | `subagent.providers/probe/dispatch` |
 
 > 注册索引见 `registry.json`；运行时用 `python codeagent.py status --json` 查看 41 原子 ready/degraded/冲突状态。本指南深入讲解下表精选核心原子；完整 41 原子清单见 [README](../README.md) 的「原子清单」。
 
