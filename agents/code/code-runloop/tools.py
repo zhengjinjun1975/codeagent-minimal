@@ -34,13 +34,26 @@ def resolve_roots(*paths):
     return roots
 
 
+def _norm(p):
+    """两侧统一归一：normcase(realpath(abspath(...)))。
+
+    为什么必须归一：Windows 下 realpath 出来是反斜杠，而调用方（尤其 MCP 侧）常把根写成正斜杠，
+    原实现拿原始根字符串直接比 → root='D:/x' 与 'D:\\x\\f.py' 永不相等，明明在根内也被判越界。
+    归一不放宽判据：不在任何根下照样拒。
+    """
+    return os.path.normcase(os.path.realpath(os.path.abspath(str(p))))
+
+
 def ensure_inside(path, roots):
     """返回规范化绝对路径; 若不在任一 root 下 → 抛 ValueError(越界拒绝)。"""
     if not roots:
         raise ValueError("未配置 FS 白名单根(root)")
-    ap = os.path.realpath(os.path.abspath(path))
+    ap = _norm(path)
     for r in roots:
-        if ap == r or ap.startswith(r + os.sep):
+        if not r:
+            continue
+        rp = _norm(r)
+        if ap == rp or ap.startswith(rp + os.sep):
             return ap
     raise ValueError(f"路径越界被拒(不在白名单 root 内): {path}\n  roots={roots}")
 
