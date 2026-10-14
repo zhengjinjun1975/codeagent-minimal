@@ -18,6 +18,8 @@ per-agent 可声明走哪个 provider / 哪个 model。local_only 默认 True（
 import json
 import os
 import sys
+import time
+import urllib.error
 import urllib.request
 
 HERE = os.path.dirname(os.path.abspath(__file__))
@@ -97,11 +99,31 @@ def _load_provider_registry(config_path=None):
 
 
 def _post_json(url, payload, timeout=120, headers=None):
-    req = urllib.request.Request(url, data=json.dumps(payload).encode("utf-8"),
-                                 headers=headers or {"Content-Type": "application/json"},
-                                 method="POST")
-    with urllib.request.urlopen(req, timeout=timeout) as resp:
-        return json.loads(resp.read().decode("utf-8"))
+    """POST 一个 JSON，带有限重试与退避（**容错归模型层**，调用方不必各写一遍）。
+
+    只对可恢复错误重试：连接错误、超时、408/425/429、5xx。
+    业务类 4xx（400/401/403/404）直接抛，免得把密钥/配额问题重试成三倍等待。
+    次数与退避：CODEAGENT_HTTP_RETRIES（默认 2，即最多 3 次）/ CODEAGENT_HTTP_BACKOFF（默认 1.0 秒）。
+    """
+    data = json.dumps(payload).encode("utf-8")
+    hdrs = headers or {"Content-Type": "application/json"}
+    tries = int(os.environ.get("CODEAGENT_HTTP_RETRIES", "2") or 2)
+    backoff = float(os.environ.get("CODEAGENT_HTTP_BACKOFF", "1.0") or 1.0)
+    last = None
+    for attempt in range(tries + 1):
+        req = urllib.request.Request(url, data=data, headers=hdrs, method="POST")
+        try:
+            with urllib.request.urlopen(req, timeout=timeout) as resp:
+                return json.loads(resp.read().decode("utf-8"))
+        except urllib.error.HTTPError as e:
+            last = e
+            if e.code not in (408, 425, 429) and e.code < 500:
+                raise
+        except Exception as e:                     # URLError / 超时 / 连接被重置
+            last = e
+        if attempt < tries:
+            time.sleep(backoff * (2 ** attempt))
+    raise last if last is not None else RuntimeError("POST 失败且无异常记录")
 
 
 class LlmRouterAgent(AtomicAgent):
