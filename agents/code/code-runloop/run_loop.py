@@ -240,7 +240,7 @@ def execute_calls(calls, roots, cwd, files_written, tool_log, turn):
 
 # run_loop 主函数体在下方由分片续写填入
 def run_loop(task, *, target_path=None, output_dir=None, verify=None,
-             language="python", llm_generate=None, max_iterations=5,
+             language="python", llm_generate=None, max_iterations=8,
              temp=0.3, max_tokens=32000, config_path=None,
              system_prompt=None, trace=None, write_root=None,
              allow_skip_verify=False, max_verify_failures=4,
@@ -432,8 +432,26 @@ def run_loop(task, *, target_path=None, output_dir=None, verify=None,
         verify_failures += 1
         fail_out = (v.get("output") or f"exit_code={v.get('exit_code')} "
                     f"timeout={v.get('timeout')}").strip()
+        # H2（2026-10-15）：把失败要点结构化（失败测试名 / 断言行 / 异常行）放在原文之前，
+        # 让下一轮的提示里有"可直接改的点"，而不是只丢一大段 stdout。
+        _dig = []
+        for _ln in (v.get("output") or "").splitlines():
+            _s = _ln.strip()
+            if not _s:
+                continue
+            if (_s.startswith("FAILED ") or _s.startswith("ERROR ")
+                    or _s.startswith("E   ") or _s.startswith("AssertionError")
+                    or _s.startswith("AttributeError") or _s.startswith("TypeError")
+                    or _s.startswith("NameError") or _s.startswith("IndentationError")
+                    or _s.startswith("SyntaxError") or _s.startswith("Traceback")):
+                if _s not in _dig:
+                    _dig.append(_s)
+            if len(_dig) >= 8:
+                break
+        _digest = (("失败要点(共 %d 条):\n" % len(_dig)) + "\n".join(_dig)) if _dig else ""
         _u(f"[DoD 校验失败 #{verify_failures}] 命令: {verify_cmd}\n"
-           f"真实输出:\n{fail_out}\n\n请依据以上真实失败修改到绿(别假装通过)。")
+           + (_digest + "\n" if _digest else "")
+           + f"真实输出:\n{fail_out}\n\n请依据以上真实失败修改到绿(别假装通过)。")
         if trace is not None:
             trace.append({"turn": turn, "stage": "verify_fail", "n": verify_failures,
                           "out": fail_out[:200]})
