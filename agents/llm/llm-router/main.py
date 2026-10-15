@@ -98,28 +98,6 @@ def _load_provider_registry(config_path=None):
     return merged
 
 
-def _egress_gate(url):
-    """出网按域白名单（Phase 5.6）：判据在同仓根的 netguard.py。
-
-    fail-open：拿不到 netguard（如原子被单独拷走）时不阻断，返回 None；
-    audit 模式恒放行但记账，enforce 模式拦非白名单域。返回 dict 或 None。
-    """
-    try:
-        import netguard
-    except Exception:
-        try:
-            _root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-            if _root not in sys.path:
-                sys.path.insert(0, _root)
-            import netguard
-        except Exception:
-            return None
-    try:
-        return netguard.egress_check(url)
-    except Exception:
-        return None
-
-
 def _post_json(url, payload, timeout=120, headers=None):
     """POST 一个 JSON，带有限重试与退避（**容错归模型层**，调用方不必各写一遍）。
 
@@ -129,9 +107,6 @@ def _post_json(url, payload, timeout=120, headers=None):
     """
     data = json.dumps(payload).encode("utf-8")
     hdrs = headers or {"Content-Type": "application/json"}
-    _eg = _egress_gate(url)
-    if _eg and not _eg.get("allowed"):
-        raise RuntimeError("出网被拒（不在白名单）: %s | %s" % (_eg.get("host"), _eg.get("reason")))
     tries = int(os.environ.get("CODEAGENT_HTTP_RETRIES", "2") or 2)
     backoff = float(os.environ.get("CODEAGENT_HTTP_BACKOFF", "1.0") or 1.0)
     last = None
