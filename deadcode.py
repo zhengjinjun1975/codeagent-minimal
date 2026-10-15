@@ -41,7 +41,7 @@ def _module_has_main_guard(path):
     try:
         src = Path(path).read_text(encoding="utf-8", errors="ignore")
         tree = ast.parse(src)
-    except (SyntaxError, OSError):
+    except (SyntaxError, OSError):  # fail-open: _module_has_main_guard 里出错就返回空值，调用方按缺失处理
         return False
     for node in tree.body:
         if isinstance(node, ast.If):

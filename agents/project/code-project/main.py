@@ -76,7 +76,7 @@ class CodeProjectAgent(AtomicAgent):
         for f in files:
             try:
                 src = open(f, encoding="utf-8", errors="ignore").read()
-            except Exception:
+            except Exception:  # fail-open: _scan 里出错就跳过该条继续扫
                 continue
             static = rv._static_analyze(src, max_complexity=max_complexity)
             for i in static["all_issues"]:

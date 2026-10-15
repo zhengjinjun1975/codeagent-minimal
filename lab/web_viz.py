@@ -15,7 +15,6 @@ import re
 import subprocess
 import sys
 import threading
-import time
 import urllib.parse
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
@@ -43,7 +42,7 @@ def _run_proc(cmd, cwd, timeout=180):
                 continue
             try:
                 return json.loads(cand)
-            except json.JSONDecodeError:
+            except json.JSONDecodeError:  # fail-open: _run_proc 里出错就跳过该条继续扫
                 continue
         return {"raw": out, "stderr": (proc.stderr or "")[-2000:], "code": proc.returncode}
     except subprocess.TimeoutExpired:
@@ -161,7 +160,7 @@ def _parse_body(self):
     for enc in ("utf-8", "gbk", "latin-1"):
         try:
             return json.loads(raw.decode(enc))
-        except (UnicodeDecodeError, json.JSONDecodeError):
+        except (UnicodeDecodeError, json.JSONDecodeError):  # fail-open: _parse_body 里出错就跳过该条继续扫
             continue
     return {}
 
@@ -248,11 +247,11 @@ class Handler(BaseHTTPRequestHandler):
             self._err(f"内部错误: {type(e).__name__}: {e}", 500)
 
     def _route_get(self):
+        """_route_get：按【原始顺序】逐条匹配有序路由表 _GET_ROUTES，最后 404。"""
         parsed = urllib.parse.urlparse(self.path)
         path = parsed.path
         qs = urllib.parse.parse_qs(parsed.query)
         cfg = get_app().cfg
-        # 静态
         if path == "/" or path == "/index.html":
             self._static("frontend/index.html", "text/html; charset=utf-8")
             return
@@ -260,123 +259,11 @@ class Handler(BaseHTTPRequestHandler):
             self._static("frontend/" + path.lstrip("/"), "text/css; charset=utf-8"
                          if path.endswith(".css") else "text/javascript; charset=utf-8")
             return
-        if path == "/api/health":
-            app = get_app()
-            self._ok({"service": "codeagent-lab", "atoms_ready": bool(app and app.db),
-                      "config": cfg.public()})
-            return
-        if path == "/api/config":
-            self._ok(cfg.public())
-            return
-        if path == "/api/tree":
-            rel = qs.get("root", [""])[0]
-            self._ok(self._tree(rel, qs.get("recursive", ["0"])[0] == "1",
-                                qs.get("badges", ["0"])[0] == "1"))
-            return
-        if path == "/api/file":
-            rel = qs.get("path", [""])[0]
-            view = qs.get("view", ["code"])[0]
-            r = self._file(rel, view)
-            if not r.get("ok"):
-                self._err(r.get("error") or "文件读取失败", 400)
+        for _kind, _pat, _fn in _GET_ROUTES:
+            _hit = (path == _pat) if _kind == "exact" else bool(re.fullmatch(_pat, path))
+            if _hit:
+                _fn(self, path, qs, cfg)
                 return
-            self._ok(r)
-            return
-        if path == "/api/graph":
-            kind = qs.get("kind", ["deps"])[0]
-            rel = qs.get("path", [""])[0]
-            sym = qs.get("symbol", [""])[0] or None
-            self._ok(self._graph(kind, rel, sym))
-            return
-        if path == "/api/atoms":
-            from atom_loader_ext import merged_registry
-            import importlib.util as _iu
-            payload = merged_registry(cfg.codeagent_root())
-            try:   # 版本号单点：仓库根 version.py（前端顶部显示）
-                _sp = _iu.spec_from_file_location("_labver", os.path.join(cfg.codeagent_root(), "version.py"))
-                _m = _iu.module_from_spec(_sp)
-                _sp.loader.exec_module(_m)
-                payload["version"] = getattr(_m, "__version__", "")
-            except Exception:   # noqa: BLE001
-                payload["version"] = ""
-            self._ok(payload)
-            return
-        if path == "/api/fs/roots":
-            # 路径边界: 文件/目录选择器允许浏览的根白名单(默认=本机存在的盘符根 +
-            # lab_config.json 里显式配置的 path_allowlist), 供前端目录选择器定位用。
-            self._ok({"roots": _fs_roots(cfg)})
-            return
-        if path == "/api/atoms/selfcheck":
-            from atom_extension import self_check
-            self._ok(self_check(cfg))
-            return
-        if path == "/api/pipelines":
-            self._ok({"runs": get_app().db.list_pipelines(30)})
-            return
-        if re.fullmatch(r"/api/pipeline/[^/]+", path):
-            rid = path.rsplit("/", 1)[1]
-            import pipeline as pl
-            state = pl.get_run(rid)
-            if state is None:
-                self._err(f"管道运行不存在: {rid}", 404)
-                return
-            self._ok(state)
-            return
-        if path == "/api/debug/history":
-            from debug_history import find_hits
-            q = qs.get("q", [""])[0]
-            db = get_app().db
-            rows = db.list_debug(q, 50)
-            self._ok({"hits": rows, "count": len(rows)})
-            return
-        if re.fullmatch(r"/api/debug/[^/]+", path):
-            rid = path.rsplit("/", 1)[1]
-            import debug_orchestrator as do
-            state = do.get_state(rid)
-            if state is None:
-                self._err(f"调试运行不存在: {rid}", 404)
-                return
-            self._ok(state)
-            return
-        if re.fullmatch(r"/api/report/[^/]+\.(html|md)", path):
-            rid, ext = path.rsplit("/", 1)[1].rsplit(".", 1)
-            from report_gen import load_export
-            content = load_export(rid, ext)
-            if content is None:
-                # 重启后兜底：按文件名扫描导出目录
-                content = _load_export_disk(cfg, rid, ext)
-            if content is None:
-                self._err(f"报告导出不存在: {rid}.{ext}", 404)
-                return
-            self._send(200, content,
-                       "text/html; charset=utf-8" if ext == "html"
-                       else "text/markdown; charset=utf-8")
-            return
-        if re.fullmatch(r"/api/report/[^/]+", path):
-            rid = path.rsplit("/", 1)[1]
-            import report_gen as rg
-            state = rg.get_report(rid)
-            if state is None:
-                self._err(f"报告不存在: {rid}", 404)
-                return
-            self._ok(state)
-            return
-        if path == "/api/reports":
-            self._ok({"reports": get_app().db.list_reports(50)})
-            return
-        if path == "/api/models":
-            from model_config import public
-            self._ok(public())
-            return
-        if path == "/api/events":
-            since = int(qs.get("since", ["0"])[0] or 0)
-            evs = get_bus().since(since)
-            last = evs[-1]["seq"] if evs else get_bus().last_seq()
-            self._ok({"events": evs, "last_seq": last, "count": len(evs)})
-            return
-        if path == "/api/editlog":
-            self._ok({"edits": get_app().db.list_edit_log(100)})
-            return
         self._err("404 未找到", 404)
 
     # ── POST ─────────────────────────────────
@@ -389,7 +276,7 @@ class Handler(BaseHTTPRequestHandler):
         if body.get("_oversize"):
             try:
                 self.rfile.read(min(int(body.get("_len", 0)), 4 * 1024 * 1024))
-            except Exception:  # noqa: BLE001
+            except Exception:  # noqa: BLE001  # fail-open: 请求体长度解析失败就按 0 处理
                 pass
             self._err(f"请求体过大(上限 {_MAX_BODY} 字节)", 413)
             return
@@ -402,174 +289,13 @@ class Handler(BaseHTTPRequestHandler):
             self._err(f"内部错误: {type(e).__name__}: {e}", 500)
 
     def _route_post(self, body, path):
+        """_route_post：按【原始顺序】逐条匹配有序路由表 _POST_ROUTES，最后 404。"""
         cfg = get_app().cfg
-        if path == "/api/config/target":
-            ok, real = cfg.set_target_root(body.get("path"))
-            if not ok:
-                self._err(real, 400)
+        for _kind, _pat, _fn in _POST_ROUTES:
+            _hit = (path == _pat) if _kind == "exact" else bool(re.fullmatch(_pat, path))
+            if _hit:
+                _fn(self, path, body, cfg)
                 return
-            self.bus_emit("config.target_changed", {"target_root": real})
-            self._ok({"target_root": real})
-            return
-        if path == "/api/fs/locate":
-            # 文件/目录选择器定位: 浏览器原生 <input type=file> 不暴露绝对路径(沙箱),
-            # 只给 basename/目录名; 这里在后端边界内把它解析回真实路径。
-            #  - mode="file": 在 当前目标仓库(target_root)内 递归查同名文件 → 返回相对路径
-            #  - mode="dir" : 在 路径白名单根(盘符根+path_allowlist)内 有界查同名目录 → 返回绝对路径
-            r = _locate(body, cfg)
-            if not r.get("ok"):
-                self._err(r.get("error"), 400)
-                return
-            self._ok(r)
-            return
-        if path == "/api/file/save":
-            rel = body.get("path")
-            content = body.get("content")
-            import file_viz
-            result = file_viz.save_file(cfg.target_root(), rel, content,
-                                        db=get_app().db, events=get_bus())
-            if not result.get("ok"):
-                # 内容级拒绝（如 py_compile 语法校验不过）→ 200 + 顶层 ok=False，
-                # 前端内联显示编译错误；路径/参数级非法 → 4xx。
-                if "compile_ok" in result:
-                    self._json(result, 200)
-                    return
-                self._err(result.get("error") or "保存失败", 400)
-                return
-            self._ok(result)
-            return
-        if path == "/api/atoms/scaffold":
-            from atom_extension import scaffold
-            r = scaffold(body.get("name"), body.get("domain"),
-                         body.get("capability"), body.get("inputs"),
-                         body.get("description"), cfg)
-            if not r.get("ok"):
-                self._err(r.get("error"), 400)
-                return
-            self.bus_emit("atom.scaffolded", {"name": r["name"]})
-            self._ok(r)
-            return
-        if path == "/api/atoms/register":
-            from atom_extension import register
-            r = register(body.get("name"), cfg, events=get_bus())
-            if not r.get("ok"):
-                self._err("; ".join(r.get("errors") or [r.get("error", "")]), 400)
-                return
-            self._ok(r)
-            return
-        if path == "/api/atoms/unregister":
-            from atom_extension import unregister
-            r = unregister(body.get("name"), cfg, events=get_bus())
-            if not r.get("ok"):
-                self._err(r.get("error"), 400)
-                return
-            self._ok(r)
-            return
-        if path == "/api/atoms/enabled":
-            # 扩展启停开关（P2-6）：写入注册表 enabled 映射，事件驱动即时过滤调色板
-            from atom_extension import set_enabled
-            r = set_enabled(body.get("name"), bool(body.get("enabled")),
-                            cfg, events=get_bus())
-            if not r.get("ok"):
-                self._err(r.get("error") or "操作失败", 400)
-                return
-            self._ok(r)
-            return
-        if path == "/api/atoms/sync-core":
-            from atom_extension import sync_core
-            r = sync_core(body.get("name"), bool(body.get("confirm")), cfg,
-                          events=get_bus())
-            if not r.get("ok"):
-                self._err(r.get("error"), 400)
-                return
-            self._ok(r)
-            return
-        if path == "/api/pipeline/run":
-            import pipeline as pl
-            r = pl.run_pipeline(body.get("name") or "未命名管道", body.get("graph") or {},
-                                db=get_app().db)
-            if not r.get("ok"):
-                self._err(r.get("error") or "; ".join(r.get("errors") or []), 400)
-                return
-            self._ok(r)
-            return
-        if path == "/api/debug":
-            import debug_orchestrator as do
-            r = do.start_debug(body.get("failure") or "", body.get("file") or "",
-                               body.get("test_cmd") or "", body.get("model"))
-            if not r.get("ok"):
-                self._err(r.get("error", "调试启动失败"), 400)
-                return
-            self._ok(r)
-            return
-        if path == "/api/debug/retry":
-            did = body.get("id")
-            row = get_app().db.get_debug(did)
-            if not row:
-                self._err(f"历史记录不存在: {did}", 404)
-                return
-            import debug_orchestrator as do
-            r = do.start_debug(row["failure"] or "", row["file"] or "",
-                               row["test_cmd"] or "", None)
-            self._ok(r)
-            return
-        if path == "/api/report":
-            from report_gen import start_report
-            r = start_report(body.get("path") or ".")
-            if not r.get("ok"):
-                self._err(r.get("error", "报告启动失败"), 400)
-                return
-            self._ok(r)
-            return
-        if path == "/api/models":
-            from model_config import save as mc_save
-            r = mc_save(body.get("providers"), body.get("chain"), db=get_app().db)
-            if not r.get("ok"):
-                self._err(r.get("error", "配置保存失败"), 400)
-                return
-            self._ok(r)
-            return
-        if path == "/api/models/test":
-            from model_config import test_provider
-            self._ok(test_provider(body.get("provider_id")))
-            return
-        if path == "/api/chat":
-            from chat_router import handle
-            r = handle(body.get("message") or "", body.get("history") or [],
-                       db=get_app().db, events=get_bus())
-            self._ok(r)
-            return
-        if path == "/api/test":
-            from atom_runner import run_capability
-            from atom_loader_ext import merged_registry
-            rel = body.get("path") or ""
-            real, rel2, terr = cfg.resolve_target(rel)
-            if terr:
-                self._err(terr, 400)
-                return
-            env = run_capability("code-test", "test.run", {"path": real}, timeout=240,
-                                 registry=merged_registry(cfg.codeagent_root()),
-                                 codeagent_root=cfg.codeagent_root())
-            self._ok(env)
-            return
-        if path == "/api/action":
-            cfg = get_app().cfg
-            act = dict(body)
-            raw = str(act.get("path") or act.get("dir") or "").strip()
-            if raw:
-                real, _rel, terr = cfg.resolve_target(raw)
-                if terr:
-                    self._err(terr, 400)
-                    return
-            else:
-                real = cfg.target_root()
-            act["path"] = act["dir"] = real
-            r = run_action(cfg.codeagent_root(), str(act.get("cmd") or ""), act)
-            if not r.get("ok"):
-                self._err(r.get("error") or "动作执行失败", 400)
-                return
-            self._ok(r)
-            return
         self._err("404 未找到", 404)
 
     # ── 内部动作 ─────────────────────────────
@@ -577,9 +303,10 @@ class Handler(BaseHTTPRequestHandler):
         get_bus().emit(etype, payload)
 
     def _tree(self, rel, recursive, badges):
+        # recursive 保留在签名里（预置前端契约）：file_viz.tree 目前只列一层，传不传都一样。
         from file_viz import tree
         cfg = get_app().cfg
-        return tree(cfg.target_root(), rel or "", recursive=recursive,
+        return tree(cfg.target_root(), rel or "",
                     badges=badges, codeagent_root=cfg.codeagent_root())
 
     def _file(self, rel, view):
@@ -680,13 +407,13 @@ def _find_dir(name, roots, max_depth=_FS_MAX_DEPTH, max_cands=_FS_MAX_CANDIDATES
             try:
                 with os.scandir(cur) as it:
                     entries = list(it)
-            except (PermissionError, OSError):
+            except (PermissionError, OSError):  # fail-open: _find_dir 里出错就跳过该条继续扫
                 continue
             sub = []
             for e in entries:
                 try:
                     is_dir = e.is_dir()
-                except OSError:
+                except OSError:  # fail-open: _find_dir 里出错就跳过该条继续扫
                     continue
                 if not is_dir:
                     continue
@@ -772,3 +499,437 @@ def serve(cfg=None, db=None, host=None, port=None, token=None):
     server = ThreadingHTTPServer((h, p), Handler)
     actual_port = server.server_address[1]
     return server, actual_port
+
+
+def _g_api_health(self, path, qs, cfg):
+    """_route_get 路由（exact）：/api/health。"""
+    app = get_app()
+    self._ok({"service": "codeagent-lab", "atoms_ready": bool(app and app.db),
+              "config": cfg.public()})
+    return
+
+
+def _g_api_config(self, path, qs, cfg):
+    """_route_get 路由（exact）：/api/config。"""
+    self._ok(cfg.public())
+    return
+
+
+def _g_api_tree(self, path, qs, cfg):
+    """_route_get 路由（exact）：/api/tree。"""
+    rel = qs.get("root", [""])[0]
+    self._ok(self._tree(rel, qs.get("recursive", ["0"])[0] == "1",
+                        qs.get("badges", ["0"])[0] == "1"))
+    return
+
+
+def _g_api_file(self, path, qs, cfg):
+    """_route_get 路由（exact）：/api/file。"""
+    rel = qs.get("path", [""])[0]
+    view = qs.get("view", ["code"])[0]
+    r = self._file(rel, view)
+    if not r.get("ok"):
+        self._err(r.get("error") or "文件读取失败", 400)
+        return
+    self._ok(r)
+    return
+
+
+def _g_api_graph(self, path, qs, cfg):
+    """_route_get 路由（exact）：/api/graph。"""
+    kind = qs.get("kind", ["deps"])[0]
+    rel = qs.get("path", [""])[0]
+    sym = qs.get("symbol", [""])[0] or None
+    self._ok(self._graph(kind, rel, sym))
+    return
+
+
+def _g_api_atoms(self, path, qs, cfg):
+    """_route_get 路由（exact）：/api/atoms。"""
+    from atom_loader_ext import merged_registry
+    import importlib.util as _iu
+    payload = merged_registry(cfg.codeagent_root())
+    try:   # 版本号单点：仓库根 version.py（前端顶部显示）
+        _sp = _iu.spec_from_file_location("_labver", os.path.join(cfg.codeagent_root(), "version.py"))
+        _m = _iu.module_from_spec(_sp)
+        _sp.loader.exec_module(_m)
+        payload["version"] = getattr(_m, "__version__", "")
+    except Exception:   # noqa: BLE001
+        payload["version"] = ""
+    self._ok(payload)
+    return
+
+
+def _g_api_fs_roots(self, path, qs, cfg):
+    """_route_get 路由（exact）：/api/fs/roots。"""
+    # 路径边界: 文件/目录选择器允许浏览的根白名单(默认=本机存在的盘符根 +
+    # lab_config.json 里显式配置的 path_allowlist), 供前端目录选择器定位用。
+    self._ok({"roots": _fs_roots(cfg)})
+    return
+
+
+def _g_api_atoms_selfcheck(self, path, qs, cfg):
+    """_route_get 路由（exact）：/api/atoms/selfcheck。"""
+    from atom_extension import self_check
+    self._ok(self_check(cfg))
+    return
+
+
+def _g_api_pipelines(self, path, qs, cfg):
+    """_route_get 路由（exact）：/api/pipelines。"""
+    self._ok({"runs": get_app().db.list_pipelines(30)})
+    return
+
+
+def _g_rx_api_pipeline(self, path, qs, cfg):
+    """_route_get 路由（pattern）：/api/pipeline/[^/]+。"""
+    rid = path.rsplit("/", 1)[1]
+    import pipeline as pl
+    state = pl.get_run(rid)
+    if state is None:
+        self._err(f"管道运行不存在: {rid}", 404)
+        return
+    self._ok(state)
+    return
+
+
+def _g_api_debug_history(self, path, qs, cfg):
+    """_route_get 路由（exact）：/api/debug/history。"""
+    from debug_history import find_hits
+    q = qs.get("q", [""])[0]
+    db = get_app().db
+    rows = db.list_debug(q, 50)
+    self._ok({"hits": rows, "count": len(rows)})
+    return
+
+
+def _g_rx_api_debug(self, path, qs, cfg):
+    """_route_get 路由（pattern）：/api/debug/[^/]+。"""
+    rid = path.rsplit("/", 1)[1]
+    import debug_orchestrator as do
+    state = do.get_state(rid)
+    if state is None:
+        self._err(f"调试运行不存在: {rid}", 404)
+        return
+    self._ok(state)
+    return
+
+
+def _g_rx_api_report_html_md(self, path, qs, cfg):
+    """_route_get 路由（pattern）：/api/report/[^/]+\\.(html|md)。"""
+    rid, ext = path.rsplit("/", 1)[1].rsplit(".", 1)
+    from report_gen import load_export
+    content = load_export(rid, ext)
+    if content is None:
+        # 重启后兜底：按文件名扫描导出目录
+        content = _load_export_disk(cfg, rid, ext)
+    if content is None:
+        self._err(f"报告导出不存在: {rid}.{ext}", 404)
+        return
+    self._send(200, content,
+               "text/html; charset=utf-8" if ext == "html"
+               else "text/markdown; charset=utf-8")
+    return
+
+
+def _g_rx_api_report(self, path, qs, cfg):
+    """_route_get 路由（pattern）：/api/report/[^/]+。"""
+    rid = path.rsplit("/", 1)[1]
+    import report_gen as rg
+    state = rg.get_report(rid)
+    if state is None:
+        self._err(f"报告不存在: {rid}", 404)
+        return
+    self._ok(state)
+    return
+
+
+def _g_api_reports(self, path, qs, cfg):
+    """_route_get 路由（exact）：/api/reports。"""
+    self._ok({"reports": get_app().db.list_reports(50)})
+    return
+
+
+def _g_api_models(self, path, qs, cfg):
+    """_route_get 路由（exact）：/api/models。"""
+    from model_config import public
+    self._ok(public())
+    return
+
+
+def _g_api_events(self, path, qs, cfg):
+    """_route_get 路由（exact）：/api/events。"""
+    since = int(qs.get("since", ["0"])[0] or 0)
+    evs = get_bus().since(since)
+    last = evs[-1]["seq"] if evs else get_bus().last_seq()
+    self._ok({"events": evs, "last_seq": last, "count": len(evs)})
+    return
+
+
+def _g_api_editlog(self, path, qs, cfg):
+    """_route_get 路由（exact）：/api/editlog。"""
+    self._ok({"edits": get_app().db.list_edit_log(100)})
+    return
+
+
+def _p_api_config_target(self, path, body, cfg):
+    """_route_post 路由（exact）：/api/config/target。"""
+    ok, real = cfg.set_target_root(body.get("path"))
+    if not ok:
+        self._err(real, 400)
+        return
+    self.bus_emit("config.target_changed", {"target_root": real})
+    self._ok({"target_root": real})
+    return
+
+
+def _p_api_fs_locate(self, path, body, cfg):
+    """_route_post 路由（exact）：/api/fs/locate。"""
+    # 文件/目录选择器定位: 浏览器原生 <input type=file> 不暴露绝对路径(沙箱),
+    # 只给 basename/目录名; 这里在后端边界内把它解析回真实路径。
+    #  - mode="file": 在 当前目标仓库(target_root)内 递归查同名文件 → 返回相对路径
+    #  - mode="dir" : 在 路径白名单根(盘符根+path_allowlist)内 有界查同名目录 → 返回绝对路径
+    r = _locate(body, cfg)
+    if not r.get("ok"):
+        self._err(r.get("error"), 400)
+        return
+    self._ok(r)
+    return
+
+
+def _p_api_file_save(self, path, body, cfg):
+    """_route_post 路由（exact）：/api/file/save。"""
+    rel = body.get("path")
+    content = body.get("content")
+    import file_viz
+    result = file_viz.save_file(cfg.target_root(), rel, content,
+                                db=get_app().db, events=get_bus())
+    if not result.get("ok"):
+        # 内容级拒绝（如 py_compile 语法校验不过）→ 200 + 顶层 ok=False，
+        # 前端内联显示编译错误；路径/参数级非法 → 4xx。
+        if "compile_ok" in result:
+            self._json(result, 200)
+            return
+        self._err(result.get("error") or "保存失败", 400)
+        return
+    self._ok(result)
+    return
+
+
+def _p_api_atoms_scaffold(self, path, body, cfg):
+    """_route_post 路由（exact）：/api/atoms/scaffold。"""
+    from atom_extension import scaffold
+    r = scaffold(body.get("name"), body.get("domain"),
+                 body.get("capability"), body.get("inputs"),
+                 body.get("description"), cfg)
+    if not r.get("ok"):
+        self._err(r.get("error"), 400)
+        return
+    self.bus_emit("atom.scaffolded", {"name": r["name"]})
+    self._ok(r)
+    return
+
+
+def _p_api_atoms_register(self, path, body, cfg):
+    """_route_post 路由（exact）：/api/atoms/register。"""
+    from atom_extension import register
+    r = register(body.get("name"), cfg, events=get_bus())
+    if not r.get("ok"):
+        self._err("; ".join(r.get("errors") or [r.get("error", "")]), 400)
+        return
+    self._ok(r)
+    return
+
+
+def _p_api_atoms_unregister(self, path, body, cfg):
+    """_route_post 路由（exact）：/api/atoms/unregister。"""
+    from atom_extension import unregister
+    r = unregister(body.get("name"), cfg, events=get_bus())
+    if not r.get("ok"):
+        self._err(r.get("error"), 400)
+        return
+    self._ok(r)
+    return
+
+
+def _p_api_atoms_enabled(self, path, body, cfg):
+    """_route_post 路由（exact）：/api/atoms/enabled。"""
+    # 扩展启停开关（P2-6）：写入注册表 enabled 映射，事件驱动即时过滤调色板
+    from atom_extension import set_enabled
+    r = set_enabled(body.get("name"), bool(body.get("enabled")),
+                    cfg, events=get_bus())
+    if not r.get("ok"):
+        self._err(r.get("error") or "操作失败", 400)
+        return
+    self._ok(r)
+    return
+
+
+def _p_api_atoms_sync_core(self, path, body, cfg):
+    """_route_post 路由（exact）：/api/atoms/sync-core。"""
+    from atom_extension import sync_core
+    r = sync_core(body.get("name"), bool(body.get("confirm")), cfg,
+                  events=get_bus())
+    if not r.get("ok"):
+        self._err(r.get("error"), 400)
+        return
+    self._ok(r)
+    return
+
+
+def _p_api_pipeline_run(self, path, body, cfg):
+    """_route_post 路由（exact）：/api/pipeline/run。"""
+    import pipeline as pl
+    r = pl.run_pipeline(body.get("name") or "未命名管道", body.get("graph") or {},
+                        db=get_app().db)
+    if not r.get("ok"):
+        self._err(r.get("error") or "; ".join(r.get("errors") or []), 400)
+        return
+    self._ok(r)
+    return
+
+
+def _p_api_debug(self, path, body, cfg):
+    """_route_post 路由（exact）：/api/debug。"""
+    import debug_orchestrator as do
+    r = do.start_debug(body.get("failure") or "", body.get("file") or "",
+                       body.get("test_cmd") or "", body.get("model"))
+    if not r.get("ok"):
+        self._err(r.get("error", "调试启动失败"), 400)
+        return
+    self._ok(r)
+    return
+
+
+def _p_api_debug_retry(self, path, body, cfg):
+    """_route_post 路由（exact）：/api/debug/retry。"""
+    did = body.get("id")
+    row = get_app().db.get_debug(did)
+    if not row:
+        self._err(f"历史记录不存在: {did}", 404)
+        return
+    import debug_orchestrator as do
+    r = do.start_debug(row["failure"] or "", row["file"] or "",
+                       row["test_cmd"] or "", None)
+    self._ok(r)
+    return
+
+
+def _p_api_report(self, path, body, cfg):
+    """_route_post 路由（exact）：/api/report。"""
+    from report_gen import start_report
+    r = start_report(body.get("path") or ".")
+    if not r.get("ok"):
+        self._err(r.get("error", "报告启动失败"), 400)
+        return
+    self._ok(r)
+    return
+
+
+def _p_api_models(self, path, body, cfg):
+    """_route_post 路由（exact）：/api/models。"""
+    from model_config import save as mc_save
+    r = mc_save(body.get("providers"), body.get("chain"), db=get_app().db)
+    if not r.get("ok"):
+        self._err(r.get("error", "配置保存失败"), 400)
+        return
+    self._ok(r)
+    return
+
+
+def _p_api_models_test(self, path, body, cfg):
+    """_route_post 路由（exact）：/api/models/test。"""
+    from model_config import test_provider
+    self._ok(test_provider(body.get("provider_id")))
+    return
+
+
+def _p_api_chat(self, path, body, cfg):
+    """_route_post 路由（exact）：/api/chat。"""
+    from chat_router import handle
+    r = handle(body.get("message") or "", body.get("history") or [],
+               db=get_app().db, events=get_bus())
+    self._ok(r)
+    return
+
+
+def _p_api_test(self, path, body, cfg):
+    """_route_post 路由（exact）：/api/test。"""
+    from atom_runner import run_capability
+    from atom_loader_ext import merged_registry
+    rel = body.get("path") or ""
+    real, rel2, terr = cfg.resolve_target(rel)
+    if terr:
+        self._err(terr, 400)
+        return
+    env = run_capability("code-test", "test.run", {"path": real}, timeout=240,
+                         registry=merged_registry(cfg.codeagent_root()),
+                         codeagent_root=cfg.codeagent_root())
+    self._ok(env)
+    return
+
+
+def _p_api_action(self, path, body, cfg):
+    """_route_post 路由（exact）：/api/action。"""
+    cfg = get_app().cfg
+    act = dict(body)
+    raw = str(act.get("path") or act.get("dir") or "").strip()
+    if raw:
+        real, _rel, terr = cfg.resolve_target(raw)
+        if terr:
+            self._err(terr, 400)
+            return
+    else:
+        real = cfg.target_root()
+    act["path"] = act["dir"] = real
+    r = run_action(cfg.codeagent_root(), str(act.get("cmd") or ""), act)
+    if not r.get("ok"):
+        self._err(r.get("error") or "动作执行失败", 400)
+        return
+    self._ok(r)
+    return
+
+
+# _route_get：按原始顺序排（精确与模式混排，顺序即语义）
+_GET_ROUTES = (
+    ("exact", r"/api/health", _g_api_health),
+    ("exact", r"/api/config", _g_api_config),
+    ("exact", r"/api/tree", _g_api_tree),
+    ("exact", r"/api/file", _g_api_file),
+    ("exact", r"/api/graph", _g_api_graph),
+    ("exact", r"/api/atoms", _g_api_atoms),
+    ("exact", r"/api/fs/roots", _g_api_fs_roots),
+    ("exact", r"/api/atoms/selfcheck", _g_api_atoms_selfcheck),
+    ("exact", r"/api/pipelines", _g_api_pipelines),
+    ("pattern", r"/api/pipeline/[^/]+", _g_rx_api_pipeline),
+    ("exact", r"/api/debug/history", _g_api_debug_history),
+    ("pattern", r"/api/debug/[^/]+", _g_rx_api_debug),
+    ("pattern", r"/api/report/[^/]+\.(html|md)", _g_rx_api_report_html_md),
+    ("pattern", r"/api/report/[^/]+", _g_rx_api_report),
+    ("exact", r"/api/reports", _g_api_reports),
+    ("exact", r"/api/models", _g_api_models),
+    ("exact", r"/api/events", _g_api_events),
+    ("exact", r"/api/editlog", _g_api_editlog),
+)
+
+
+# _route_post：按原始顺序排（精确与模式混排，顺序即语义）
+_POST_ROUTES = (
+    ("exact", r"/api/config/target", _p_api_config_target),
+    ("exact", r"/api/fs/locate", _p_api_fs_locate),
+    ("exact", r"/api/file/save", _p_api_file_save),
+    ("exact", r"/api/atoms/scaffold", _p_api_atoms_scaffold),
+    ("exact", r"/api/atoms/register", _p_api_atoms_register),
+    ("exact", r"/api/atoms/unregister", _p_api_atoms_unregister),
+    ("exact", r"/api/atoms/enabled", _p_api_atoms_enabled),
+    ("exact", r"/api/atoms/sync-core", _p_api_atoms_sync_core),
+    ("exact", r"/api/pipeline/run", _p_api_pipeline_run),
+    ("exact", r"/api/debug", _p_api_debug),
+    ("exact", r"/api/debug/retry", _p_api_debug_retry),
+    ("exact", r"/api/report", _p_api_report),
+    ("exact", r"/api/models", _p_api_models),
+    ("exact", r"/api/models/test", _p_api_models_test),
+    ("exact", r"/api/chat", _p_api_chat),
+    ("exact", r"/api/test", _p_api_test),
+    ("exact", r"/api/action", _p_api_action),
+)

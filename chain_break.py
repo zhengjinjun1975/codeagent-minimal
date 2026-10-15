@@ -115,7 +115,7 @@ def _scan_import_breaks(repos):
         for f in _py_files(r):
             try:
                 tree = ast.parse(open(f, encoding="utf-8", errors="ignore").read())
-            except SyntaxError:
+            except SyntaxError:  # fail-open: _scan_import_breaks 里出错就跳过该条继续扫
                 continue
             for n in ast.walk(tree):
                 if isinstance(n, ast.Import):
@@ -168,7 +168,7 @@ def _scan_path_breaks(repos):
         for f in _py_files(r):
             try:
                 content = open(f, encoding="utf-8", errors="ignore").read()
-            except Exception:
+            except Exception:  # fail-open: _scan_path_breaks 里出错就跳过该条继续扫
                 continue
             base = os.path.dirname(f)
             for m in path_re.finditer(content):

@@ -81,7 +81,7 @@ def match_defects(content: str, line_index=None):
     for kd in KNOWN_DEFECTS:
         try:
             pat = re.compile(kd["pattern"])
-        except Exception:
+        except Exception:  # fail-open: match_defects 里出错就跳过该条继续扫
             continue
         m = pat.search(content)
         if not m:

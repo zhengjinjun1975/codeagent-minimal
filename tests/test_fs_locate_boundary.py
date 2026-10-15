@@ -25,7 +25,7 @@ LAB = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "lab"))
 if LAB not in sys.path:
     sys.path.insert(0, LAB)
 
-from lab_config import LabConfig, set_config_for_tests  # noqa: E402
+from lab_config import LabConfig
 from web_viz import _fs_roots, _locate, _find_file_rel  # noqa: E402
 
 

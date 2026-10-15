@@ -26,7 +26,7 @@ def resolve_roots(*paths):
             continue
         try:
             rp = os.path.realpath(os.path.abspath(p))
-        except Exception:  # noqa
+        except Exception:  # noqa  # fail-open: resolve_roots 里出错就跳过该条继续扫
             continue
         if rp not in seen:
             seen.add(rp)

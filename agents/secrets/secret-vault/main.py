@@ -148,7 +148,7 @@ class SecretVaultAgent(AtomicAgent):
                 json.dump(bundle, f)
             try:
                 os.chmod(path, stat.S_IRUSR | stat.S_IWUSR)  # 0600
-            except Exception:
+            except Exception:  # fail-open: 权限收紧失败不阻断取用
                 pass
             return {"stored": True, "name": name, "path": path,
                     "masked": mask(value), "note": "密文已落盘, 返回不含明文"}

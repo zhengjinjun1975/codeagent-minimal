@@ -15,7 +15,6 @@ server 主动 push `textDocument/publishDiagnostics`。对 Python 文件做几�
 import ast
 import json
 import sys
-import re
 
 
 def _defined_in_scope(text):
@@ -29,7 +28,7 @@ def _defined_in_scope(text):
     }
     try:
         tree = ast.parse(text)
-    except SyntaxError:
+    except SyntaxError:  # fail-open: _defined_in_scope 里出错就返回空值，调用方按缺失处理
         return {}  # 语法错误由独立诊断覆盖，不在此重复
 
     def add(name, lineno):
@@ -165,7 +164,7 @@ def _read_message(stream):
     body = stream.read(length)
     try:
         return json.loads(body.decode("utf-8", "ignore"))
-    except Exception:
+    except Exception:  # fail-open: _read_message 里出错就返回空值，调用方按缺失处理
         return None
 
 

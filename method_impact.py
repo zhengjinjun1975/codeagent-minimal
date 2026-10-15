@@ -50,6 +50,141 @@ def _collect_py(paths):
     return out
 
 
+def _map_import(node, m):
+    """`import x [as y]` 里的每个名字 → 目标模块名。"""
+    for a in node.names:
+        m[a.asname or a.name] = a.name
+
+
+def _map_import_from(node, m):
+    """`from m import a [as b]` → 解析前缀。"""
+    prefix = node.module or ""
+    for a in node.names:
+        m[a.asname or a.name] = (f"{prefix}.{a.name}" if prefix else a.name)
+
+
+def _import_map(tree):
+    """名字 → 解析前缀（尽量贴近真实 fqn）。"""
+    m = {}
+    for n in ast.walk(tree):
+        if isinstance(n, ast.Import):
+            _map_import(n, m)
+        elif isinstance(n, ast.ImportFrom):
+            _map_import_from(n, m)
+    return m
+
+
+def _add_func(node, prefix, defined, fqns):
+    """把一个函数节点登记进 defined / fqns。"""
+    fqn = f"{prefix}.{node.name}"
+    defined[node.name] = fqn
+    fqns.append((fqn, "method" if "." in prefix else "func", node.lineno))
+
+
+def _methods_of(cls_node):
+    """类体里非下划线开头的函数/方法。"""
+    for b in cls_node.body:
+        if isinstance(b, (ast.FunctionDef, ast.AsyncFunctionDef)) and not b.name.startswith("_"):
+            yield b
+
+
+def _collect_class(node, mod, defined, fqns):
+    """一个类节点：登记类本身 + 它的方法。"""
+    cfqn = f"{mod}.{node.name}"
+    defined[node.name] = cfqn
+    fqns.append((cfqn, "class", node.lineno))
+    for b in _methods_of(node):
+        _add_func(b, cfqn, defined, fqns)
+
+
+def _collect_defs(tree, mod):
+    """顶层定义 + 类 + 类方法 → (defined{局部名→fqn}, fqns[(fqn, kind, line)])。"""
+    defined, fqns = {}, []
+    for node in tree.body:
+        if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)) and not node.name.startswith("_"):
+            _add_func(node, mod, defined, fqns)
+        elif isinstance(node, ast.ClassDef) and not node.name.startswith("_"):
+            _collect_class(node, mod, defined, fqns)
+    return defined, fqns
+
+
+def _resolve_name(name, defined, import_map):
+    """把 AST 里的名字解析到 fqn（先局部定义，再 import 映射）。"""
+    if name in defined:
+        return defined[name]
+    if name in import_map:
+        return import_map[name]
+    return None
+
+
+def _root_name(node):
+    """把 a.b.c 剥到最左的 Name；剥不出 Name 就返回 None。"""
+    while isinstance(node, ast.Attribute):
+        node = node.value
+    return node if isinstance(node, ast.Name) else None
+
+
+def _edge_for_call(f, caller, ctx):
+    """一个被调用者表达式 → 一条边（或 None）。ctx = (defined, import_map, class_fqns, fqn_set)。"""
+    defined, import_map, class_fqns, fqn_set = ctx
+    if isinstance(f, ast.Name):
+        tgt = _resolve_name(f.id, defined, import_map)
+        if not tgt:
+            return None
+        return (caller, tgt, "INSTANTIATES" if tgt in class_fqns else "CALLS")
+    if not isinstance(f, ast.Attribute):
+        return None
+    root = _root_name(f.value)
+    if root is None:
+        return None
+    base = _resolve_name(root.id, defined, import_map)
+    if not base:
+        return None
+    method_fqn = f"{base}.{f.attr}"
+    if method_fqn in fqn_set:
+        return (caller, method_fqn, "CALLS")
+    if base in class_fqns:
+        return (caller, method_fqn, "REFERENCES")
+    return (caller, f"{base}.{f.attr}", "CALLS")
+
+
+def _scan_calls(func_node, caller, ctx):
+    """调用边：Call(func=Name) / Call(func=Attribute)。"""
+    edges = []
+    for sub in ast.walk(func_node):
+        if isinstance(sub, ast.Call):
+            e = _edge_for_call(sub.func, caller, ctx)
+            if e:
+                edges.append(e)
+    return edges
+
+
+def _scan_inherits(func_node, caller, defined, import_map):
+    """继承边（class X(Base)）。"""
+    edges = []
+    for base in getattr(func_node, "bases", []):
+        if isinstance(base, ast.Name):
+            tgt = _resolve_name(base.id, defined, import_map)
+            if tgt:
+                edges.append((caller, tgt, "INHERITS"))
+    return edges
+
+
+def _callers_of(node, mod):
+    """一个顶层节点贡献的 (函数节点, caller_fqn)。"""
+    if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)) and not node.name.startswith("_"):
+        yield node, f"{mod}.{node.name}"
+    elif isinstance(node, ast.ClassDef):
+        for b in _methods_of(node):
+            yield b, f"{mod}.{node.name}.{b.name}"
+
+
+def _iter_callers(tree, mod):
+    """产出 (函数节点, caller_fqn)：顶层函数与类方法（类名不过滤下划线，与原版一致）。"""
+    for node in tree.body:
+        yield from _callers_of(node, mod)
+
+
 def _parse(path):
     """AST 解析单文件：定义(fqn/kind/line) + 方法级调用边(kind)。
 
@@ -63,101 +198,21 @@ def _parse(path):
     try:
         src = Path(path).read_text(encoding="utf-8", errors="ignore")
         tree = ast.parse(src)
-    except SyntaxError:
+    except SyntaxError:  # fail-open: _parse 里出错就返回空值，调用方按缺失处理
         return None
     mod = Path(path).stem
-
-    # import 映射：名字 -> 解析前缀（尽量贴近真实 fqn）
-    import_map = {}
-    for n in ast.walk(tree):
-        if isinstance(n, ast.Import):
-            for a in n.names:
-                import_map[a.asname or a.name] = a.name
-        elif isinstance(n, ast.ImportFrom):
-            m = n.module or ""
-            for a in n.names:
-                import_map[a.asname or a.name] = (f"{m}.{a.name}" if m else a.name)
-
-    defined = {}   # 局部名字 -> fqn
-    fqns = []      # [(fqn, kind, line)]
-
-    def add_func(node, prefix):
-        fqn = f"{prefix}.{node.name}"
-        defined[node.name] = fqn
-        fqns.append((fqn, "method" if "." in prefix else "func", node.lineno))
-
-    # 顶层定义 + 类方法（module.Class.method）
-    for node in tree.body:
-        if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)) and not node.name.startswith("_"):
-            add_func(node, mod)
-        elif isinstance(node, ast.ClassDef) and not node.name.startswith("_"):
-            cfqn = f"{mod}.{node.name}"
-            defined[node.name] = cfqn
-            fqns.append((cfqn, "class", node.lineno))
-            for b in node.body:
-                if isinstance(b, (ast.FunctionDef, ast.AsyncFunctionDef)) and not b.name.startswith("_"):
-                    add_func(b, cfqn)
-
-    edges = []   # (caller_fqn, callee_fqn, kind)
-
-    def _resolve_name(name):
-        """把 AST 里的名字解析到 fqn（先局部定义，再 import 映射）。"""
-        if name in defined:
-            return defined[name]
-        if name in import_map:
-            return import_map[name]
-        return None
-
-    # 建立集合供边解析用（先有完整定义）
-    _class_fqns = {f for f, k, _ in fqns if k == "class"}
-    _fqn_set = {f for f, _, _ in fqns}
-
-    def _scan_body(func_node, caller):
-        # 调用：Call(func=Name) / Call(func=Attribute)
-        for sub in ast.walk(func_node):
-            if isinstance(sub, ast.Call):
-                f = sub.func
-                if isinstance(f, ast.Name):
-                    tgt = _resolve_name(f.id)
-                    if tgt:
-                        kind = "INSTANTIATES" if tgt in _class_fqns else "CALLS"
-                        edges.append((caller, tgt, kind))
-                elif isinstance(f, ast.Attribute):
-                    root = f.value
-                    while isinstance(root, ast.Attribute):
-                        root = root.value
-                    if isinstance(root, ast.Name):
-                        base = _resolve_name(root.id)
-                        if base:
-                            # 类方法调用 module.Class.method
-                            method_fqn = f"{base}.{f.attr}"
-                            if method_fqn in _fqn_set:
-                                edges.append((caller, method_fqn, "CALLS"))
-                            elif base in _class_fqns:
-                                # 类实例上的方法调用（可能动态分派，保守 REFERENCES）
-                                edges.append((caller, method_fqn, "REFERENCES"))
-                            else:
-                                edges.append((caller, f"{base}.{f.attr}", "CALLS"))
-
-        # 继承边
-        for base in getattr(func_node, "bases", []):
-            if isinstance(base, ast.Name):
-                tgt = _resolve_name(base.id)
-                if tgt:
-                    edges.append((caller, tgt, "INHERITS"))
-
-    # 方法体扫描调用边
-    for node in tree.body:
-        if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)) and not node.name.startswith("_"):
-            caller = f"{mod}.{node.name}"
-            _scan_body(node, caller)
-        elif isinstance(node, ast.ClassDef):
-            for b in node.body:
-                if isinstance(b, (ast.FunctionDef, ast.AsyncFunctionDef)) and not b.name.startswith("_"):
-                    caller = f"{mod}.{node.name}.{b.name}"
-                    _scan_body(b, caller)
-
+    import_map = _import_map(tree)
+    defined, fqns = _collect_defs(tree, mod)
+    class_fqns = {f for f, k, _ in fqns if k == "class"}
+    fqn_set = {f for f, _, _ in fqns}
+    ctx = (defined, import_map, class_fqns, fqn_set)
+    edges = []
+    for node, caller in _iter_callers(tree, mod):
+        edges += _scan_calls(node, caller, ctx)
+        edges += _scan_inherits(node, caller, defined, import_map)
     return {"mod": mod, "file": str(path), "defined": defined, "fqns": fqns, "edges": edges}
+
+
 
 
 def build_graph(paths):

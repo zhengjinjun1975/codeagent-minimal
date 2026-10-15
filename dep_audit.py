@@ -23,7 +23,7 @@ import os
 import sys
 import json
 from pathlib import Path
-from collections import defaultdict, deque
+from collections import defaultdict
 
 # 内置名/常见第三方名，不作为依赖实体（避免噪声）
 _BUILTINS = set(dir(__builtins__)) if isinstance(__builtins__, dict) else set(dir(__builtins__))
@@ -243,6 +243,22 @@ def cross_file_refs(graph, entity):
     return refs
 
 
+def _impact_block(graph, impact, transitive):
+    """影响分析：符号/模块 → 直接调用方 + 波及集合（module_mode 走模块级反向可达）。"""
+    entities = [e for e in graph["entities"] if e.endswith("." + impact) or e == impact]
+    mods = [m for m in graph["module_deps"] if m == impact]
+    result = {}
+    for e in entities:
+        result[e] = {"callers_direct": callers(graph, e),
+                     "impact_affected": reverse_reach(graph, e, transitive=transitive)}
+    for m in mods:
+        result["module:" + m] = {"impact_affected": reverse_reach(graph, m,
+                                                                  transitive=transitive, module_mode=True)}
+    if not result and (impact in graph["entities"] or impact in graph["module_deps"]):
+        result[impact] = {"impact_affected": []}
+    return {impact: result}
+
+
 def dep_report(paths, impact=None, transitive=False, json_out=False):
     """组装依赖图审查报告。"""
     graph = build_graph(paths)
@@ -255,32 +271,39 @@ def dep_report(paths, impact=None, transitive=False, json_out=False):
     report["circular_imports"] = circular_imports(graph)
     # 影响分析
     if impact:
-        entities = [e for e in graph["entities"] if e.endswith("." + impact) or e == impact]
-        mods = [m for m in graph["module_deps"] if m == impact]
-        result = {}
-        for e in entities:
-            result[e] = {"callers_direct": callers(graph, e),
-                         "impact_affected": reverse_reach(graph, e, transitive=transitive)}
-        for m in mods:
-            result["module:" + m] = {"impact_affected": reverse_reach(graph, m,
-                                                                      transitive=transitive, module_mode=True)}
-        if not result and (impact in graph["entities"] or impact in graph["module_deps"]):
-            result[impact] = {"impact_affected": []}
-        report["impact"] = {impact: result}
+        report["impact"] = _impact_block(graph, impact, transitive)
     if json_out:
         return json.dumps(report, ensure_ascii=False, indent=2)
     return report
 
 
 # ── 人类可读输出 ─────────────────────────────────
+def _coupling_lines(coupling):
+    """耦合 Top10 那几行。"""
+    out = ["\n📦 模块耦合(按影响面排序: 改它波及多大):"]
+    for r in coupling[:10]:
+        warn = " ⚠️高耦合" if r["impact_surface"] >= 3 or r["coupling_index"] >= 4 else ""
+        out.append(f"   {r['module']:<22} fan_in(被依赖)={r['fan_in']:<3} fan_out(依赖)={r['fan_out']:<3}{warn}")
+    return out
+
+
+def _impact_lines(impact):
+    """影响分析那几行。"""
+    out = ["\n🎯 影响分析(改 A 波及 B):"]
+    for symbol, res in impact.items():
+        for ent, info in res.items():
+            aff = info.get("impact_affected", [])
+            out.append(f"   改 {ent} → 直接影响 {len(info.get('callers_direct', []))} 处, 波及 {len(aff)} 个调用方")
+            if aff:
+                out.append(f"      波及: {', '.join(aff[:20])}{' …' if len(aff) > 20 else ''}")
+    return out
+
+
 def _fmt_report(report):
     L = []
     L.append(f"══ 依赖图感知审查: {report['files']} 文件 / {report['entities']} 实体 / {report['call_edges']} 调用边 ══")
     # 耦合 Top
-    L.append("\n📦 模块耦合(按影响面排序: 改它波及多大):")
-    for r in report["coupling"][:10]:
-        warn = " ⚠️高耦合" if r["impact_surface"] >= 3 or r["coupling_index"] >= 4 else ""
-        L.append(f"   {r['module']:<22} fan_in(被依赖)={r['fan_in']:<3} fan_out(依赖)={r['fan_out']:<3}{warn}")
+    L += _coupling_lines(report["coupling"])
     # 循环依赖
     L.append("\n🔁 循环依赖(模块 import 环):")
     if report["circular_imports"]:
@@ -290,13 +313,7 @@ def _fmt_report(report):
         L.append("   ✅ 无循环依赖")
     # 影响分析
     if report.get("impact"):
-        L.append("\n🎯 影响分析(改 A 波及 B):")
-        for symbol, res in report["impact"].items():
-            for ent, info in res.items():
-                aff = info.get("impact_affected", [])
-                L.append(f"   改 {ent} → 直接影响 {len(info.get('callers_direct', []))} 处, 波及 {len(aff)} 个调用方")
-                if aff:
-                    L.append(f"      波及: {', '.join(aff[:20])}{' …' if len(aff) > 20 else ''}")
+        L += _impact_lines(report["impact"])
     return "\n".join(L)
 
 

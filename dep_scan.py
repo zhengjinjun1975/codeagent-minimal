@@ -124,6 +124,14 @@ def _parse_requirements(text: str) -> list:
     return deps
 
 
+def _pyproject_dep_name(s):
+    """pyproject dependencies 段里的一行 → 包名（不像依赖项就 None）。"""
+    if not (s.startswith(("'", '"')) or s.startswith((">", "=", "~"))):
+        return None
+    m = re.match(r"[\"']?([A-Za-z0-9_.-]+)", s)
+    return m.group(1).lower() if m else None
+
+
 def _parse_pyproject(text: str) -> list:
     """从 pyproject.toml 提取 dependencies（粗解析，够用）。"""
     deps = []
@@ -133,16 +141,16 @@ def _parse_pyproject(text: str) -> list:
         if s.startswith("dependencies"):
             in_deps = True
             continue
-        if in_deps:
-            if s.startswith("]") or s.startswith("[") and "]" not in s:
-                in_deps = False
-                continue
-            if s.startswith(("'", '"')) or s.startswith((">", "=", "~")):
-                m = re.match(r"[\"']?([A-Za-z0-9_.-]+)", s)
-                if m:
-                    deps.append({"name": m.group(1).lower(), "version": "*"})
-            if "]" in s and in_deps and not s.startswith("["):
-                in_deps = False
+        if not in_deps:
+            continue
+        if s.startswith("]") or (s.startswith("[") and "]" not in s):
+            in_deps = False
+            continue
+        name = _pyproject_dep_name(s)
+        if name:
+            deps.append({"name": name, "version": "*"})
+        if "]" in s and not s.startswith("["):
+            in_deps = False
     return deps
 
 
@@ -154,21 +162,22 @@ def _parse_setup_py(text: str) -> list:
     return deps
 
 
-def _collect_imports(tree) -> list:
-    """AST 收集第三方 import 名（排除标准库）。"""
-    stdlib = _stdlib_names()
+def _import_roots(tree):
+    """AST 里 import 语句的顶层包名（小写，去重）。"""
     names = set()
     for node in ast.walk(tree):
         if isinstance(node, ast.Import):
             for a in node.names:
-                root = a.name.split(".")[0].lower()
-                if root and root not in stdlib:
-                    names.add(root)
+                names.add(a.name.split(".")[0].lower())
         elif isinstance(node, ast.ImportFrom):
-            root = (node.module or "").split(".")[0].lower()
-            if root and root not in stdlib:
-                names.add(root)
-    return sorted(names)
+            names.add((node.module or "").split(".")[0].lower())
+    return names
+
+
+def _collect_imports(tree) -> list:
+    """AST 收集第三方 import 名（排除标准库）。"""
+    stdlib = _stdlib_names()
+    return sorted(n for n in _import_roots(tree) if n and n not in stdlib)
 
 
 _STDLIB = None
@@ -207,24 +216,35 @@ def _stdlib_names():
 
 
 # ── SCA 依赖漏洞 ──────────────────────────────
+def _is_dep_file_name(lower_name):
+    """是不是依赖描述文件名（requirements*.txt / pyproject.toml / setup.py / Pipfile）。"""
+    b = lower_name
+    return (b == "requirements.txt" or b == "pyproject.toml" or b == "setup.py"
+            or b == "pipfile" or (b.startswith("requirements") and b.endswith(".txt")))
+
+
+def _dep_files_under(target):
+    """目录下递归找依赖描述文件。"""
+    found = []
+    for root, _dirs, files in os.walk(target):
+        for f in files:
+            if _is_dep_file_name(f.lower()):
+                found.append(os.path.join(root, f))
+    return found
+
+
 def _locate_dep_files(target: str) -> list:
     """收集依赖描述文件（requirements*.txt / pyproject.toml / setup.py / Pipfile）。"""
-    found = []
     if os.path.isfile(target):
         b = os.path.basename(target).lower()
-        if b.endswith("requirements.txt") or b in ("pyproject.toml", "setup.py", "pipfile"):
-            found.append(target)
-        elif b.endswith(".py"):
+        if _is_dep_file_name(b):
+            return [target]
+        if b.endswith(".py"):
             return []  # 单文件走 import 收集，不猜依赖文件
-        return found
+        return []
     if os.path.isdir(target):
-        for root, _dirs, files in os.walk(target):
-            for f in files:
-                fb = f.lower()
-                if fb == "requirements.txt" or fb == "pyproject.toml" or fb == "setup.py" \
-                        or fb == "pipfile" or (fb.startswith("requirements") and fb.endswith(".txt")):
-                    found.append(os.path.join(root, f))
-    return found
+        return _dep_files_under(target)
+    return []
 
 
 def _load_version_for(target_dir, package):
@@ -233,10 +253,116 @@ def _load_version_for(target_dir, package):
         import importlib.metadata as imd
         try:
             return imd.version(package)
-        except Exception:
+        except Exception:  # fail-open: _load_version_for 里出错就返回空值，调用方按缺失处理
             return None
-    except Exception:
+    except Exception:  # fail-open: _load_version_for 里出错就返回空值，调用方按缺失处理
         return None
+
+
+def _parsed_deps_of(df):
+    """一个依赖描述文件 → [{name, version}]（读不出就当空）。"""
+    try:
+        text = open(df, encoding="utf-8", errors="ignore").read()
+    except Exception:  # fail-open: scan_dependencies 里出错就跳过该条继续扫
+        return []
+    base = os.path.basename(df).lower()
+    if base == "pyproject.toml":
+        return _parse_pyproject(text)
+    if base == "setup.py":
+        return _parse_setup_py(text)
+    return _parse_requirements(text)
+
+
+def _merge_dep(deps, d, src):
+    """把一条依赖合进 deps（同名合并 sources；未锁版本可被锁定版本覆盖）。"""
+    prev = deps.get(d["name"])
+    if prev:
+        prev["sources"].append(src)
+        if prev["version"] == "*" and d["version"] != "*":
+            prev["version"] = d["version"]
+        return
+    deps[d["name"]] = {"name": d["name"], "version": d["version"], "sources": [src]}
+
+
+def _deps_from_files(target, stdlib):
+    """1) 依赖描述文件（requirements / pyproject / setup.py）→ (deps, scan_sources)。"""
+    deps, scan_sources = {}, []
+    for df in _locate_dep_files(target):
+        src = os.path.basename(df)
+        scan_sources.append(src)
+        for d in _parsed_deps_of(df):
+            if d["name"] not in stdlib:
+                _merge_dep(deps, d, src)
+    return deps, scan_sources
+
+
+def _py_files_under(target):
+    """目标下的 .py 文件列表（文件→它自己；目录→walk 收集；其它→空）。"""
+    if os.path.isfile(target) and target.endswith(".py"):
+        return [target]
+    if not os.path.isdir(target):
+        return []
+    out = []
+    for root, _dirs, files in os.walk(target):
+        for f in files:
+            if f.endswith(".py"):
+                out.append(os.path.join(root, f))
+    return out
+
+
+def _deps_from_imports(target, deps, stdlib):
+    """2) 单文件/目录的 import 收集（补充依赖清单）。"""
+    for pf in _py_files_under(target)[:200]:
+        try:
+            tree = ast.parse(open(pf, encoding="utf-8", errors="ignore").read())
+        except SyntaxError:  # fail-open: scan_dependencies 里出错就跳过该条继续扫
+            continue
+        for name in _collect_imports(tree):
+            if name not in deps and name not in stdlib:
+                deps[name] = {"name": name, "version": "*", "sources": [os.path.basename(pf)]}
+    return deps
+
+
+def _vulns_of_dep(name, info):
+    """单个依赖 → [vuln 条目]（未锁版本给 info 提示；命中区间给对应 severity）。"""
+    sig = KNOWN_VULN_PACKAGES.get(name)
+    if sig:
+        ver = info["version"]
+        if ver == "*":
+            # 未锁定版本 → 无法确认，给 low 提示
+            return [{"package": name, "version": ver, "severity": "info",
+                     "title": f"{name} 未锁定版本，无法排除 {sig['title']}",
+                     "category": "sca:unpinned", "confidence": "low",
+                     "evidence": f"pinned='*' from {','.join(info['sources'])}"}]
+        if _in_range(ver, sig["affected"][0], sig["affected"][1]):
+            return [{"package": name, "version": ver, "severity": sig["severity"],
+                     "title": sig["title"], "category": "sca:cve", "confidence": "high",
+                     "evidence": f"{name}=={ver} 命中受影响区间 {sig['affected']}"}]
+        return []
+    if name in SUSPICIOUS_PACKAGES:
+        return [{"package": name, "version": info["version"],
+                 "severity": "info", "title": f"{name}: {SUSPICIOUS_PACKAGES[name]}",
+                 "category": "sca:category", "confidence": "medium",
+                 "evidence": f"dep from {','.join(info['sources'])}"}]
+    return []
+
+
+def _vulns_offline(deps):
+    """3) 对照本地漏洞库（逐个依赖判）。"""
+    out = []
+    for name, info in deps.items():
+        out += _vulns_of_dep(name, info)
+    return out
+
+
+def _vulns_osv(deps):
+    """4) 可选 OSV 在线查询结果 → vuln 条目（调用方负责确认联网被显式打开）。"""
+    out = []
+    for h in _osv_query([(n, i["version"]) for n, i in deps.items() if i["version"] != "*"]):
+        out.append({"package": h.get("package"), "version": h.get("version"),
+                    "severity": h.get("severity", "medium"), "title": h.get("title"),
+                    "category": "sca:osv", "confidence": "high", "evidence": "OSV API 命中"})
+    return out
 
 
 def scan_dependencies(target: str, osv_query: bool = False, allow_remote: bool = False):
@@ -247,88 +373,16 @@ def scan_dependencies(target: str, osv_query: bool = False, allow_remote: bool =
     数据不出厂：osv_query 需 allow_remote=True 且显式开启才联网；默认完全离线。
     """
     stdlib = _stdlib_names()
-    deps = {}      # name -> {version, sources:[...]}
-    scan_sources = []
-
-    # 1) 依赖描述文件
-    for df in _locate_dep_files(target):
-        scan_sources.append(os.path.basename(df))
-        try:
-            text = open(df, encoding="utf-8", errors="ignore").read()
-        except Exception:
-            continue
-        if os.path.basename(df).lower() == "pyproject.toml":
-            parsed = _parse_pyproject(text)
-        elif os.path.basename(df).lower() == "setup.py":
-            parsed = _parse_setup_py(text)
-        else:
-            parsed = _parse_requirements(text)
-        for d in parsed:
-            if d["name"] not in stdlib:
-                prev = deps.get(d["name"])
-                if prev:
-                    prev["sources"].append(os.path.basename(df))
-                    if prev["version"] == "*" and d["version"] != "*":
-                        prev["version"] = d["version"]
-                else:
-                    deps[d["name"]] = {"name": d["name"], "version": d["version"],
-                                       "sources": [os.path.basename(df)]}
-
-    # 2) 单文件/目录的 import 收集（补充依赖清单）
-    py_files = []
-    if os.path.isfile(target) and target.endswith(".py"):
-        py_files = [target]
-    elif os.path.isdir(target):
-        for root, _dirs, files in os.walk(target):
-            for f in files:
-                if f.endswith(".py"):
-                    py_files.append(os.path.join(root, f))
-    for pf in py_files[:200]:
-        try:
-            tree = ast.parse(open(pf, encoding="utf-8", errors="ignore").read())
-        except SyntaxError:
-            continue
-        for name in _collect_imports(tree):
-            if name not in deps and name not in stdlib:
-                deps[name] = {"name": name, "version": "*", "sources": [os.path.basename(pf)]}
-
-    # 3) 对照漏洞库
-    vulns = []
-    dep_dir = target if os.path.isdir(target) else (os.path.dirname(target) or ".")
-    for name, info in deps.items():
-        sig = KNOWN_VULN_PACKAGES.get(name)
-        if sig:
-            ver = info["version"]
-            if ver == "*":
-                # 未锁定版本 → 无法确认，给 low 提示
-                vulns.append({"package": name, "version": ver, "severity": "info",
-                              "title": f"{name} 未锁定版本，无法排除 {sig['title']}",
-                              "category": "sca:unpinned", "confidence": "low",
-                              "evidence": f"pinned='*' from {','.join(info['sources'])}"})
-            elif _in_range(ver, sig["affected"][0], sig["affected"][1]):
-                vulns.append({"package": name, "version": ver, "severity": sig["severity"],
-                              "title": sig["title"], "category": "sca:cve",
-                              "confidence": "high",
-                              "evidence": f"{name}=={ver} 命中受影响区间 {sig['affected']}"})
-        elif name in SUSPICIOUS_PACKAGES:
-            vulns.append({"package": name, "version": info["version"],
-                          "severity": "info", "title": f"{name}: {SUSPICIOUS_PACKAGES[name]}",
-                          "category": "sca:category", "confidence": "medium",
-                          "evidence": f"dep from {','.join(info['sources'])}"})
-
-    # 4) 可选 OSV 在线查询（默认关闭，数据不出厂）
-    osv_hits = []
-    if osv_query and allow_remote:
-        osv_hits = _osv_query([(n, i["version"]) for n, i in deps.items() if i["version"] != "*"])
-        for h in osv_hits:
-            vulns.append({"package": h.get("package"), "version": h.get("version"),
-                          "severity": h.get("severity", "medium"), "title": h.get("title"),
-                          "category": "sca:osv", "confidence": "high", "evidence": "OSV API 命中"})
-
+    deps, scan_sources = _deps_from_files(target, stdlib)
+    _deps_from_imports(target, deps, stdlib)
+    vulns = _vulns_offline(deps)
+    online = bool(osv_query and allow_remote)
+    if online:
+        vulns += _vulns_osv(deps)
     return {"deps": sorted(deps.values(), key=lambda d: d["name"]),
             "vulns": vulns, "scan_sources": scan_sources,
-            "offline": not (osv_query and allow_remote),
-            "summary": f"扫描到 {len(deps)} 个依赖，检出 {len(vulns)} 个漏洞/风险（离线={not (osv_query and allow_remote)}）"}
+            "offline": not online,
+            "summary": f"扫描到 {len(deps)} 个依赖，检出 {len(vulns)} 个漏洞/风险（离线={not online}）"}
 
 
 def _osv_query(pairs, timeout=8):
@@ -353,7 +407,7 @@ def _osv_query(pairs, timeout=8):
                              "severity": _osv_sev(vuln), "title": vuln.get("summary", "")[:120],
                              "id": vuln.get("id", "")})
         return hits
-    except Exception:
+    except Exception:  # fail-open: _osv_query 里出错就返回空值，调用方按缺失处理
         return []
 
 
@@ -390,58 +444,119 @@ def _is_taint_source(name):
     return False
 
 
-def _find_taint_flows(tree) -> list:
-    """扫描 AST，找 污点源变量 → 污点汇调用 的数据流链（逐函数做保守数据流）。"""
-    flows = []
+def _fn_arg_nodes(node):
+    """函数的所有形参节点（含 posonly / kwonly / *args / **kwargs）。"""
+    a = node.args
+    out = list(a.args) + list(a.posonlyargs) + list(a.kwonlyargs)
+    if a.vararg is not None:
+        out.append(a.vararg)
+    if a.kwarg is not None:
+        out.append(a.kwarg)
+    return out
+
+
+def _functions_of(tree):
+    """AST 里所有函数/异步函数节点。"""
     for node in ast.walk(tree):
-        if not isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
-            continue
-        fn = node.name
-        # 收集该函数内定义/赋值的变量（污点候选）
-        assigned = set()
-        source_names = set()
-        # 函数参数若为污点源名，也算污点源（用户可控入参）
-        for a in list(node.args.args) + list(node.args.posonlyargs) + \
-                list(node.args.kwonlyargs) + ([node.args.vararg] if node.args.vararg else []) + \
-                ([node.args.kwarg] if node.args.kwarg else []):
-            if a is not None and _is_taint_source(a.arg):
-                source_names.add(a.arg)
-        for sub in ast.walk(node):
-            if isinstance(sub, ast.Name) and isinstance(sub.ctx, ast.Store):
-                assigned.add(sub.id)
-                if _is_taint_source(sub.id):
-                    source_names.add(sub.id)
-            elif isinstance(sub, ast.Assign):
-                for t in sub.targets:
-                    if isinstance(t, ast.Name) and _is_taint_source(t.id):
-                        source_names.add(t.id)
-        if not source_names:
-            continue
-        # 找污点汇调用，并判断参数是否引用了污点源
-        for sub in ast.walk(node):
-            if isinstance(sub, ast.Call):
-                sink = _sink_name(sub)
-                if not sink:
-                    continue
-                for arg in sub.args + [k.value for k in sub.keywords if k.arg in ("cmd", "code", "data", "text")]:
-                    if _arg_references_source(arg, source_names | assigned):
-                        flows.append({
-                            "function": fn, "source": _arg_source_hint(arg, source_names),
-                            "sink": sink, "line": getattr(sub, "lineno", 0),
-                            "severity": TAINT_SINKS[sink],
-                            "confidence": "high" if sink in ("eval", "exec", "os.system") else "medium",
-                            "chain": f"污点源({_arg_source_hint(arg, source_names)}) → {sink}() @L{getattr(sub, 'lineno', 0)}",
-                        })
-                        break
-    # 去重
-    seen = set()
-    out = []
+        if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
+            yield node
+
+
+def _calls_of(node):
+    """子树里所有 Call 节点。"""
+    for sub in ast.walk(node):
+        if isinstance(sub, ast.Call):
+            yield sub
+
+
+def _store_names(node):
+    """子树里 Store 上下文的 Name 名字集合。"""
+    return {sub.id for sub in ast.walk(node)
+            if isinstance(sub, ast.Name) and isinstance(sub.ctx, ast.Store)}
+
+
+def _assigned_taint_targets(node):
+    """Assign 目标里像污点源的名字集合。"""
+    out = set()
+    for sub in ast.walk(node):
+        if isinstance(sub, ast.Assign):
+            out |= {t.id for t in sub.targets
+                    if isinstance(t, ast.Name) and _is_taint_source(t.id)}
+    return out
+
+
+def _taint_source_names(node):
+    """该函数内的污点源名：形参里像污点源的 + 被赋值且像污点源的名字。"""
+    names = {a.arg for a in _fn_arg_nodes(node) if a is not None and _is_taint_source(a.arg)}
+    names |= {n for n in _store_names(node) if _is_taint_source(n)}
+    names |= _assigned_taint_targets(node)
+    return names
+
+
+def _assigned_names(node):
+    """该函数内被赋值的名字（保守：一并当作可达污点）。"""
+    out = set()
+    for sub in ast.walk(node):
+        if isinstance(sub, ast.Name) and isinstance(sub.ctx, ast.Store):
+            out.add(sub.id)
+    return out
+
+
+def _sink_arg_values(call):
+    """汇调用的候选实参：位置参数 + 关键字里的 cmd/code/data/text。"""
+    extra = [k.value for k in call.keywords if k.arg in ("cmd", "code", "data", "text")]
+    return list(call.args) + extra
+
+
+def _flow_for_call(sub, fn, source_names, assigned):
+    """一个调用 → 一条 flow（或 None）：命中汇且某个实参引用了污点源。"""
+    sink = _sink_name(sub)
+    if not sink:
+        return None
+    for arg in _sink_arg_values(sub):
+        if _arg_references_source(arg, source_names | assigned):
+            return {
+                "function": fn, "source": _arg_source_hint(arg, source_names),
+                "sink": sink, "line": getattr(sub, "lineno", 0),
+                "severity": TAINT_SINKS[sink],
+                "confidence": "high" if sink in ("eval", "exec", "os.system") else "medium",
+                "chain": f"污点源({_arg_source_hint(arg, source_names)}) → {sink}() @L{getattr(sub, 'lineno', 0)}",
+            }
+    return None
+
+
+def _dedup_flows(flows):
+    """按 (function, sink, line) 去重，保序。"""
+    seen, out = set(), []
     for f in flows:
         key = (f["function"], f["sink"], f["line"])
         if key not in seen:
             seen.add(key)
             out.append(f)
     return out
+
+
+def _flows_of_function(node):
+    """一个函数节点内的全部 flow（源名先算，再逐调用判）。"""
+    source_names = _taint_source_names(node)
+    if not source_names:
+        return []
+    assigned = _assigned_names(node)
+    out = []
+    for sub in _calls_of(node):
+        f = _flow_for_call(sub, node.name, source_names, assigned)
+        if f:
+            out.append(f)
+    return out
+
+
+def _find_taint_flows(tree) -> list:
+    """扫描 AST，找 污点源变量 → 污点汇调用 的数据流链（逐函数做保守数据流）。"""
+    flows = []
+    for node in _functions_of(tree):
+        flows += _flows_of_function(node)
+    # 去重
+    return _dedup_flows(flows)
 
 
 def _sink_name(call_node):
@@ -466,16 +581,23 @@ def _sink_name(call_node):
     return None
 
 
+def _joined_refs_source(joined, source_set):
+    """f-string 里嵌入的变量是否命中污点源。"""
+    for v in joined.values:
+        if isinstance(v, ast.FormattedValue) and isinstance(v.value, ast.Name) \
+                and v.value.id in source_set:
+            return True
+    return False
+
+
 def _arg_references_source(arg, source_set):
+    """参数表达式是否引用污点源（Name / f-string / BinOp / Compare）。"""
     if isinstance(arg, ast.Name):
         return arg.id in source_set
-    if isinstance(arg, (ast.Constant, ast.JoinedStr)):
+    if isinstance(arg, ast.JoinedStr):
         # f-string 内嵌变量也算（如 f"ls {cmd}"）
-        if isinstance(arg, ast.JoinedStr):
-            for v in arg.values:
-                if isinstance(v, ast.FormattedValue) and isinstance(v.value, ast.Name) \
-                        and v.value.id in source_set:
-                    return True
+        return _joined_refs_source(arg, source_set)
+    if isinstance(arg, ast.Constant):
         return False
     if isinstance(arg, ast.BinOp):
         return _arg_references_source(arg.left, source_set) or \
@@ -485,39 +607,66 @@ def _arg_references_source(arg, source_set):
     return False
 
 
+def _hint_from_joined(joined, source_set):
+    """f-string 里命中的源名（没有就 None）。"""
+    for v in joined.values:
+        if isinstance(v, ast.FormattedValue) and isinstance(v.value, ast.Name) \
+                and v.value.id in source_set:
+            return f"f-string 嵌入 {v.value.id}"
+    return None
+
+
+def _hint_from_binop(arg, source_set):
+    """拼接表达式里第一个命中的源名（没有就 None）。"""
+    for sub in ast.walk(arg):
+        if isinstance(sub, ast.Name) and sub.id in source_set:
+            return sub.id
+    return None
+
+
 def _arg_source_hint(arg, source_set):
+    """给 flow 的 source 字段用的人话提示。"""
     if isinstance(arg, ast.Name):
         return arg.id if arg.id in source_set else "变量"
     if isinstance(arg, ast.JoinedStr):
-        for v in arg.values:
-            if isinstance(v, ast.FormattedValue) and isinstance(v.value, ast.Name) \
-                    and v.value.id in source_set:
-                return f"f-string 嵌入 {v.value.id}"
+        hint = _hint_from_joined(arg, source_set)
+        if hint:
+            return hint
     if isinstance(arg, ast.BinOp):
-        for sub in ast.walk(arg):
-            if isinstance(sub, ast.Name) and sub.id in source_set:
-                return sub.id
+        hint = _hint_from_binop(arg, source_set)
+        if hint:
+            return hint
     return "不可信输入"
+
+
+def _sql_flow_of(node):
+    """一个调用 → SQL 注入 flow（或 None）：cursor.execute 且首参数是 f-string / 字符串+。"""
+    if not (isinstance(node, ast.Call) and isinstance(node.func, ast.Attribute)
+            and node.func.attr == "execute" and node.args):
+        return None
+    q = node.args[0]
+    ln = getattr(node, "lineno", 0)
+    if isinstance(q, ast.JoinedStr):
+        return {"function": "?", "source": "f-string SQL",
+                "sink": "cursor.execute(f...) 动态拼接", "line": ln,
+                "severity": "critical", "confidence": "medium",
+                "chain": f"SQL f-string 拼接 → execute @L{ln}"}
+    if isinstance(q, ast.BinOp) and isinstance(q.op, ast.Add):
+        return {"function": "?", "source": "SQL + 拼接",
+                "sink": "cursor.execute(字符串+)", "line": ln,
+                "severity": "critical", "confidence": "high",
+                "chain": f"SQL 字符串+ 拼接 → execute @L{ln}"}
+    return None
 
 
 def _sql_flows(tree) -> list:
     """SQL 拼接 → 注入：cursor.execute 且参数含 f-string/格式化/拼接变量。"""
-    flows = []
-    for node in ast.walk(tree):
-        if isinstance(node, ast.Call) and isinstance(node.func, ast.Attribute) \
-                and node.func.attr == "execute" and node.args:
-            q = node.args[0]
-            if isinstance(q, ast.JoinedStr):
-                flows.append({"function": "?", "source": "f-string SQL",
-                              "sink": "cursor.execute(f...) 动态拼接", "line": getattr(node, "lineno", 0),
-                              "severity": "critical", "confidence": "medium",
-                              "chain": f"SQL f-string 拼接 → execute @L{getattr(node, 'lineno', 0)}"})
-            elif isinstance(q, ast.BinOp) and isinstance(q.op, ast.Add):
-                flows.append({"function": "?", "source": "SQL + 拼接",
-                              "sink": "cursor.execute(字符串+)", "line": getattr(node, "lineno", 0),
-                              "severity": "critical", "confidence": "high",
-                              "chain": f"SQL 字符串+ 拼接 → execute @L{getattr(node, 'lineno', 0)}"})
-    return flows
+    out = []
+    for node in _calls_of(tree):
+        f = _sql_flow_of(node)
+        if f:
+            out.append(f)
+    return out
 
 
 # 检测规则常量名（污点源/汇表、sink/正则/SQL 关键字哨兵）。这些"规则定义"的值本身
@@ -527,6 +676,25 @@ _SELF_RULE_NAMES = {"TAINT_SOURCES", "TAINT_SINKS", "_SINK_RE", "_SQL_RE", "_SQL
                     "SQL_KW", "SINKS", "SINKS_RE", "KNOWN_VULN_PACKAGES"}
 _SELF_RULE_PAT = re.compile(
     r"(SELECT|INSERT|UPDATE|DELETE|pickle\.loads|yaml\.load|eval|exec|os\.system|cursor\.execute)")
+
+
+def _assign_names(node):
+    """赋值语句的目标名集合。"""
+    return {t.id for t in node.targets if isinstance(t, ast.Name)}
+
+
+def _rule_constant_spans(tree, lines):
+    """模块级规则常量赋值的行区间（[start, end) 0-based）。"""
+    spans = []
+    for node in tree.body:
+        if not isinstance(node, ast.Assign):
+            continue
+        if not (_assign_names(node) & _SELF_RULE_NAMES):
+            continue
+        block = "\n".join(lines[node.lineno - 1:node.end_lineno])
+        if _SELF_RULE_PAT.search(block):
+            spans.append((node.lineno - 1, node.end_lineno))
+    return spans
 
 
 def _strip_self_rule_constants(source: str) -> str:
@@ -540,46 +708,33 @@ def _strip_self_rule_constants(source: str) -> str:
     except SyntaxError:
         return source
     lines = source.split("\n")
-    targets = []
-    for node in tree.body:
-        if isinstance(node, ast.Assign):
-            names = {t.id for t in node.targets if isinstance(t, ast.Name)}
-            if names & _SELF_RULE_NAMES:
-                block = "\n".join(lines[node.lineno - 1:node.end_lineno])
-                if _SELF_RULE_PAT.search(block):
-                    targets.append((node.lineno - 1, node.end_lineno))
-    for start, end in targets:
+    for start, end in _rule_constant_spans(tree, lines):
         lines[start:end] = [""] * (end - start)
     return "\n".join(lines)
 
+
+
+def _flows_with_file(flows, pf):
+    """给 flow 列表补上 file 字段（原地）。"""
+    for f in flows:
+        f["file"] = pf
+    return flows
 
 
 def taint_analyze(target: str) -> dict:
     """Semgrep 级污点分析：源→汇 数据流。target 为文件或目录。"""
     findings = []
     files_scanned = 0
-    py_files = []
-    if os.path.isfile(target) and target.endswith(".py"):
-        py_files = [target]
-    elif os.path.isdir(target):
-        for root, _dirs, files in os.walk(target):
-            for f in files:
-                if f.endswith(".py"):
-                    py_files.append(os.path.join(root, f))
-    for pf in py_files[:300]:
+    for pf in _py_files_under(target)[:300]:
         try:
             source = open(pf, encoding="utf-8", errors="ignore").read()
             # 扫描自身源码时剔除检测规则常量区，避免自指误报（不影响其他文件）
             tree = ast.parse(_strip_self_rule_constants(source))
-        except SyntaxError:
+        except SyntaxError:  # fail-open: taint_analyze 里出错就跳过该条继续扫
             continue
         files_scanned += 1
-        for f in _find_taint_flows(tree):
-            f["file"] = pf
-            findings.append(f)
-        for f in _sql_flows(tree):
-            f["file"] = pf
-            findings.append(f)
+        findings += _flows_with_file(_find_taint_flows(tree), pf)
+        findings += _flows_with_file(_sql_flows(tree), pf)
     return {"findings": findings, "files_scanned": files_scanned,
             "summary": f"扫描 {files_scanned} 文件，检出 {len(findings)} 条污点/注入链",
             "engines": ["taint(source→sink,AST)", "sql-injection(pattern)"]}

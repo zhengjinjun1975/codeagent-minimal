@@ -9,6 +9,9 @@
 # LSP 原子的夹具：故意语法错误
 lsp_syntax_error.py
 
+# LSP 原子的另一支夹具：故意写超长函数名/长签名，用来验 LSP 诊断能不能报"该重构"
+lsp_test_target.py
+
 # 已归档的旧版本（只作对照，不再维护）
 docs/_archive/*
 

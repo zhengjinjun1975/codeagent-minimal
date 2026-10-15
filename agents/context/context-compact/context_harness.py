@@ -56,7 +56,7 @@ def prune_store(store_dir=None, keep=None, max_bytes=None):
         fp = os.path.join(store_dir, n)
         try:
             st = os.stat(fp)
-        except OSError:
+        except OSError:  # fail-open: prune_store 里出错就跳过该条继续扫
             continue
         entries.append((st.st_mtime, n, fp, st.st_size))
     entries.sort(key=lambda t: (t[0], t[1]))              # 最旧在前
@@ -88,7 +88,7 @@ def _ledger_write(store_dir, name, why):
     try:
         with open(os.path.join(store_dir, _PRUNE_LEDGER), "a", encoding="utf-8") as f:
             f.write("%d\t%s\t%s\n" % (int(time.time()), name, why))
-    except Exception:
+    except Exception:  # fail-open: 上下文记账写入失败就跳过
         pass
 
 
@@ -98,7 +98,7 @@ def prune_ledger(store_dir=None, limit=50):
     try:
         with open(os.path.join(store_dir, _PRUNE_LEDGER), encoding="utf-8") as f:
             rows = [ln.rstrip("\n") for ln in f if ln.strip()]
-    except OSError:
+    except OSError:  # fail-open: prune_ledger 里出错就返回空值，调用方按缺失处理
         return []
     out = []
     for ln in reversed(rows[-500:]):
@@ -382,7 +382,7 @@ def store_list(store_dir=None):
             continue
         try:
             st = os.stat(p)
-        except OSError:
+        except OSError:  # fail-open: store_list 里出错就跳过该条继续扫
             continue
         out.append({"handle": name, "path": p, "bytes": st.st_size,
                     "tokens": _tokens("x" * st.st_size) if st.st_size else 1,

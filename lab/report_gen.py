@@ -126,13 +126,13 @@ def _worker(rid, target_rel, include):
             t.start()
             threads.append(t)
     # deadcode / doc-freshness / complexity 走根层脚本
-    for name, script, args_builder, label in [
-        ("deadcode", "deadcode.py", lambda: [real], "死代码"),
-        ("doc-freshness", "doc_freshness.py", lambda: [real, "--root", base], "文档新鲜度"),
-        ("complexity", "complexity.py", lambda: [real, "--json"], "复杂度分布"),
+    for name, script, args_builder in [
+        ("deadcode", "deadcode.py", lambda: [real]),
+        ("doc-freshness", "doc_freshness.py", lambda: [real, "--root", base]),
+        ("complexity", "complexity.py", lambda: [real, "--json"]),
     ]:
-        t = threading.Thread(target=_run_root_script, args=(rid, name, script, args_builder,
-                                                            cb(name), label, cfg), daemon=True)
+        t = threading.Thread(target=_run_root_script, args=(name, script, args_builder,
+                                                            cb(name), cfg), daemon=True)
         t.start()
         threads.append(t)
     # method-impact（影响面 = 依赖拓扑）
@@ -180,7 +180,7 @@ def _worker(rid, target_rel, include):
     emit("report.finished", {"report_id": rid, "ok": ok, "summary": summary})
 
 
-def _run_root_script(rid, name, script, args_builder, section_cb, label, cfg):
+def _run_root_script(name, script, args_builder, section_cb, cfg):
     from events import emit
     script_path = os.path.join(cfg.codeagent_root(), script)
     if not os.path.isfile(script_path):
@@ -227,47 +227,79 @@ def _slim(d, limit):
         return {"raw": repr(d)[:limit]}
 
 
+def _pick(it, keys, default):
+    """按顺序取第一个非空值（原先是 `it.get(a) or it.get(b) or 默认`）。"""
+    for k in keys:
+        v = it.get(k)
+        if v:
+            return v
+    return default
+
+
+def _f_code_review(dl, name):
+    for it in (dl.get("issues") or dl.get("findings") or []):
+        if isinstance(it, dict):
+            yield _f(_pick(it, ("level", "severity"), "P2"),
+                     _pick(it, ("file",), ""), _pick(it, ("line",), ""),
+                     _pick(it, ("msg", "issue", "title"), ""),
+                     _pick(it, ("advice", "suggestion"), ""), name)
+
+
+def _f_security_scan(dl, name):
+    for it in (dl.get("findings") or dl.get("issues") or []):
+        if isinstance(it, dict):
+            yield _f(_pick(it, ("level", "severity"), "P1"),
+                     _pick(it, ("file",), ""), _pick(it, ("line",), ""),
+                     _pick(it, ("msg", "issue"), ""), "", name)
+
+
+def _f_dep_scan(dl, name):
+    for it in (dl.get("issues") or dl.get("findings") or []):
+        if isinstance(it, dict):
+            yield _f("P1", _pick(it, ("file",), ""), "",
+                     _pick(it, ("msg", "issue", "desc"), ""), "", name)
+
+
+def _f_complexity(dl, name):
+    for w in (dl.get("warnings") or []):
+        if isinstance(w, dict):
+            yield _f("P2", _pick(w, ("file",), ""), _pick(w, ("line",), ""),
+                     _pick(w, ("suggestion",), ""), "", name)
+
+
+def _f_deadcode(dl, name):
+    # 注：调用方已把 data 归一成 dict，原先那条 isinstance(dl, list) 分支是不可达的
+    for it in (dl.get("dead") or dl.get("unused") or [])[:100]:
+        if isinstance(it, dict):
+            yield _f("P2", "", _pick(it, ("line",), ""),
+                     f"{it.get('name') or ''}: {it.get('reason') or '未使用符号'}",
+                     "删除或标注用途", name)
+
+
+def _f_doc_freshness(dl, name):
+    for it in (dl.get("issues") or dl.get("stale") or []):
+        if isinstance(it, dict):
+            yield _f("P2", _pick(it, ("file",), ""), _pick(it, ("line",), ""),
+                     _pick(it, ("msg", "issue"), ""), "", name)
+
+
+# 原子名 → 提取器（原先是 6 支 if/elif 链：圈复杂度 62，几乎全由 `or` 兜底链贡献）
+_FINDING_EXTRACTORS = {
+    "code-review": _f_code_review,
+    "security-scan": _f_security_scan,
+    "dep-scan": _f_dep_scan,
+    "complexity": _f_complexity,
+    "deadcode": _f_deadcode,
+    "doc-freshness": _f_doc_freshness,
+}
+
+
 def _findings_from(name, sec, env):
     """把各原子输出归一为 findings[{level, file, line, msg, advice, atom}]。"""
-    out = []
     d = sec.get("data") or {}
     dl = d if isinstance(d, dict) else {}
-    if name == "code-review":
-        for it in (dl.get("issues") or dl.get("findings") or []):
-            if isinstance(it, dict):
-                out.append(_f(it.get("level") or it.get("severity") or "P2",
-                               it.get("file") or "", it.get("line") or "",
-                               it.get("msg") or it.get("issue") or it.get("title") or "",
-                               it.get("advice") or it.get("suggestion") or "", name))
-    elif name == "security-scan":
-        for it in (dl.get("findings") or dl.get("issues") or []):
-            if isinstance(it, dict):
-                out.append(_f(it.get("level") or it.get("severity") or "P1",
-                              it.get("file") or "", it.get("line") or "",
-                              it.get("msg") or it.get("issue") or "", "", name))
-    elif name == "dep-scan":
-        for it in (dl.get("issues") or dl.get("findings") or []):
-            if isinstance(it, dict):
-                out.append(_f("P1", it.get("file") or "", "", it.get("msg") or
-                              it.get("issue") or it.get("desc") or "", "", name))
-    elif name == "complexity":
-        for w in (dl.get("warnings") or []):
-            if isinstance(w, dict):
-                out.append(_f("P2", w.get("file") or "", w.get("line") or "",
-                              w.get("suggestion") or "", "", name))
-    elif name == "deadcode":
-        items = dl if isinstance(dl, list) else (dl.get("dead") or dl.get("unused") or [])
-        for it in items[:100]:
-            if isinstance(it, dict):
-                out.append(_f("P2", "", it.get("line") or "",
-                              f"{it.get('name') or ''}: {it.get('reason') or '未使用符号'}",
-                              "删除或标注用途", name))
-    elif name == "doc-freshness":
-        for it in (dl.get("issues") or dl.get("stale") or []):
-            if isinstance(it, dict):
-                out.append(_f("P2", it.get("file") or "", it.get("line") or "",
-                              it.get("msg") or it.get("issue") or "", "", name))
-    return out[:150]
+    fn = _FINDING_EXTRACTORS.get(name)
+    return list(fn(dl, name))[:150] if fn else []
 
 
 def _f(level, file, line, msg, advice, atom):

@@ -96,27 +96,24 @@ def _build_provided_index(manifests: dict) -> dict:
 
 
 # ── 依赖解析（Kahn 拓扑排序）────────────────────
-def _resolve_order(manifests: dict, provided_index: dict) -> dict:
-    """Kahn 拓扑排序：按 depends_on 解析加载顺序。
-    返回 (order_list, conflicts)。conflicts 为 list[str] 提示，不中断（失败降级）。"""
-    names = list(manifests.keys())
-    indeg = {n: 0 for n in names}
-    adj = defaultdict(list)          # n → 依赖它的原子
-    conflicts = []
+def _dep_edges(n, manifests, provided_index, state):
+    """把一个原子的 depends_on 变成入度与邻接表；冲突只记提示不中断。state = (indeg, adj, conflicts)。"""
+    indeg, adj, conflicts = state
+    for dep in manifests[n].get("depends_on", []):
+        provider = provided_index.get(dep)
+        if provider is None:
+            conflicts.append(f"原子 '{n}' 依赖的能力 '{dep}' 无任何开源原子提供")
+            continue
+        # 自依赖 / 直接环检测（拓扑会兜底，这里先给提示）
+        if provider == n:
+            conflicts.append(f"原子 '{n}' 自依赖能力 '{dep}'")
+            continue
+        indeg[n] += 1
+        adj[provider].append(n)
 
-    for n in names:
-        for dep in manifests[n].get("depends_on", []):
-            provider = provided_index.get(dep)
-            if provider is None:
-                conflicts.append(f"原子 '{n}' 依赖的能力 '{dep}' 无任何开源原子提供")
-                continue
-            # 自依赖 / 直接环检测（拓扑会兜底，这里先给提示）
-            if provider == n:
-                conflicts.append(f"原子 '{n}' 自依赖能力 '{dep}'")
-                continue
-            indeg[n] += 1
-            adj[provider].append(n)
 
+def _kahn_order(names, indeg, adj):
+    """Kahn 拓扑：返回出队顺序（入度表会被就地修改）。"""
     q = deque([n for n in names if indeg[n] == 0])
     order = []
     while q:
@@ -126,6 +123,22 @@ def _resolve_order(manifests: dict, provided_index: dict) -> dict:
             indeg[nxt] -= 1
             if indeg[nxt] == 0:
                 q.append(nxt)
+    return order
+
+
+def _resolve_order(manifests: dict, provided_index: dict) -> dict:
+    """Kahn 拓扑排序：按 depends_on 解析加载顺序。
+    返回 (order_list, conflicts)。conflicts 为 list[str] 提示，不中断（失败降级）。"""
+    names = list(manifests.keys())
+    indeg = {n: 0 for n in names}
+    adj = defaultdict(list)          # n → 依赖它的原子
+    conflicts = []
+
+    state = (indeg, adj, conflicts)
+    for n in names:
+        _dep_edges(n, manifests, provided_index, state)
+
+    order = _kahn_order(names, indeg, adj)
 
     # 剩余未入 order 的 = 环
     remaining = [n for n in names if n not in order]
@@ -178,6 +191,17 @@ def import_entry(agent_dir: str, manifest: dict):
     return module
 
 
+def _first_subclass(module):
+    """模块内定义的第一个 AtomicAgent 子类（限定本模块定义，排除基类本身）。"""
+    for attr in dir(module):
+        obj = getattr(module, attr)
+        if not (isinstance(obj, type) and getattr(obj, "__module__", None) == module.__name__):
+            continue
+        if issubclass(obj, AtomicAgent) and obj is not AtomicAgent:
+            return obj
+    return None
+
+
 def _instantiate(agent_dir: str, manifest: dict):
     """实例化入口里的 AtomicAgent 子类。优先用 manifest 里声明的 agent_class（可选）。"""
     module = import_entry(agent_dir, manifest)
@@ -197,11 +221,9 @@ def _instantiate(agent_dir: str, manifest: dict):
 
     # 3) 找首个 AtomicAgent 子类（限定本模块内定义，避免误选非目标类）
     # 修复 P2-4：agent_class 已在 manifest 声明则优先；dir 兜底限定 obj.__module__==module.__name__
-    for attr in dir(module):
-        obj = getattr(module, attr)
-        if isinstance(obj, type) and getattr(obj, "__module__", None) == module.__name__:
-            if issubclass(obj, AtomicAgent) and obj is not AtomicAgent:
-                return obj(manifest)
+    cls = _first_subclass(module)
+    if cls is not None:
+        return cls(manifest)
     raise ValueError(f"{entry} 未导出 AtomicAgent 子类/实例")
 
 

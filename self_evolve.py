@@ -21,7 +21,6 @@ tdd_loop    : 测试反馈→改进→再测试 闭环(先写失败测试→红�
 """
 import os
 import re
-import sys
 import json
 import hashlib
 from datetime import datetime
@@ -52,7 +51,7 @@ def _load(memdir, name):
     p = Path(memdir) / name
     try:
         return json.loads(p.read_text(encoding="utf-8")) if p.exists() else []
-    except Exception:
+    except Exception:  # fail-open: _load 里出错就返回空值，调用方按缺失处理
         return []
 
 
@@ -61,7 +60,7 @@ def _save(memdir, name, data, cap=100):
         Path(memdir).mkdir(parents=True, exist_ok=True)
         (Path(memdir) / name).write_text(json.dumps(data[-cap:], ensure_ascii=False, indent=1),
                                          encoding="utf-8")
-    except Exception:
+    except Exception:  # fail-open: 经验文件写入失败就跳过本次沉淀
         pass
 
 
@@ -105,9 +104,15 @@ def _attribute(task, outcome, obs):
 
 
 def _refine_action(task, outcome, attribution, obs):
-    """精炼：生成可执行的『下次怎么做』动作（自动沉淀技能的基础）。"""
+    """精炼：生成可执行的『下次怎么做』动作（自动沉淀技能的基础）。
+
+    2026-10-15 修：动作文本原先只由几条静态模板句拼成，而 `_sediment_skill` 按动作文本 md5 去重
+    ⇒ 不同任务的技能会互相撞键，skills.json 一个月只有 5 条（实测）。这里把**任务关键词**拼进首句，
+    让不同任务族的技能各自成条，同一任务的重复执行仍被去重。"""
     acts = []
-    acts.append("先走五段派单：检索路径先行→单文件×单增强→预算自适应→_task_state.md 落盘→证据回执")
+    kws = _keywords(task)
+    tag = ("针对 %s：" % "、".join(kws[:3])) if kws else ""
+    acts.append(tag + "先走五段派单：检索路径先行→单文件×单增强→预算自适应→_task_state.md 落盘→证据回执")
     if outcome.get("score", 100) < 80:
         acts.append("拆分大任务(单文件×单增强)，避免一次塞多文件")
     if any("issue" in o for o in obs):

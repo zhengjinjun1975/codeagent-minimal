@@ -26,10 +26,13 @@ from run_loop import run_loop                  # noqa: E402  引擎核心(自包
 import tools                                   # noqa: E402  写盘/执行工具(自包含, patch 与 runloop 共用)
 
 DEFAULT_OUTPUT_DIR = os.path.join(REPO_ROOT, "_impl_output")
-# 轮数上限：**默认卡 5 轮**。超过 5 轮还没完成 = 这活对当前循环太重/需求没说清，
-# 应当失败退出把问题暴露出来，而不是让它磨（实测磨到 24 轮里有 19 轮是白烧）。
-# 确实需要更长的任务，由派活方显式传 max_iterations（知情才加，别拿它当默认）。
-DEFAULT_MAX_ITER = 5
+# 轮数上限：**默认 8 轮**。历史口径是 5 轮（理由：超过 5 轮还没完成 = 这活太重/需求没说清，
+# 该失败退出而不是让它磨，实测磨到 24 轮里有 19 轮白烧）。2026-10-15 用 HumanEval 164 题把口径拉出来重测：
+# 同样本、同模型（deepseek-chat，温度 0.3）、同 DoD，max_iter=6 是 139/164 = 84.76%，
+# max_iter=8 是 156/164 = 95.12%（+17 题得救、0 题变差），平均耗时反而从 7.1s 降到 4.3s/题；
+# 对照 one-shot 93.29%。⇒ 6 轮是预算不够而非策略错，默认抬到 8；仍受步数/墙钟/token 三重预算约束，
+# 更长的任务由派活方显式传 max_iterations（知情才加）。
+DEFAULT_MAX_ITER = 8
 TRACE_KEEP = 60
 
 

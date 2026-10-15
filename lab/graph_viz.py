@@ -11,7 +11,6 @@
 import ast
 import json
 import os
-import re
 import subprocess
 import sys
 
@@ -69,7 +68,7 @@ def _imports(pyfile):
                     names.add(a.name.split(".")[0])
             elif isinstance(node, ast.ImportFrom) and node.module:
                 names.add(node.module.split(".")[0])
-    except (OSError, SyntaxError):
+    except (OSError, SyntaxError):  # fail-open: 依赖图节点解析失败就跳过
         pass
     return names
 

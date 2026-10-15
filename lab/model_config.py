@@ -71,7 +71,7 @@ def _save():
     try:
         from history_db import get_db
         get_db().add_models_snapshot(c)
-    except Exception:  # noqa: BLE001
+    except Exception:  # noqa: BLE001  # fail-open: 模型快照写库失败不阻断
         pass
 
 

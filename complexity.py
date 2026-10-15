@@ -21,26 +21,34 @@ import os
 COMPLEXITY_THRESHOLDS = {"ok": 10, "warn": 20, "high": 40}
 
 
+_DECISION_KINDS = (
+    ((ast.If, ast.IfExp), 1),
+    ((ast.For, ast.AsyncFor, ast.While), 1),
+    ((ast.With, ast.AsyncWith, ast.ExceptHandler), 1),
+    ((ast.And, ast.Or), 1),
+    ((ast.comprehension, ast.Assert), 1),
+)
+
+
+def _decision_count(n) -> int:
+    """单个 AST 节点贡献的决策点数（0 = 不算决策点）。"""
+    for kinds, weight in _DECISION_KINDS:
+        if isinstance(n, kinds):
+            return weight
+    if isinstance(n, ast.BoolOp):
+        return max(0, len(n.values) - 1)
+    if isinstance(n, ast.Match):
+        return len(n.cases)
+    if isinstance(n, ast.Try):
+        return len(n.handlers)
+    return 0
+
+
 def cyclomatic_complexity(node) -> int:
     """McCabe 圈复杂度：1 + 决策点计数。"""
     decisions = 0
     for n in ast.walk(node):
-        if isinstance(n, (ast.If, ast.IfExp)):
-            decisions += 1
-        elif isinstance(n, (ast.For, ast.AsyncFor, ast.While)):
-            decisions += 1
-        elif isinstance(n, (ast.With, ast.AsyncWith, ast.ExceptHandler)):
-            decisions += 1
-        elif isinstance(n, ast.And) or isinstance(n, ast.Or):
-            decisions += 1
-        elif isinstance(n, ast.BoolOp):
-            decisions += max(0, len(n.values) - 1)
-        elif isinstance(n, (ast.comprehension, ast.Assert)):
-            decisions += 1
-        elif isinstance(n, ast.Match):
-            decisions += len(n.cases)
-        elif isinstance(n, ast.Try):
-            decisions += len(n.handlers)
+        decisions += _decision_count(n)
     return decisions + 1
 
 
@@ -117,7 +125,7 @@ def project_report(target: str, max_complexity: int = 10) -> dict:
     for pf in _collect_py(target):
         try:
             tree = ast.parse(open(pf, encoding="utf-8", errors="ignore").read())
-        except SyntaxError:
+        except SyntaxError:  # fail-open: project_report 里出错就跳过该条继续扫
             continue
         funcs = function_complexity(tree)
         total_funcs += len(funcs)

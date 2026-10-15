@@ -19,7 +19,6 @@ CI 上要拦的是「新增/改动引入的越限」，存量走基线台账慢�
     python scripts/constitution_gate_changed.py --base HEAD~1 --json
 """
 import argparse
-import io
 import json
 import os
 import subprocess

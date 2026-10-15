@@ -197,5 +197,5 @@ def inject_context(query: str, top_k=3) -> str:
         if snippets:
             return "\n来自知识库的参考：\n" + "\n".join(snippets)
         return ""
-    except:
+    except:  # fail-open: inject_context 里出错就返回空值，调用方按缺失处理
         return ""

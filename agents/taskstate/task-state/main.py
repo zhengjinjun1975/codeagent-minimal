@@ -42,7 +42,7 @@ def _project_key() -> str:
         ).stdout.strip()
         if root:
             return hashlib.md5(root.encode()).hexdigest()[:8]
-    except Exception:
+    except Exception:  # fail-open: 路径哈希失败就退回空串
         pass
     return hashlib.md5(os.getcwd().encode()).hexdigest()[:8]
 

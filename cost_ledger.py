@@ -86,11 +86,11 @@ def load(path=None, scenario=None):
                     continue
                 try:
                     e = json.loads(line)
-                except ValueError:
+                except ValueError:  # fail-open: load 里出错就跳过该条继续扫
                     continue
                 if isinstance(e, dict) and (scenario is None or e.get("scenario") == scenario):
                     out.append(e)
-    except OSError:
+    except OSError:  # fail-open: load 里出错就返回空值，调用方按缺失处理
         return []
     return out
 
@@ -104,6 +104,32 @@ def latest(path=None, scenario=None):
 # 只按百分比卡容差会随机翻红（实测：wall_ms 93→112ms 涨 20% 卡线，而硬指标一个没动）。
 # 所以软指标要"超容差**且**超绝对下限"才算回归。
 SOFT_FLOORS = {"wall_ms": 150, "est_tokens": 200}
+
+
+def _soft_row(k, base, cur, soft_tol, floors):
+    """一个软指标的对比行 + （超限时的）说明串。"""
+    b, c = int(_num(base.get(k))), int(_num(cur.get(k)))
+    ratio = (c - b) / b if b else (0.0 if c == 0 else 1.0)
+    floor = int(_num(floors.get(k, 0)))
+    over = bool(b) and ratio > soft_tol and (c - b) > floor
+    row = {"base": b, "cur": c, "delta": c - b, "ratio": round(ratio, 3),
+           "over": over, "floor": floor}
+    msg = None
+    if over:
+        msg = "%s %d → %d（+%.0f%%，超容差 %.0f%% 且超绝对下限 %d）" \
+              % (k, b, c, ratio * 100, soft_tol * 100, floor)
+    return row, msg
+
+
+def _verdict(comparable, regressions, hard, soft):
+    """same / better / worse / incomparable。"""
+    if not comparable:
+        return "incomparable"
+    if regressions:
+        return "worse"
+    if any(v.get("delta", 0) < 0 for v in list(hard.values()) + list(soft.values())):
+        return "better"
+    return "same"
 
 
 def compare(base, cur, soft_tol=0.2, floors=None):
@@ -130,23 +156,11 @@ def compare(base, cur, soft_tol=0.2, floors=None):
     fl = dict(SOFT_FLOORS)
     fl.update(floors or {})
     for k in SOFT_METRICS:
-        b, c = int(_num(base.get(k))), int(_num(cur.get(k)))
-        ratio = (c - b) / b if b else (0.0 if c == 0 else 1.0)
-        floor = int(_num(fl.get(k, 0)))
-        over = bool(b) and ratio > soft_tol and (c - b) > floor
-        soft[k] = {"base": b, "cur": c, "delta": c - b, "ratio": round(ratio, 3),
-                   "over": over, "floor": floor}
-        if over:
-            regressions.append("%s %d → %d（+%.0f%%，超容差 %.0f%% 且超绝对下限 %d）"
-                               % (k, b, c, ratio * 100, soft_tol * 100, floor))
-    if not comparable:
-        verdict = "incomparable"
-    elif regressions:
-        verdict = "worse"
-    elif any(v.get("delta", 0) < 0 for v in list(hard.values()) + list(soft.values())):
-        verdict = "better"
-    else:
-        verdict = "same"
+        row, msg = _soft_row(k, base, cur, soft_tol, fl)
+        soft[k] = row
+        if msg:
+            regressions.append(msg)
+    verdict = _verdict(comparable, regressions, hard, soft)
     return {"comparable": comparable, "why": "；".join(reasons), "verdict": verdict,
             "hard": hard, "soft": soft, "regressions": regressions}
 

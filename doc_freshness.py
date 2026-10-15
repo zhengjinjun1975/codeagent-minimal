@@ -54,7 +54,7 @@ def _symbol_defined(file_path, sym):
     try:
         src = Path(file_path).read_text(encoding="utf-8", errors="ignore")
         tree = ast.parse(src)
-    except (OSError, SyntaxError):
+    except (OSError, SyntaxError):  # fail-open: _symbol_defined 里出错就返回空值，调用方按缺失处理
         return False
     parts = sym.split(".")
     # parts[0] 应为模块名（文件名 stem）
@@ -85,7 +85,7 @@ def _file_has_symbol(file_path, sym):
     try:
         src = Path(file_path).read_text(encoding="utf-8", errors="ignore")
         tree = ast.parse(src)
-    except (OSError, SyntaxError):
+    except (OSError, SyntaxError):  # fail-open: _file_has_symbol 里出错就返回空值，调用方按缺失处理
         return False
     for node in ast.walk(tree):
         if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)) and node.name == name:

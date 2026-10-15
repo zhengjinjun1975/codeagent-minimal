@@ -25,7 +25,7 @@ _BIG_FILE = 500 * 1024       # >500KB 大文件分块
 
 
 # ── 树 ───────────────────────────────────────
-def tree(root, rel_dir="", recursive=False, max_files=2000, badges=False, codeagent_root=None):
+def tree(root, rel_dir="", max_files=2000, badges=False, codeagent_root=None):
     """返回 {dirs:[{path,name}], files:[{path,name,size,mtime}], truncated}。"""
     base = os.path.realpath(root)
     folder = os.path.realpath(os.path.join(base, rel_dir)) if rel_dir else base
@@ -49,7 +49,7 @@ def tree(root, rel_dir="", recursive=False, max_files=2000, badges=False, codeag
                 continue
             try:
                 st = e.stat()
-            except OSError:
+            except OSError:  # fail-open: tree 里出错就跳过该条继续扫
                 continue
             files.append({"path": rel, "name": e.name, "size": st.st_size,
                           "mtime": st.st_mtime})
@@ -88,7 +88,7 @@ def _attach_badges(files, base, codeagent_root):
             # 模块级 docstring 缺失 → 文档新鲜度低
             if not re.match(r"\s*(?:'''|\"\"\")", head):
                 badges.append({"kind": "doc", "count": 1, "label": "缺模块文档"})
-        except OSError:
+        except OSError:  # fail-open: 可视化扫描 best-effort
             pass
         if _quick_compile(absf):
             if not any(b["kind"] == "todo" for b in badges):
@@ -103,7 +103,7 @@ def _quick_compile(absf, timeout=20):
         r = subprocess.run([sys.executable, "-m", "py_compile", absf],
                            capture_output=True, timeout=timeout)
         return r.returncode == 0
-    except Exception:  # noqa: BLE001
+    except Exception:  # noqa: BLE001  # fail-open: _quick_compile 里出错就返回空值，调用方按缺失处理
         return None
 
 
@@ -250,7 +250,7 @@ def save_file(root, rel, content, db=None, events=None):
     finally:
         try:
             os.remove(tmpf)
-        except OSError:
+        except OSError:  # fail-open: 可视化扫描 best-effort
             pass
     if r.returncode != 0:
         err = _first_error(r.stderr or r.stdout)
@@ -271,7 +271,7 @@ def save_file(root, rel, content, db=None, events=None):
     except OSError as e:
         try:
             os.remove(tmp)
-        except OSError:
+        except OSError:  # fail-open: 可视化扫描 best-effort
             pass
         ok = False
         detail = f"写入失败: {e}"
@@ -293,5 +293,5 @@ def file_stats(absf):
     try:
         st = os.stat(absf)
         return {"size": st.st_size, "mtime": st.st_mtime}
-    except OSError:
+    except OSError:  # fail-open: file_stats 里出错就返回空值，调用方按缺失处理
         return {}

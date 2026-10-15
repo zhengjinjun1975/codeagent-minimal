@@ -114,7 +114,7 @@ def test_pathguard_rejects_dotdot_traversal():
         try:
             safe_resolve(bad, base=root)
             assert False, f"应拒绝穿越 {bad!r}"
-        except ValueError:
+        except ValueError:  # expected-exc: 该用例就是断言这里必须拒绝（预期异常，不是旁路）
             pass
 
 
@@ -124,7 +124,7 @@ def test_pathguard_rejects_absolute_escape():
         try:
             safe_resolve(bad, base=root)
             assert False, f"应拒绝绝对路径逃逸 {bad!r}"
-        except ValueError:
+        except ValueError:  # expected-exc: 该用例就是断言这里必须拒绝（预期异常，不是旁路）
             pass
 
 
@@ -251,12 +251,12 @@ def test_interpreter_whitelist_rejects_invalid():
     try:
         bd._validate_interpreter("C:/nope/nonexistent/python.exe")
         assert False, "应拒绝不存在的解释器"
-    except ValueError:
+    except ValueError:  # expected-exc: 该用例就是断言这里必须拒绝（预期异常，不是旁路）
         pass
     try:
         bd._validate_interpreter("")
         assert False, "应拒绝空解释器"
-    except ValueError:
+    except ValueError:  # expected-exc: 该用例就是断言这里必须拒绝（预期异常，不是旁路）
         pass
     # 沙箱对无效解释器降级为 rejected
     ev = bd.run_poc_sandbox("print(1)", timeout=5)

@@ -86,7 +86,7 @@ class CodeSkillAgent(AtomicAgent):
                     p = os.path.join(root, "SKILL.md")
                     try:
                         content = open(p, encoding="utf-8", errors="ignore").read()
-                    except Exception:
+                    except Exception:  # fail-open: _list 里出错就跳过该条继续扫
                         continue
                     meta, _ = _parse_frontmatter(content)
                     found.append({"name": meta.get("name", os.path.basename(root)),

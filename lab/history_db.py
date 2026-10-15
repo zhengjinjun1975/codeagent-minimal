@@ -73,7 +73,7 @@ class HistoryDB:
         with self._lock:
             try:
                 self._conn.close()
-            except Exception:
+            except Exception:  # fail-open: 历史库连接关闭失败不阻断
                 pass
 
     def _q(self, sql, args=()):

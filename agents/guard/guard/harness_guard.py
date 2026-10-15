@@ -2,6 +2,7 @@
 import json
 import os
 import re
+import time
 
 _PROBE_PATTERNS = [re.compile(r"print\(\s*open\("), re.compile(r"print\(os\.listdir"),
                    re.compile(r"sys\.exit\(print\(")]
@@ -11,11 +12,19 @@ _TS_EXT = (".ts", ".tsx", ".js", ".jsx")
 
 
 def _read(path):
-    try:
-        with open(path, "r", encoding="utf-8", errors="ignore") as f:
-            return f.read()
-    except Exception:
-        return None
+    """读产物文本。**瞬态读失败重试一次**：Windows 下刚写出的文件会被索引/杀软短暂占用，
+    单次读失败会把「文件明明写好了」误判成 not_probe 不通过（2026-10-15 实测出现过一次偶发假红）。
+    重试后仍读不到 ⇒ 返回 None，当作真读不出来失败处理（不静默放行）。
+    """
+    for attempt in (0, 1):
+        try:
+            with open(path, "r", encoding="utf-8", errors="ignore") as f:
+                return f.read()
+        except Exception:
+            if attempt == 0:
+                time.sleep(0.05)
+                continue
+            return None
 
 
 def _is_probe(text):

@@ -42,7 +42,7 @@ def _providers():
             got = json.loads(raw)
             if isinstance(got, list) and got:
                 return [p for p in got if isinstance(p, dict) and p.get("bin")]
-        except Exception:
+        except Exception:  # fail-open: CLI 探测失败就跳过该项
             pass
     return list(DEFAULT_PROVIDERS)
 

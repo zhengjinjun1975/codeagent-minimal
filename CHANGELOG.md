@@ -4,6 +4,28 @@
 
 格式遵循 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.0.0/)。
 
+## [0.8.3] - 2026-10-16
+
+本次把本地母体 2026-10-15 的一轮重构同步进开源树：口径统一 + 复杂度收口 + 一处真修复。
+只搬**结构性改动**，母体内部件（内部门、内部原子规格、内部台账）照旧不进公开树。
+
+### 修复
+- **`agents/guard/guard/harness_guard.py`**：`_read` 读产物改为瞬态失败重试一次。
+  Windows 下刚写出的文件会被索引/杀软短暂占用，单次读失败会把「文件明明写好了」误判成
+  `not_probe` 不通过（实测偶发假红）；重试仍读不到才按真失败处理，不静默放行。
+
+### 变更（与母体同步的结构性重构）
+- **静默吞异常口径统一**：全树补 `# fail-open: <为什么可以吞>` 标注（本次 95 处），
+  让「故意吞」与「漏吞」在代码里可分辨。
+- 复杂度收口：把若干超长函数拆成编排 + 小函数，或改成表驱动，行为不变。
+  涉及 `agents/codereview/*`、`agents/code/code-runloop/*`、`agents/test/code-test/*`、
+  `agent_loader.py`、`complexity.py`、`dep_scan.py`、`method_impact.py`、
+  `lab/chat_router.py`、`lab/report_gen.py`、`lab/web_viz.py`、`lab/atom_runner.py` 等。
+- 口径与产物对齐：登记表/文档与运行时口径统一，能力面不变。
+- 说明：母体侧「能力调用前钩子 + 步骤级 verifier 接进 `run_capability` 主路径」这一处**本版未同步**。
+  本仓库的 `run_capability` 保持原样（开源版不接本机判决口），该接线在本仓库实测会让 28 项单测与
+  evals 变红，故不并入；`_hook_before` / `_step_refusal` 两个助手仍随库保留备用。
+
 ## [0.8.2] - 2026-10-15
 
 ### 新增

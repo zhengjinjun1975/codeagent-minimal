@@ -83,7 +83,7 @@ def chain_of(blk):
     try:
         v = json.loads(m.group(1))
         return v if isinstance(v, list) and v else None
-    except Exception:
+    except Exception:  # fail-open: chain_of 里出错就返回空值，调用方按缺失处理
         return None
 
 
@@ -262,7 +262,7 @@ def main():
     finally:
         try:
             os.remove(LOCK)
-        except Exception:
+        except Exception:  # fail-open: 领单锁清理失败就算了
             pass
     return rc
 

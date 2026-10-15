@@ -74,7 +74,7 @@ class McpClientAgent(AtomicAgent):
                 raise RuntimeError("MCP server 关闭 stdin")
             try:
                 resp = json.loads(line)
-            except Exception:
+            except Exception:  # fail-open: _send_recv_stdio 里出错就跳过该条继续扫
                 continue
             if resp.get("id") == msg.get("id"):
                 return resp
@@ -126,7 +126,7 @@ class McpClientAgent(AtomicAgent):
             try:
                 cfg = json.loads(env)
                 return cfg if isinstance(cfg, list) else [cfg]
-            except Exception:
+            except Exception:  # fail-open: 配置或工具清单解析失败就退回空
                 pass
         for p in [os.path.join(REPO_ROOT, "config", "mcp_config.json"),
                   os.path.join(HERE, "config", "mcp_config.json")]:
@@ -134,7 +134,7 @@ class McpClientAgent(AtomicAgent):
                 try:
                     cfg = json.load(open(p, encoding="utf-8"))
                     return cfg if isinstance(cfg, list) else [cfg.get("servers", [])]
-                except Exception:
+                except Exception:  # fail-open: _load_config 里出错就跳过该条继续扫
                     continue
         # 内置演示 server（stdio mock，用于自测/真实连接验证）
         mock = os.path.join(HERE, "mock_server.py")
@@ -198,7 +198,7 @@ class McpClientAgent(AtomicAgent):
             try:
                 proc.stdin.close()
                 proc.kill()
-            except Exception:
+            except Exception:  # fail-open: 配置或工具清单解析失败就退回空
                 pass
         tools = d.get("tools", [])
         guard = mcp_guard.guard_tools(tools)          # 描述是第三方文本：先定性，再交上层（不静默丢工具）
@@ -233,7 +233,7 @@ class McpClientAgent(AtomicAgent):
                     try:
                         proc.stdin.close()
                         proc.kill()
-                    except Exception:
+                    except Exception:  # fail-open: 配置或工具清单解析失败就退回空
                         pass
                 result = resp.get("result", {})
                 content = result.get("content", [])

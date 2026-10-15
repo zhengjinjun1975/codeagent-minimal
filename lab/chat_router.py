@@ -82,94 +82,145 @@ def reply_for(intent, message, action_result=None):
     """按意图生成对话回复（诚实：失败带证据，不支持明说）。"""
     a = action_result or {}
     ok = a.get("ok")
-    if intent == "review":
-        if ok:
-            d = a.get("data") or {}
-            return (f"✅ 审查完成: {d.get('summary', '')} | P0={d.get('p0', a.get('p0'))} "
-                    f"问题 {a.get('count', '')}")
-        return f"❌ 审查失败: {a.get('error', '')}"
-    if intent == "test":
-        if ok:
-            d = a.get("data") or {}
-            rg = d.get("red_green") or {}
-            return ("✅ 测试全绿" if rg.get("green") else
-                    f"❌ 测试红: {str(d.get('summary', ''))[:120]}")
-        return f"❌ 测试失败: {a.get('error', '')}"
-    if intent == "debug":
-        if ok:
-            return (f"🔧 调试回路已启动 run_id={a.get('run_id')}，"
-                    f"状态={a.get('status')}（进度见调试台/事件流）")
-        return f"❌ 调试启动失败: {a.get('error', '')}"
-    if intent == "report":
-        if ok:
-            return (f"📋 报告生成已启动 report_id={a.get('report_id')}，"
-                    f"完成事件见报告页进度条")
-        return f"❌ 报告启动失败: {a.get('error', '')}"
-    if intent == "impact":
-        if ok:
-            d = a.get("data") or {}
-            n = len(d.get("nodes") or [])
-            e = len(d.get("edges") or [])
-            return f"🔗 影响图: {n} 节点 / {e} 边（渲染于代码工作区）"
-        return f"❌ 影响分析失败: {a.get('error', '')}"
-    if intent == "models":
-        d = a.get("data") or {}
-        provs = d.get("providers") or []
-        if ok:
-            return (f"🧠 模型配置: {len(provs)} 个 provider, "
-                    f"降级链 {d.get('chain') or '（未配置）'}")
-        return f"❌ 模型配置异常: {a.get('error', '')}"
-    if intent == "tree":
-        d = a.get("data") or {}
-        if ok:
-            return (f"🌳 文件树: {len(d.get('dirs') or [])} 目录 / "
-                    f"{len(d.get('files') or [])} 文件（代码工作区已刷新）")
-        return f"❌ 浏览失败: {a.get('error', '')}"
-    if intent == "atoms":
-        d = a.get("data") or {}
-        return (f"🧩 原子库: {d.get('core_count')} 核心 + {d.get('ext_count')} 扩展 "
-                f"= {d.get('count')} 原子，冲突 {len(d.get('conflicts') or [])} 条")
-    if intent == "debug_history":
-        hits = (a.get("data") or {}).get("hits") or []
-        if ok:
-            return (f"🕘 调试历史 {len(hits)} 条（可点『重试上次调试』复用回路）" if hits
-                    else "🕘 调试历史为空（尚未沉淀过失败/修复）")
-        return f"❌ 历史读取失败: {a.get('error', '')}"
-    if intent == "graph":
-        d = a.get("data") or {}
-        if ok:
-            return (f"📊 {d.get('source', '图')}: {len(d.get('nodes') or [])} 节点 / "
-                    f"{len(d.get('edges') or [])} 边")
-        return f"❌ 图生成失败: {a.get('error', '')}"
-    if intent == "edit":
-        if ok:
-            if a.get("saved"):
-                return f"✏️ 已保存 {a.get('path')}（py_compile 通过，已入审计）"
-            return f"✏️ 已定位文件 {a.get('path')} — 请在代码工作区编辑器修改后保存（对话不编造代码）"
-        return f"❌ 保存失败: {a.get('error', '')}"
-    if intent == "config":
-        if ok:
-            d = a.get("data") or {}
-            if a.get("switched"):
-                return (f"✅ 目标仓库已切换为: {a.get('new_target')}\n"
-                        f"原子库: {d.get('codeagent_root')}（文件树已刷新）")
-            return (f"⚙️ 目标仓库: {d.get('target_root')}\n原子库: {d.get('codeagent_root')}"
-                    f"\n提示: 说『切换到 <目录路径>』可实时切换审查目标")
-        return f"❌ 配置操作失败: {a.get('error', '')}"
-    if intent == "answer":
-        if ok:
-            d = a.get("data") or {}
-            ans = str(d.get("answer") or a.get("answer") or "")
-            prov = d.get("provider") or ""
-            model = d.get("model") or ""
-            suffix = f"（{prov}/{model}）" if prov else ""
-            return ans + suffix if ans else "模型已回复（空内容）"
-        return (f"🤖 无法识别意图，且模型兜底不可用: {a.get('error', '')}。"
-                f"可用指令: 审查/测试/调试/报告/影响/模型/浏览/原子库/历史/切换到 <目录>")
-    if intent == "unsupported":
-        return ("⚠️ 该能力不在本系统范围内（本系统=代码浏览/编辑/黑箱调试/审查报告/"
-                "模型配置/原子编排，全部本地运行）。明确不支持，不编造。")
+    fn = _REPLIERS.get(intent)
+    if fn:
+        return fn(a, ok, message)
     return f"🤖 未识别意图: {message[:60]}。可用: 审查/测试/调试/报告/影响/模型/浏览/原子库/历史"
+
+
+# 各意图的回复格式（原先是 14 支 if 链：圈复杂度高、改一处要顺着读到底）
+def _r_review(a, ok, message):
+    if ok:
+        d = a.get("data") or {}
+        return (f"✅ 审查完成: {d.get('summary', '')} | P0={d.get('p0', a.get('p0'))} "
+                f"问题 {a.get('count', '')}")
+    return f"❌ 审查失败: {a.get('error', '')}"
+
+
+def _r_test(a, ok, message):
+    if ok:
+        d = a.get("data") or {}
+        rg = d.get("red_green") or {}
+        return ("✅ 测试全绿" if rg.get("green") else
+                f"❌ 测试红: {str(d.get('summary', ''))[:120]}")
+    return f"❌ 测试失败: {a.get('error', '')}"
+
+
+def _r_debug(a, ok, message):
+    if ok:
+        return (f"🔧 调试回路已启动 run_id={a.get('run_id')}，"
+                f"状态={a.get('status')}（进度见调试台/事件流）")
+    return f"❌ 调试启动失败: {a.get('error', '')}"
+
+
+def _r_report(a, ok, message):
+    if ok:
+        return (f"📋 报告生成已启动 report_id={a.get('report_id')}，"
+                f"完成事件见报告页进度条")
+    return f"❌ 报告启动失败: {a.get('error', '')}"
+
+
+def _r_impact(a, ok, message):
+    if ok:
+        d = a.get("data") or {}
+        n = len(d.get("nodes") or [])
+        e = len(d.get("edges") or [])
+        return f"🔗 影响图: {n} 节点 / {e} 边（渲染于代码工作区）"
+    return f"❌ 影响分析失败: {a.get('error', '')}"
+
+
+def _r_models(a, ok, message):
+    d = a.get("data") or {}
+    provs = d.get("providers") or []
+    if ok:
+        return (f"🧠 模型配置: {len(provs)} 个 provider, "
+                f"降级链 {d.get('chain') or '（未配置）'}")
+    return f"❌ 模型配置异常: {a.get('error', '')}"
+
+
+def _r_tree(a, ok, message):
+    d = a.get("data") or {}
+    if ok:
+        return (f"🌳 文件树: {len(d.get('dirs') or [])} 目录 / "
+                f"{len(d.get('files') or [])} 文件（代码工作区已刷新）")
+    return f"❌ 浏览失败: {a.get('error', '')}"
+
+
+def _r_atoms(a, ok, message):
+    d = a.get("data") or {}
+    return (f"🧩 原子库: {d.get('core_count')} 核心 + {d.get('ext_count')} 扩展 "
+            f"= {d.get('count')} 原子，冲突 {len(d.get('conflicts') or [])} 条")
+
+
+def _r_debug_history(a, ok, message):
+    hits = (a.get("data") or {}).get("hits") or []
+    if ok:
+        return (f"🕘 调试历史 {len(hits)} 条（可点『重试上次调试』复用回路）" if hits
+                else "🕘 调试历史为空（尚未沉淀过失败/修复）")
+    return f"❌ 历史读取失败: {a.get('error', '')}"
+
+
+def _r_graph(a, ok, message):
+    d = a.get("data") or {}
+    if ok:
+        return (f"📊 {d.get('source', '图')}: {len(d.get('nodes') or [])} 节点 / "
+                f"{len(d.get('edges') or [])} 边")
+    return f"❌ 图生成失败: {a.get('error', '')}"
+
+
+def _r_edit(a, ok, message):
+    if ok:
+        if a.get("saved"):
+            return f"✏️ 已保存 {a.get('path')}（py_compile 通过，已入审计）"
+        return f"✏️ 已定位文件 {a.get('path')} — 请在代码工作区编辑器修改后保存（对话不编造代码）"
+    return f"❌ 保存失败: {a.get('error', '')}"
+
+
+def _r_config(a, ok, message):
+    if ok:
+        d = a.get("data") or {}
+        if a.get("switched"):
+            return (f"✅ 目标仓库已切换为: {a.get('new_target')}\n"
+                    f"原子库: {d.get('codeagent_root')}（文件树已刷新）")
+        return (f"⚙️ 目标仓库: {d.get('target_root')}\n原子库: {d.get('codeagent_root')}"
+                f"\n提示: 说『切换到 <目录路径>』可实时切换审查目标")
+    return f"❌ 配置操作失败: {a.get('error', '')}"
+
+
+def _r_answer(a, ok, message):
+    if ok:
+        d = a.get("data") or {}
+        ans = str(d.get("answer") or a.get("answer") or "")
+        prov = d.get("provider") or ""
+        model = d.get("model") or ""
+        suffix = f"（{prov}/{model}）" if prov else ""
+        return ans + suffix if ans else "模型已回复（空内容）"
+    return (f"🤖 无法识别意图，且模型兜底不可用: {a.get('error', '')}。"
+            f"可用指令: 审查/测试/调试/报告/影响/模型/浏览/原子库/历史/切换到 <目录>")
+
+
+def _r_unsupported(a, ok, message):
+    return ("⚠️ 该能力不在本系统范围内（本系统=代码浏览/编辑/黑箱调试/审查报告/"
+            "模型配置/原子编排，全部本地运行）。明确不支持，不编造。")
+
+
+_REPLIERS = {
+    "review": _r_review,
+    "test": _r_test,
+    "debug": _r_debug,
+    "report": _r_report,
+    "impact": _r_impact,
+    "models": _r_models,
+    "tree": _r_tree,
+    "atoms": _r_atoms,
+    "debug_history": _r_debug_history,
+    "graph": _r_graph,
+    "edit": _r_edit,
+    "config": _r_config,
+    "answer": _r_answer,
+    "unsupported": _r_unsupported,
+}
+
 
 
 def _known_intents():
@@ -189,7 +240,7 @@ def _cached_intent(message):
         d = r.get("data") if isinstance(r.get("data"), dict) else None
         if d and d.get("hit") and d.get("intent") in _known_intents():
             return d["intent"], "cache"
-    except Exception:
+    except Exception:  # fail-open: 意图缓存读写失败就现算
         pass
     return None
 
@@ -199,7 +250,7 @@ def _remember_intent(message, intent):
     try:
         from agent_runtime import get_runtime
         get_runtime().run_capability("model.cache_put", text=message, intent=intent)
-    except Exception:
+    except Exception:  # fail-open: 意图缓存读写失败就现算
         pass
 
 
@@ -313,7 +364,7 @@ def _a_models(data, cfg):
 
 def _a_tree(data, cfg):
     from file_viz import tree
-    return {"ok": True, "data": tree(cfg.target_root(), recursive=False,
+    return {"ok": True, "data": tree(cfg.target_root(),
                                      codeagent_root=cfg.codeagent_root())}
 
 

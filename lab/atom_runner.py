@@ -50,7 +50,7 @@ _HEAVY_SUBCMD = {
 def run_capability(atom_name, capability, params=None, timeout=180,
                    registry=None, codeagent_root=None):
     """执行单个原子能力，返回信封。params: dict（值须可 JSON 序列化）。"""
-    from atom_loader_ext import find_atom, atom_abs_dir
+    from atom_loader_ext import find_atom
     from lab_config import get_config as _gc
     cfg = _gc()
     root = codeagent_root or cfg.codeagent_root()
@@ -67,117 +67,177 @@ def run_capability(atom_name, capability, params=None, timeout=180,
                 "degraded": True, "elapsed": 0, "source": "runner"}
     params = dict(params or {})
     t0 = time.time()
+    ctx = {"cfg": cfg, "root": root, "timeout": timeout, "t0": t0}
 
     # 1) 扩展原子 → subprocess main.py --capability（模板统一 run_cli，args 平铺 --k v）
     if atom.get("origin") == "ext":
-        a_dir = atom_abs_dir(atom, cfg)
-        entry = os.path.join(a_dir, atom.get("entry") or "main.py")
-        if os.path.isfile(entry):
-            args = [sys.executable, entry, "--capability", capability]
-            declared = set(atom.get("inputs") or [])
-            for k, v in params.items():
-                if v is None:
-                    continue
-                if declared and k not in declared:
-                    continue  # 未声明的入参不转发（避免 argparse 拒绝）
-                if isinstance(v, (dict, list)):
-                    args += [f"--{k}", json.dumps(v, ensure_ascii=False)]
-                else:
-                    args += [f"--{k}", str(v)]
-            env = dict(os.environ)
-            env["PYTHONIOENCODING"] = "utf-8"
-            try:
-                proc = subprocess.run(args, capture_output=True, text=True, timeout=timeout,
-                                      encoding="utf-8", errors="replace", env=env)
-                elapsed = round(time.time() - t0, 2)
-                out = (proc.stdout or "").strip()
-                # run_cli 首行是横幅，找最后一个 JSON 块
-                env_out = _last_json(out) or _last_json(proc.stderr or "")
-                if env_out is not None:
-                    env_out.setdefault("elapsed", elapsed)
-                    env_out.setdefault("source", "subprocess:ext")
-                    return env_out
-                return {"ok": False, "error": "扩展原子无 JSON 输出（退出码 "
-                        f"{proc.returncode}）", "raw": out[-1000:], "degraded": True,
-                        "elapsed": elapsed, "source": "subprocess:ext"}
-            except subprocess.TimeoutExpired:
-                return {"ok": False, "error": f"原子超时(>{timeout}s)", "degraded": True,
-                        "elapsed": round(time.time() - t0, 2), "source": "subprocess:ext"}
-            except Exception as e:  # noqa: BLE001
-                return {"ok": False, "error": f"{type(e).__name__}: {e}", "degraded": True,
-                        "elapsed": round(time.time() - t0, 2), "source": "subprocess:ext"}
+        env = _run_ext_atom(atom, capability, params, ctx)
+        if env is not None:            # None = 入口文件不在，落到下面两条分支去
+            return env
 
     # 2) 重型能力 → codeagent.py 子命令（子进程）
     if capability in _HEAVY_SUBCMD:
-        subcmd, arg_names = _HEAVY_SUBCMD[capability]
-        args = [sys.executable, os.path.join(root, "codeagent.py"), subcmd, "--json"]
-        if subcmd == "deliver":
-            # deliver 的 chain/outputs 是 --chain/--outputs 选项(非位置参数), 需特殊传参
-            for opt, an in (("--chain", "chain"), ("--outputs", "outputs")):
-                v = params.get(an)
-                if v is None:
-                    # 交付原子：chain/outputs 缺省即为空——上游没接就如实报“没有上游”，不把整条编排判红
-                    v = [] if an == "chain" else {}
-                args += [opt, json.dumps(v, ensure_ascii=False)]
-        else:
-            for an in arg_names:
-                v = params.get(an) or params.get(_alias(an))
-                if v is None:
-                    # 容器型入参：上游没接 = 空容器（如实表示“没有上游输入”），而不是整条编排判红
-                    if an in ("chain", "items", "steps", "findings", "data"):
-                        v = [] if an != "data" else {}
-                    elif an in ("outputs", "evidence", "artifacts", "params"):
-                        v = {}
-                    else:
-                        # 缺必参 → 诚实失败（不猜测拼装）
-                        return {"ok": False, "error": f"能力 {capability} 缺参数 {an}",
-                                "degraded": True, "elapsed": round(time.time() - t0, 2),
-                                "source": "runner"}
-                if isinstance(v, (dict, list)):
-                    args.append(json.dumps(v, ensure_ascii=False))
-                else:
-                    args.append(str(v))
-        if subcmd == "impact" and params.get("symbol"):
-            args += ["--symbol", str(params["symbol"])]
-        if subcmd == "dispatch" and arg_names and params.get("task"):
-            args += ["--task", str(params["task"])]
-        if subcmd == "test":
-            args += ["--no-mutation"]  # 流水线回归默认不跑变异（耗时）
-        try:
-            proc = subprocess.run(args, capture_output=True, text=True, timeout=timeout,
-                                  encoding="utf-8", errors="replace",
-                                  cwd=root)
-            elapsed = round(time.time() - t0, 2)
-            out = (proc.stdout or "").strip()
-            try:
-                data = json.loads(out)
-                env = data.get(subcmd) if isinstance(data, dict) and subcmd in data else data
-            except json.JSONDecodeError:
-                return {"ok": False, "error": "codeagent 输出非 JSON", "raw": out[-1000:],
-                        "stderr": proc.stderr[-1000:], "degraded": True,
-                        "elapsed": elapsed, "source": f"subprocess:{subcmd}"}
-            if isinstance(env, dict) and env.get("ok") is not None:
-                env.setdefault("elapsed", elapsed)
-                env.setdefault("source", f"subprocess:{subcmd}")
-                return env
-            return {"ok": True, "data": env, "elapsed": elapsed,
-                    "source": f"subprocess:{subcmd}"}
-        except subprocess.TimeoutExpired:
-            return {"ok": False, "error": f"原子超时(>{timeout}s)", "degraded": True,
-                    "elapsed": round(time.time() - t0, 2), "source": f"subprocess:{subcmd}"}
-        except Exception as e:  # noqa: BLE001
-            return {"ok": False, "error": f"{type(e).__name__}: {e}", "degraded": True,
-                    "elapsed": round(time.time() - t0, 2), "source": f"subprocess:{subcmd}"}
+        return _run_heavy(capability, params, ctx)
 
     # 3) 轻量原子 → 进程内（agent_loader 只读加载 + call，信封隔离）
+    return _run_inproc(atom, capability, params, ctx)
+
+
+def _subproc_source(tag):
+    """子进程信封的 source 字段（tag=None → 扩展原子）。"""
+    return "subprocess:ext" if tag is None else f"subprocess:{tag}"
+
+
+def _timeout_env(ctx, tag):
+    """子进程超时的诚实失败信封。"""
+    return {"ok": False, "error": f"原子超时(>{ctx['timeout']}s)", "degraded": True,
+            "elapsed": round(time.time() - ctx["t0"], 2), "source": _subproc_source(tag)}
+
+
+def _exc_env(ctx, exc, tag):
+    """子进程其它异常的诚实失败信封。"""
+    return {"ok": False, "error": f"{type(exc).__name__}: {exc}", "degraded": True,
+            "elapsed": round(time.time() - ctx["t0"], 2), "source": _subproc_source(tag)}
+
+
+def _ext_args(entry, capability, atom, params):
+    """扩展原子的 argv：只转发原子声明的入参（未声明的不转发，避免 argparse 拒绝）。"""
+    args = [sys.executable, entry, "--capability", capability]
+    declared = set(atom.get("inputs") or [])
+    for k, v in params.items():
+        if v is None:
+            continue
+        if declared and k not in declared:
+            continue
+        if isinstance(v, (dict, list)):
+            args += [f"--{k}", json.dumps(v, ensure_ascii=False)]
+        else:
+            args += [f"--{k}", str(v)]
+    return args
+
+
+def _run_ext_atom(atom, capability, params, ctx):
+    """扩展原子：subprocess 调 <ext>/main.py --capability。入口文件不在 → None（交给下游分支）。"""
+    from atom_loader_ext import atom_abs_dir
+    a_dir = atom_abs_dir(atom, ctx["cfg"])
+    entry = os.path.join(a_dir, atom.get("entry") or "main.py")
+    if not os.path.isfile(entry):
+        return None
+    args = _ext_args(entry, capability, atom, params)
+    env = dict(os.environ)
+    env["PYTHONIOENCODING"] = "utf-8"
     try:
-        a_dir = atom_abs_dir(atom, cfg)
-        _insert_root(root)
+        proc = subprocess.run(args, capture_output=True, text=True, timeout=ctx["timeout"],
+                              encoding="utf-8", errors="replace", env=env)
+        elapsed = round(time.time() - ctx["t0"], 2)
+        out = (proc.stdout or "").strip()
+        # run_cli 首行是横幅，找最后一个 JSON 块
+        env_out = _last_json(out) or _last_json(proc.stderr or "")
+        if env_out is not None:
+            env_out.setdefault("elapsed", elapsed)
+            env_out.setdefault("source", "subprocess:ext")
+            return env_out
+        return {"ok": False, "error": "扩展原子无 JSON 输出（退出码 "
+                f"{proc.returncode}）", "raw": out[-1000:], "degraded": True,
+                "elapsed": elapsed, "source": "subprocess:ext"}
+    except subprocess.TimeoutExpired:
+        return _timeout_env(ctx, None)
+    except Exception as e:  # noqa: BLE001
+        return _exc_env(ctx, e, None)
+
+
+def _container_default(an):
+    """容器型入参的缺省值。返回 (它是不是容器型入参, 缺省值)。"""
+    if an in ("chain", "items", "steps", "findings", "data"):
+        return True, ([] if an != "data" else {})     # 上游没接 = 空容器，而不是整条编排判红
+    if an in ("outputs", "evidence", "artifacts", "params"):
+        return True, {}
+    return False, None
+
+
+def _heavy_arg_value(an, params):
+    """一个位置参数的取值。返回 (拿到了吗, 值)；没拿到 = 缺必参，调用方决定怎么失败。"""
+    v = params.get(an) or params.get(_alias(an))
+    if v is not None:
+        return True, v
+    is_container, dv = _container_default(an)
+    return (True, dv) if is_container else (False, None)
+
+
+def _heavy_args(subcmd, arg_names, capability, params, ctx):
+    """重型子命令的 argv。返回 (args, 失败信封|None)。"""
+    args = [sys.executable, os.path.join(ctx["root"], "codeagent.py"), subcmd, "--json"]
+    if subcmd == "deliver":
+        # deliver 的 chain/outputs 是 --chain/--outputs 选项(非位置参数), 需特殊传参
+        for opt, an in (("--chain", "chain"), ("--outputs", "outputs")):
+            v = params.get(an)
+            if v is None:
+                # 交付原子：chain/outputs 缺省即为空——上游没接就如实报"没有上游"，不把整条编排判红
+                v = [] if an == "chain" else {}
+            args += [opt, json.dumps(v, ensure_ascii=False)]
+    else:
+        for an in arg_names:
+            ok, v = _heavy_arg_value(an, params)
+            if not ok:
+                # 缺必参 → 诚实失败（不猜测拼装）
+                return [], {"ok": False, "error": f"能力 {capability} 缺参数 {an}",
+                            "degraded": True, "elapsed": round(time.time() - ctx["t0"], 2),
+                            "source": "runner"}
+            if isinstance(v, (dict, list)):
+                args.append(json.dumps(v, ensure_ascii=False))
+            else:
+                args.append(str(v))
+    if subcmd == "impact" and params.get("symbol"):
+        args += ["--symbol", str(params["symbol"])]
+    if subcmd == "dispatch" and arg_names and params.get("task"):
+        args += ["--task", str(params["task"])]
+    if subcmd == "test":
+        args += ["--no-mutation"]  # 流水线回归默认不跑变异（耗时）
+    return args, None
+
+
+def _run_heavy(capability, params, ctx):
+    """重型能力：subprocess 调 codeagent.py <subcmd> --json，再解 JSON 信封。"""
+    subcmd, arg_names = _HEAVY_SUBCMD[capability]
+    args, err = _heavy_args(subcmd, arg_names, capability, params, ctx)
+    if err is not None:
+        return err
+    try:
+        proc = subprocess.run(args, capture_output=True, text=True, timeout=ctx["timeout"],
+                              encoding="utf-8", errors="replace",
+                              cwd=ctx["root"])
+        elapsed = round(time.time() - ctx["t0"], 2)
+        out = (proc.stdout or "").strip()
+        try:
+            data = json.loads(out)
+            env = data.get(subcmd) if isinstance(data, dict) and subcmd in data else data
+        except json.JSONDecodeError:
+            return {"ok": False, "error": "codeagent 输出非 JSON", "raw": out[-1000:],
+                    "stderr": proc.stderr[-1000:], "degraded": True,
+                    "elapsed": elapsed, "source": f"subprocess:{subcmd}"}
+        if isinstance(env, dict) and env.get("ok") is not None:
+            env.setdefault("elapsed", elapsed)
+            env.setdefault("source", f"subprocess:{subcmd}")
+            return env
+        return {"ok": True, "data": env, "elapsed": elapsed,
+                "source": f"subprocess:{subcmd}"}
+    except subprocess.TimeoutExpired:
+        return _timeout_env(ctx, subcmd)
+    except Exception as e:  # noqa: BLE001
+        return _exc_env(ctx, e, subcmd)
+
+
+def _run_inproc(atom, capability, params, ctx):
+    """轻量原子：进程内 agent_loader 只读加载 + call（信封隔离）。"""
+    from atom_loader_ext import atom_abs_dir
+    try:
+        a_dir = atom_abs_dir(atom, ctx["cfg"])
+        _insert_root(ctx["root"])
         import agent_loader as al
         res = al.load_agent(a_dir)
         if not res["ok"]:
             return {"ok": False, "error": res["error"], "degraded": True,
-                    "elapsed": round(time.time() - t0, 2), "source": "inproc"}
+                    "elapsed": round(time.time() - ctx["t0"], 2), "source": "inproc"}
         agent = res["data"]["agent"]
         # P0-2 边注入适配：仅把原子声明的入参传给能力函数，避免编排边注入的
         # 未声明参数（如 input/evidence）被通用原子静默丢弃或抛 TypeError。
@@ -193,12 +253,12 @@ def run_capability(atom_name, capability, params=None, timeout=180,
             if missed or extra:
                 env.setdefault("data", {})
                 env["param_diff"] = {"missing": missed, "ignored": extra}
-        env.setdefault("elapsed", round(time.time() - t0, 2))
+        env.setdefault("elapsed", round(time.time() - ctx["t0"], 2))
         env.setdefault("source", "inproc")
         return env
     except Exception as e:  # noqa: BLE001
         return {"ok": False, "error": f"{type(e).__name__}: {e}", "degraded": True,
-                "elapsed": round(time.time() - t0, 2), "source": "inproc"}
+                "elapsed": round(time.time() - ctx["t0"], 2), "source": "inproc"}
 
 
 def _alias(an):
@@ -220,7 +280,7 @@ def _last_json(text):
             obj = json.loads(text[idx:])
             if isinstance(obj, dict):
                 return obj
-        except (json.JSONDecodeError, ValueError):
+        except (json.JSONDecodeError, ValueError):  # fail-open: 可视化的解析试探与清理
             pass
         idx = text.rfind("{", 0, idx)
     idx = text.rfind("[")
@@ -229,7 +289,7 @@ def _last_json(text):
             obj = json.loads(text[idx:])
             if isinstance(obj, list):
                 return {"data": obj}
-        except (json.JSONDecodeError, ValueError):
+        except (json.JSONDecodeError, ValueError):  # fail-open: 可视化的解析试探与清理
             pass
         idx = text.rfind("[", 0, idx)
     return None

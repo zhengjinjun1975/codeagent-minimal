@@ -90,7 +90,7 @@ def _as_list(x):
             v = json.loads(x)
             if isinstance(v, list):
                 return v
-        except Exception:  # noqa: BLE001
+        except Exception:  # noqa: BLE001  # fail-open: CDP 会话与浏览器进程收尾一律 best-effort
             pass
         return []
     return []
@@ -104,7 +104,7 @@ def _as_dict(x):
             v = json.loads(x)
             if isinstance(v, dict):
                 return v
-        except Exception:  # noqa: BLE001
+        except Exception:  # noqa: BLE001  # fail-open: CDP 会话与浏览器进程收尾一律 best-effort
             pass
     return {}
 
@@ -131,7 +131,7 @@ class _CDP:
                     self.ws.send(json.dumps({"id": self._id + 60000,
                                              "method": "Page.handleJavaScriptDialog",
                                              "params": {"accept": True, "promptText": ""}}))
-                except Exception:  # noqa: BLE001
+                except Exception:  # noqa: BLE001  # fail-open: CDP 会话与浏览器进程收尾一律 best-effort
                     pass
 
     def ev(self, expr, timeout=None):
@@ -147,7 +147,7 @@ class _CDP:
     def close(self):
         try:
             self.ws.close()
-        except Exception:  # noqa: BLE001
+        except Exception:  # noqa: BLE001  # fail-open: CDP 会话与浏览器进程收尾一律 best-effort
             pass
 
 
@@ -244,7 +244,7 @@ class BrowserSmokeAgent(AtomicAgent):
                 # 该二进制没起来 → 清掉再试下一个
                 try:
                     proc.terminate()
-                except Exception:  # noqa: BLE001
+                except Exception:  # noqa: BLE001  # fail-open: CDP 会话与浏览器进程收尾一律 best-effort
                     pass
                 last = f"浏览器启动失败(端口未就绪): {exe}"
             except Exception as e:  # noqa: BLE001
@@ -252,7 +252,7 @@ class BrowserSmokeAgent(AtomicAgent):
                 if proc is not None:
                     try:
                         proc.terminate()
-                    except Exception:  # noqa: BLE001
+                    except Exception:  # noqa: BLE001  # fail-open: CDP 会话与浏览器进程收尾一律 best-effort
                         pass
         raise RuntimeError(str(last or "无可用浏览器"))
 
@@ -356,7 +356,7 @@ class BrowserSmokeAgent(AtomicAgent):
             try:
                 if cdp.ev(expr) is True:
                     return True
-            except Exception:  # noqa: BLE001
+            except Exception:  # noqa: BLE001  # fail-open: CDP 会话与浏览器进程收尾一律 best-effort
                 pass
             time.sleep(0.4)
         return False
@@ -461,14 +461,14 @@ class BrowserSmokeAgent(AtomicAgent):
             # addScriptToEvaluateOnNewDocument 对后续每次新文档都执行一次（覆盖所有路由）。
             try:
                 cdp.send("Page.addScriptToEvaluateOnNewDocument", {"source": _SMOKE_HOOK})
-            except Exception:  # noqa: BLE001
+            except Exception:  # noqa: BLE001  # fail-open: CDP 会话与浏览器进程收尾一律 best-effort
                 pass
             if headless is False:
                 try:
                     cdp.send("Emulation.setDeviceMetricsOverride",
                              {"width": 1280, "height": 900, "deviceScaleFactor": 1,
                               "mobile": False})
-                except Exception:  # noqa: BLE001
+                except Exception:  # noqa: BLE001  # fail-open: CDP 会话与浏览器进程收尾一律 best-effort
                     pass
             login_note = ""
             if login:
@@ -502,25 +502,25 @@ class BrowserSmokeAgent(AtomicAgent):
             if cdp is not None:
                 try:
                     cdp.close()
-                except Exception:  # noqa: BLE001
+                except Exception:  # noqa: BLE001  # fail-open: CDP 会话与浏览器进程收尾一律 best-effort
                     pass
             if proc is not None:
                 try:
                     proc.terminate()
-                except Exception:  # noqa: BLE001
+                except Exception:  # noqa: BLE001  # fail-open: CDP 会话与浏览器进程收尾一律 best-effort
                     pass
                 try:
                     proc.wait(timeout=3)
                 except Exception:  # noqa: BLE001
                     try:
                         proc.kill()
-                    except Exception:  # noqa: BLE001
+                    except Exception:  # noqa: BLE001  # fail-open: CDP 会话与浏览器进程收尾一律 best-effort
                         pass
             if user_dir and os.path.isdir(user_dir):
                 try:
                     import shutil
                     shutil.rmtree(user_dir, ignore_errors=True)
-                except Exception:  # noqa: BLE001
+                except Exception:  # noqa: BLE001  # fail-open: CDP 会话与浏览器进程收尾一律 best-effort
                     pass
 
 

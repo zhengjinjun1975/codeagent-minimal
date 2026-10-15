@@ -141,7 +141,7 @@ class SessionAgent(AtomicAgent):
                               "updated": s.get("updated"), "status": s.get("status"),
                               "steps": len(s.get("steps", [])),
                               "task": s.get("task")})
-            except Exception:
+            except Exception:  # fail-open: _list 里出错就跳过该条继续扫
                 continue
         return {"sessions": items, "count": len(items)}
 

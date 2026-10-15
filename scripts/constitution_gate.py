@@ -116,7 +116,7 @@ def _same_drive(a, b):
     try:
         os.path.relpath(a, b)
         return True
-    except ValueError:                      # 宪法例外: 跨盘符探测本身要吞掉 ValueError（不同盘无法取相对路径）
+    except ValueError:                      # 宪法例外: 跨盘符探测本身要吞掉 ValueError（不同盘无法取相对路径）  # fail-open: _same_drive 里出错就返回空值，调用方按缺失处理
         return False
 
 
@@ -204,6 +204,14 @@ def check_file(path, th, root=ROOT):
     # ── P0-2 静默失败 ──
     for node in ast.walk(tree):
         if isinstance(node, ast.ExceptHandler) and _except_is_silent(node):
+            # 口径对齐 verify_silent_except_policy.py（2026-10-15）：带标记的站点不算"未留痕"——
+            #   `# fail-open: <理由>`  /  `# expected-exc: <理由>`
+            #   注意：不能用 ast.get_source_segment —— 它会把行尾注释截掉（实测返回 'except Exception:\n        pass'），
+            #   标记写在行尾就永远看不见；这里按行号区间取原文。
+            _lines = text.splitlines()
+            _seg = "\n".join(_lines[node.lineno - 1:(node.end_lineno or node.lineno)])
+            if re.search(r"fail[-_]open|expected[-_]exc", _seg, re.I):
+                continue
             add("P0", "静默吞错", node.lineno, "except 体只有 pass/返回空值，未留痕")
 
     # ── P0-3 占位/空壳 ──

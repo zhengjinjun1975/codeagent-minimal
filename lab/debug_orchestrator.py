@@ -327,7 +327,7 @@ def _read_file(absf):
     try:
         with open(absf, encoding="utf-8", errors="replace") as f:
             return f.read()
-    except OSError:
+    except OSError:  # fail-open: _read_file 里出错就返回空值，调用方按缺失处理
         return ""
 
 
@@ -354,7 +354,7 @@ def _locate(real, rel_file, failure, evidence):
             if n.get("kind") == "symbol":
                 candidates.append({"symbol": n["label"], "line": "",
                                    "reason": "文件内函数/调用链"})
-    except Exception:  # noqa: BLE001
+    except Exception:  # noqa: BLE001  # fail-open: 调试编排的节点解析失败就跳过
         pass
     # 失败文本/证据里出现的符号优先
     text = f"{failure or ''} {evidence or ''}"
@@ -416,7 +416,7 @@ def _parse_patch_json(text):
             obj = _j.loads(frag)
             if isinstance(obj, dict) and "replacements" in obj:
                 return obj
-        except Exception:  # noqa: BLE001
+        except Exception:  # noqa: BLE001  # fail-open: _parse_patch_json 里出错就跳过该条继续扫
             continue
     idx = text.rfind("{")
     while idx >= 0:
@@ -424,7 +424,7 @@ def _parse_patch_json(text):
             obj = _j.loads(text[idx:])
             if isinstance(obj, dict) and "replacements" in obj:
                 return obj
-        except Exception:  # noqa: BLE001
+        except Exception:  # noqa: BLE001  # fail-open: JSON 试探解析失败就继续扫
             pass
         idx = text.rfind("{", 0, idx)
     return None
@@ -446,9 +446,9 @@ def _validate_patch(real, patch):
         finally:
             try:
                 os.remove(tmpf)
-            except OSError:
+            except OSError:  # fail-open: 临时文件清理失败就算了
                 pass
-    except Exception:  # noqa: BLE001
+    except Exception:  # noqa: BLE001  # fail-open: _validate_patch 里出错就返回空值，调用方按缺失处理
         return False
 
 
@@ -476,7 +476,7 @@ def _apply_patch(real, patch, cfg, db):
     try:
         content = _read_file(real)
         new_content = _apply_text(content, patch)
-    except Exception as e:  # noqa: BLE001
+    except Exception as e:  # noqa: BLE001  # fail-open: _apply_patch 里出错就返回空值，调用方按缺失处理
         return None
     backup_dir = cfg.get("backup_dir")
     os.makedirs(backup_dir, exist_ok=True)
@@ -485,7 +485,7 @@ def _apply_patch(real, patch, cfg, db):
     try:
         with open(backup, "w", encoding="utf-8", newline="\n") as f:
             f.write(content)
-    except OSError:
+    except OSError:  # fail-open: _apply_patch 里出错就返回空值，调用方按缺失处理
         return None
     tmp = real + f".lab_patch.{time.time_ns()}"
     try:
@@ -495,7 +495,7 @@ def _apply_patch(real, patch, cfg, db):
     except OSError:
         try:
             os.remove(tmp)
-        except OSError:
+        except OSError:  # fail-open: 回滚时的临时件清理失败就算了
             pass
         return None
     return backup
@@ -509,5 +509,5 @@ def _restore(real, backup, cfg):
         with open(tmp, "w", encoding="utf-8", newline="\n") as f:
             f.write(content)
         os.replace(tmp, real)
-    except OSError:
+    except OSError:  # fail-open: 原子替换失败就保留原文件
         pass

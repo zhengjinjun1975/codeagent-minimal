@@ -19,8 +19,6 @@ import os
 import random
 import subprocess
 import sys
-import tempfile
-import time
 
 # ── 基础类型生成器池 ─────────────────────────
 BASIC_GEN = ["int", "float", "str", "bool", "None", "list", "dict", "empty_str",
@@ -90,7 +88,7 @@ def _extract_sig(path, funcname):
     """AST 提取函数参数名 + 注解 + 必填数。返回 dict 或 None。"""
     try:
         tree = ast.parse(open(path, encoding="utf-8", errors="ignore").read())
-    except SyntaxError:
+    except SyntaxError:  # fail-open: _extract_sig 里出错就返回空值，调用方按缺失处理
         return None
     for node in ast.walk(tree):
         if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)) and node.name == funcname:
@@ -187,11 +185,12 @@ def _isolation_script(target, funcname, arg_reprs, timeout):
     return code
 
 
-def fuzz_function(path, funcname, iterations=100, timeout=2.0, seed=None,
-                  min_interesting_exceptions=0) -> dict:
+def fuzz_function(path, funcname, iterations=100, timeout=2.0, seed=None) -> dict:
     """对目标函数做属性/模糊测试。
     返回 {func, runs, crashed:[{args, error}], unhandled:[...], ok, details}。
-    隔离执行：每个输入在子进程跑，防崩溃/死循环污染主进程。"""
+    隔离执行：每个输入在子进程跑，防崩溃/死循环污染主进程。
+
+    注：原签名上还有一个 `min_interesting_exceptions`，函数体里从未使用，已删。"""
     sig = _extract_sig(path, funcname)
     if sig is None:
         return {"func": funcname, "ok": False, "runs": 0, "crashed": [],
@@ -233,10 +232,12 @@ def _short(args):
 
 
 # ── 属性测试：不变量校验 ──────────────────────
-def property_test(path, funcname, properties, iterations=50, timeout=2.0, seed=42) -> dict:
+def property_test(path, funcname, properties, iterations=50, seed=42) -> dict:
     """属性测试：properties 为 [(描述, callable(返回值/调用结果)->bool)]。
     对随机输入调用函数，校验每个不变量。
-    返回 {func, iterations, failures:[{property, args, detail}], ok}。"""
+    返回 {func, iterations, failures:[{property, args, detail}], ok}。
+
+    注：原签名上还有一个 `timeout`，函数体里从未使用（属性测试在本进程内调，不走子进程超时），已删。"""
     sig = _extract_sig(path, funcname)
     if sig is None:
         return {"func": funcname, "ok": False, "iterations": 0, "failures": [],
@@ -286,7 +287,7 @@ def _load_safe(path):
         sys.argv = [path]
         spec.loader.exec_module(mod)
         return mod
-    except Exception:
+    except Exception:  # fail-open: _load_safe 里出错就返回空值，调用方按缺失处理
         return None
 
 
@@ -306,7 +307,7 @@ def fuzz_project(path, iterations=40, timeout=1.5, max_funcs=5) -> dict:
     for pf in py[:max_funcs * 3]:
         try:
             tree = ast.parse(open(pf, encoding="utf-8", errors="ignore").read())
-        except SyntaxError:
+        except SyntaxError:  # fail-open: fuzz_project 里出错就跳过该条继续扫
             continue
         for node in ast.walk(tree):
             if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)) \

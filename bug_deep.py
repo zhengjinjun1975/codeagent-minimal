@@ -242,7 +242,7 @@ def _preexec_limits():
         return None
     try:
         import resource
-    except Exception:
+    except Exception:  # fail-open: _preexec_limits 里出错就返回空值，调用方按缺失处理
         return None
 
     def _lim():
@@ -270,11 +270,11 @@ def _kill_tree(proc):
         else:
             subprocess.run(["taskkill", "/T", "/F", "/PID", str(proc.pid)],
                            capture_output=True, timeout=10, shell=False)
-    except Exception:
+    except Exception:  # fail-open: 沙箱进程收尾与输出截断记账
         pass
     try:
         proc.kill()
-    except Exception:
+    except Exception:  # fail-open: 沙箱进程收尾与输出截断记账
         pass
 
 
@@ -309,7 +309,7 @@ def _run_limited(cmd, timeout, max_output, cwd, env):
                         cap["count"] += len(data[:room])
                     if cap["count"] >= max_output:
                         cap["overflow"] = True
-        except Exception:
+        except Exception:  # fail-open: 沙箱进程收尾与输出截断记账
             pass
 
     threads = [threading.Thread(target=reader, args=(proc.stdout, out_chunks),
@@ -431,7 +431,7 @@ def run_poc_sandbox(poc_code: str, timeout: int = 8, max_output=None,
     finally:
         try:
             shutil.rmtree(sandbox_dir, ignore_errors=True)
-        except Exception:
+        except Exception:  # fail-open: 沙箱进程收尾与输出截断记账
             pass
 
 
@@ -442,7 +442,7 @@ def load_rules(rules_file: str = DEFAULT_RULES_FILE) -> list:
         return []
     try:
         return json.loads(p.read_text(encoding="utf-8"))
-    except Exception:
+    except Exception:  # fail-open: load_rules 里出错就返回空值，调用方按缺失处理
         return []
 
 

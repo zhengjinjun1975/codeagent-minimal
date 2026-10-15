@@ -55,7 +55,7 @@ def main():
             continue
         try:
             msg = json.loads(line)
-        except Exception:
+        except Exception:  # fail-open: main 里出错就跳过该条继续扫
             continue
         method = msg.get("method")
         if method == "notifications/initialized":

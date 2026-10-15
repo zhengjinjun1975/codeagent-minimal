@@ -8,7 +8,6 @@
 """
 import json
 import os
-import sys
 import urllib.request
 
 DEFAULT_CONFIG_NAMES = [
@@ -42,7 +41,7 @@ def resolve_key(cfg):
                 line = line.strip()
                 if line.startswith(k + "="):
                     return line.split("=", 1)[1].strip().strip('"').strip("'")
-        except OSError:
+        except OSError:  # fail-open: resolve_key 里出错就跳过该条继续扫
             continue
     return ""
 

@@ -59,7 +59,7 @@ class CodeFuzzAgent(AtomicAgent):
     def _property(self, path, funcname, properties, iterations=50, timeout=2.0, seed=42):
         """不变量校验：properties 为 [(描述, callable(返回值)->bool)]。"""
         return fuzz_engine.property_test(path, funcname, properties,
-                                         iterations=iterations, timeout=timeout,
+                                         iterations=iterations,
                                          seed=seed)
 
     def _project(self, path, iterations=40, timeout=1.5, max_funcs=5):
