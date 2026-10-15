@@ -25,6 +25,11 @@
   两臂都掉 4.3 个点，说明裸题分里有一部分是「只过样例」，加固档才是可对外说的数。H1 臂未复测（其产出目录被覆盖，需重跑）。
   复跑方式（本机已实测）：专用 venv + `EVALPLUS_MAX_MEMORY_BYTES=-1`，Windows 下还需给 `evalplus` 补一个
   `time_limit` 垫片（官方实现用 Unix 的 `signal.setitimer/SIGALRM`，Windows 上每题都假失败）。**别把 Windows 上的 0.000 当分数。**
+- **智能体级（Aider Polyglot · python 子集 34 题）**：pass@1 = **88.24%（30/34）**，20.2 分钟跑完，
+  平均 37.1 s/题、5.18 轮；跑完由独立复判（`pytest` 官方测试）认定，自报与复判 0 差异。
+  口径与逐题记录见 `knowledge-base/obsidian-vault/research/CodeAgent-跑分记录-HumanEval四臂-2026-10-15.md` 第九节。
+  范围说明：本机开发工具链只有 Python，故智能体级口径定为 Python 单语言子集，不扩到 225 题全语言；
+  **不要把这个数与 Aider 榜的 225 题全语言号并排**。
 
 ### 修复
 - **`agents/guard/guard/harness_guard.py`**：`_read` 读产物改为瞬态失败重试一次。
