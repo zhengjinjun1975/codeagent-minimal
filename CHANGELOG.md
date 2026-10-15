@@ -20,6 +20,11 @@
   ⚠️ 口径提醒：该分数用的测试集是官方 HumanEval 裸题，**不能与榜单上 87~89 那一档直接比高低**；
   要真对标得换 EvalPlus 的加固测试重跑（见下方记录）。
   数据出处：`knowledge-base/obsidian-vault/research/CodeAgent-跑分记录-HumanEval四臂-2026-10-15.md`。
+- **加固测试（EvalPlus / HumanEval+）复核**：把上面两臂的产出直接丢给 EvalPlus 官方加固题集判分
+  （同一批代码，不重跑模型）：A 臂 base **93.9%** → 加固档 **89.6%**；H2 臂 base **98.2%** → 加固档 **93.9%**。
+  两臂都掉 4.3 个点，说明裸题分里有一部分是「只过样例」，加固档才是可对外说的数。H1 臂未复测（其产出目录被覆盖，需重跑）。
+  复跑方式（本机已实测）：专用 venv + `EVALPLUS_MAX_MEMORY_BYTES=-1`，Windows 下还需给 `evalplus` 补一个
+  `time_limit` 垫片（官方实现用 Unix 的 `signal.setitimer/SIGALRM`，Windows 上每题都假失败）。**别把 Windows 上的 0.000 当分数。**
 
 ### 修复
 - **`agents/guard/guard/harness_guard.py`**：`_read` 读产物改为瞬态失败重试一次。
