@@ -1,0 +1,3 @@
+{
+  "requests": "唯一真实使用点：engine_llm.py 的 HTTP POST（云端模型调用）。2026-10-15 清掉四处未使用的顶层 import requests（engine_agent_impl / engine_agent_review / engine_bridge / engine_agent_project）；engine_static / engine_agent_run / engine_parsing / engine_testgen 的同名死导入已计入下一批；开源副本的运行时路径不用它"
+}
