@@ -2028,7 +2028,23 @@ function renderReport(st, rid) {
   $("rep-actions").classList.remove("hidden");
   $("rep-export-html").href = "/api/report/" + rid + ".html";
   $("rep-export-md").href = "/api/report/" + rid + ".md";
-  let html = `<div class="sec-card"><b>${esc(st.title || "审查报告")}</b> <span class="note">target: ${esc(st.target || "")} · 状态: ${st.ok ? "✅ 完成" : "❌ " + (st.summary || st.error || "失败")}</span>` +
+  const sar = $("rep-export-sarif");
+  if (sar) sar.href = "/api/report/" + rid + ".sarif";
+  let html = "";
+  // 放行判定置顶（审查人先看这一块：能不能放行 / 阈值 / 实测）
+  const g = st.gate;
+  if (g) {
+    const color = { "放行": "#1e7b34", "有条件放行": "#b06a00", "不放行": "#b3261e", "无法判定": "#5f6368" }[g.verdict] || "#5f6368";
+    let conds = "";
+    for (const c of g.conditions || []) {
+      conds += `<tr><td>${esc(String(c.name))}</td><td>${esc(String(c.actual))}</td><td>${esc(String(c.threshold))}</td><td>${String(c.threshold) === "—" ? "计数（不拦截）" : (c.pass ? "达标" : "未达标")}</td></tr>`;
+    }
+    html += `<div class="sec-card" style="border-left:6px solid ${color}">` +
+      `<div style="font-size:22px;font-weight:700;color:${color}">${esc(g.verdict)}</div>` +
+      `<div class="note">${esc((g.reasons || []).join("；"))}</div>` +
+      `<table style="width:100%;border-collapse:collapse;font-size:12px;margin-top:6px"><tr><th style="border:1px solid var(--line,#ccc);padding:3px 6px;background:#eef4fb">条件</th><th style="border:1px solid var(--line,#ccc);padding:3px 6px;background:#eef4fb">实测</th><th style="border:1px solid var(--line,#ccc);padding:3px 6px;background:#eef4fb">阈值</th><th style="border:1px solid var(--line,#ccc);padding:3px 6px;background:#eef4fb">结论</th></tr>${conds}</table></div>`;
+  }
+  html += `<div class="sec-card"><b>${esc(st.title || "审查报告")}</b> <span class="note">target: ${esc(st.target || "")} · 状态: ${st.ok ? "✅ 完成" : "❌ " + (st.summary || st.error || "失败")}</span>` +
     (st.summary ? `<div>概要: ${esc(st.summary)}</div>` : "") + `</div>`;
   html += "<h4 style='margin:8px 0'>📌 发现（P0/P1/P2 分级）</h4>";
   const findings = st.findings || [];

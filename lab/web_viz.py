@@ -616,7 +616,7 @@ def _g_rx_api_debug(self, path, qs, cfg):
 
 
 def _g_rx_api_report_html_md(self, path, qs, cfg):
-    """_route_get 路由（pattern）：/api/report/[^/]+\\.(html|md)。"""
+    """_route_get 路由（pattern）：/api/report/[^/]+\\.(html|md|sarif)。"""
     rid, ext = path.rsplit("/", 1)[1].rsplit(".", 1)
     from report_gen import load_export
     content = load_export(rid, ext)
@@ -626,9 +626,10 @@ def _g_rx_api_report_html_md(self, path, qs, cfg):
     if content is None:
         self._err(f"报告导出不存在: {rid}.{ext}", 404)
         return
-    self._send(200, content,
-               "text/html; charset=utf-8" if ext == "html"
-               else "text/markdown; charset=utf-8")
+    ctype = {"html": "text/html; charset=utf-8",
+             "md": "text/markdown; charset=utf-8",
+             "sarif": "application/sarif+json; charset=utf-8"}.get(ext, "text/plain; charset=utf-8")
+    self._send(200, content, ctype)
     return
 
 
@@ -904,7 +905,7 @@ _GET_ROUTES = (
     ("pattern", r"/api/pipeline/[^/]+", _g_rx_api_pipeline),
     ("exact", r"/api/debug/history", _g_api_debug_history),
     ("pattern", r"/api/debug/[^/]+", _g_rx_api_debug),
-    ("pattern", r"/api/report/[^/]+\.(html|md)", _g_rx_api_report_html_md),
+    ("pattern", r"/api/report/[^/]+\.(html|md|sarif)", _g_rx_api_report_html_md),
     ("pattern", r"/api/report/[^/]+", _g_rx_api_report),
     ("exact", r"/api/reports", _g_api_reports),
     ("exact", r"/api/models", _g_api_models),
