@@ -78,7 +78,7 @@ class CodeReviewAgent(AtomicAgent):
                 return r
             finally:
                 try: os.remove(tmp)
-                except OSError: pass
+                except OSError: pass  # fail-open: 文件系统偶发错误，旁路该文件不影响主流程
         return self._envelope(False, degraded=True, error="缺 path 或 code 入参")
 
     # ── codereview.semantic：纯逐行语义审查（P0-1 深度模式）──
@@ -151,7 +151,7 @@ class CodeReviewAgent(AtomicAgent):
                 try:
                     graph = da.build_graph([p])
                     rv._dep_enrich(fr, content, graph)
-                except Exception:
+                except Exception:  # fail-open: _review 里出错就失败不影响主流程
                     pass
             r = {"file": p,
                  "score": fr.get("static_score", fr.get("score", 0)),
@@ -242,7 +242,7 @@ class CodeReviewAgent(AtomicAgent):
                 try:
                     targets.append({"uri": "file:///" + p.replace("\\", "/"),
                                     "text": open(p, encoding="utf-8", errors="ignore").read()})
-                except Exception:
+                except Exception:  # fail-open: _run_lsp 里出错就失败不影响主流程
                     pass
             if code and isinstance(code, dict):
                 for name, content in code.items():
@@ -264,7 +264,7 @@ class CodeReviewAgent(AtomicAgent):
                         if frame is None:
                             break
                         fq.put(frame)
-                except Exception:
+                except Exception:  # fail-open: _reader 里出错就失败不影响主流程
                     pass
             thr = threading.Thread(target=_reader, daemon=True)
             thr.start()
@@ -289,16 +289,16 @@ class CodeReviewAgent(AtomicAgent):
                                     d["uri"] = t["uri"]
                                 diags.extend(ds)
                                 break
-                    except Exception:
+                    except Exception:  # fail-open: _run_lsp 里出错就跳出循环继续后续流程
                         break   # 超时无 push → 跳过该文件
                 return diags
             finally:
                 try:
                     proc.stdin.close()
                     proc.kill()
-                except Exception:
+                except Exception:  # fail-open: _run_lsp 里出错就失败不影响主流程
                     pass
-        except Exception:
+        except Exception:  # fail-open: _run_lsp 里出错就返回空值，调用方按缺失处理
             return []
 
     def _lsp_send(self, proc, msg):
@@ -330,7 +330,7 @@ class CodeReviewAgent(AtomicAgent):
         body = stream.read(length) if length else b""
         try:
             return json.loads(body.decode("utf-8", "ignore"))
-        except Exception:
+        except Exception:  # fail-open: _lsp_read_frame 里出错就返回空值，调用方按缺失处理
             return None
 
     def _lsp_diag(self, path=None, code=None, lsp_server=None, timeout=30):

@@ -48,7 +48,7 @@ class EventLogAgent(AtomicAgent):
                     continue
                 try:
                     out.append(json.loads(line))
-                except ValueError:
+                except ValueError:  # expected-exc: 输入值不满足预期格式，属可预期的解析失败分支
                     continue
         return out
 
@@ -58,7 +58,7 @@ class EventLogAgent(AtomicAgent):
         # 只读文件尾部取最后一条的 seq（O(1) 量级）；解析不出才退回全量计数。
         try:
             size = os.path.getsize(path)
-        except OSError:
+        except OSError:  # fail-open: 文件系统偶发错误，旁路该文件不影响主流程
             return 0
         if size <= 0:
             return 0

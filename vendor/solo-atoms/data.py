@@ -14,7 +14,7 @@ def num(v) -> bool:
     try:
         float(v)
         return True
-    except (ValueError, TypeError):
+    except (ValueError, TypeError):  # fail-open: num 里出错就返回空值，调用方按缺失处理
         return False
 
 
@@ -32,7 +32,7 @@ def guess_col_type(v: str) -> str:
         import datetime
         datetime.datetime.strptime(s[:10], "%Y-%m-%d")
         return "date"
-    except ValueError:
+    except ValueError:  # expected-exc: 输入值不满足预期格式，属可预期的解析失败分支
         pass
     return "text"
 

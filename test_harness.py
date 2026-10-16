@@ -57,13 +57,13 @@ def _load_module(path):
             return mod
         except SystemExit:
             return mod
-        except Exception:
+        except Exception:  # fail-open: _load_module 里出错就返回空值，调用方按缺失处理
             return None
     finally:
         if _added:
             try:
                 sys.path.remove(_d)
-            except ValueError:
+            except ValueError:  # expected-exc: 输入值不满足预期格式，属可预期的解析失败分支
                 pass
 
 
@@ -71,7 +71,7 @@ def _find_functions(path):
     """从 ast 找可调用函数（排除私有/装饰器复杂）。"""
     try:
         tree = ast.parse(open(path, encoding="utf-8").read())
-    except SyntaxError:
+    except SyntaxError:  # fail-open: _find_functions 里出错就返回空值，调用方按缺失处理
         return []
     funcs = []
     entry_names = {"main", "cli", "run", "setup", "serve", "start"}
@@ -169,7 +169,7 @@ def boundary(path):
                         args.append(None)  # 无默认值填充 None
                 try:
                     fn(*args)
-                except TypeError:
+                except TypeError:  # expected-exc: boundary 里出错就失败不影响主流程
                     pass  # 类型/参数不符，正常拒绝
                 except Exception as e:
                     findings.append({"func": fname, "param": param.name, "input": repr(inp)[:24],
@@ -204,7 +204,7 @@ def coverage(path, timeout=3):
             else:
                 fn(None)  # 用 None 探测(能跑通算覆盖)
                 called += 1
-        except Exception:
+        except Exception:  # fail-open: coverage 里出错就失败不影响主流程
             pass
     return {"ok": True, "funcs_total": len(funcs), "funcs_called": called,
             "coverage_pct": round(called / len(funcs) * 100, 1) if funcs else 0,
@@ -253,7 +253,7 @@ def coverage_analysis(path, timeout=8) -> dict:
                     _quiet_call(f, *([probe] * min(nreq, 3)))
                 ok = True
                 break
-            except Exception:
+            except Exception:  # fail-open: coverage_analysis 里出错就跳过该条继续扫
                 continue
         if ok:
             called_funcs.append(fn.name)
@@ -311,7 +311,7 @@ def mutation(path, target_dir, max_mutants: int = 20):
             # 变异不能破坏语法
             try:
                 ast.parse("\n".join(mutant_src))
-            except SyntaxError:
+            except SyntaxError:  # fail-open: mutation 里出错就跳过该条继续扫
                 continue
             tmp = path + ".mut"
             open(tmp, "w", encoding="utf-8").write("\n".join(mutant_src))
@@ -374,14 +374,14 @@ def _mut_apply(node, op):
                 try:
                     return ast.copy_location(
                         ast.BinOp(left=node.left, op=dst_cls(), right=node.right), node)
-                except Exception:
+                except Exception:  # fail-open: _mut_apply 里出错就返回空值，调用方按缺失处理
                     return None
         elif isinstance(node, ast.BoolOp):
             if isinstance(node.op, src_cls):
                 try:
                     return ast.copy_location(
                         ast.BoolOp(op=dst_cls(), values=node.values), node)
-                except Exception:
+                except Exception:  # fail-open: _mut_apply 里出错就返回空值，调用方按缺失处理
                     return None
         return None
     if isinstance(op, tuple) and op and isinstance(op[0], str) \
@@ -402,7 +402,7 @@ def _mut_compare_op(node, src_cls, dst_cls):
             new_ops = [dst_cls()] + list(node.ops[1:])
             n = ast.Compare(left=node.left, ops=new_ops, comparators=node.comparators)
             return ast.copy_location(n, node)
-        except Exception:
+        except Exception:  # fail-open: _mut_compare_op 里出错就返回空值，调用方按缺失处理
             return None
     return None
 
@@ -459,7 +459,7 @@ def _apply_mutation(src, point):
     node, cat, op = point
     try:
         tree = ast.parse(src)
-    except SyntaxError:
+    except SyntaxError:  # fail-open: _apply_mutation 里出错就返回空值，调用方按缺失处理
         return None
     import copy
     new_tree = copy.deepcopy(tree)
@@ -475,11 +475,11 @@ def _apply_mutation(src, point):
     try:
         mutated_tree = _MutateTransformer(id(target), op).visit(new_tree)
         out = ast.unparse(mutated_tree)
-    except Exception:
+    except Exception:  # fail-open: _apply_mutation 里出错就返回空值，调用方按缺失处理
         return None
     try:
         ast.parse(out)  # 语法校验
-    except SyntaxError:
+    except SyntaxError:  # fail-open: _apply_mutation 里出错就返回空值，调用方按缺失处理
         return None
     return out
 
@@ -533,7 +533,7 @@ def mutation_deep(path, target_dir, operators=None, max_mutants=60,
             try:
                 if ast.dump(ast.parse(new_src)) == ast.dump(ast.parse(src)):
                     continue
-            except SyntaxError:
+            except SyntaxError:  # fail-open: mutation_deep 里出错就跳过该条继续扫
                 continue
         per_operator[cat]["generated"] += 1
         generated += 1
@@ -639,9 +639,9 @@ def coverage_gate(path, fail_under_line=60.0, fail_under_branch=50.0,
         try:
             import runpy
             runpy.run_path(path, run_name="__main__")
-        except SystemExit:
+        except SystemExit:  # fail-open: coverage_gate 里出错就失败不影响主流程
             pass
-        except Exception:
+        except Exception:  # fail-open: coverage_gate 里出错就失败不影响主流程
             pass
         cov.stop()
         data = cov.get_data()
@@ -741,7 +741,7 @@ def _coverage_approx(path, timeout=8):
                 covered_any = True
                 # 简单估算：该函数内部 exec 行算覆盖（无法精确到行，取比例）
                 break
-            except Exception:
+            except Exception:  # fail-open: _coverage_approx 里出错就跳过该条继续扫
                 continue
         if covered_any:
             fn_exec = sum(1 for n in ast.walk(fn)

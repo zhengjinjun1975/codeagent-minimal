@@ -319,7 +319,7 @@ def self_check(cfg=None, events=None):
                     with open(reg_path, encoding="utf-8") as f:
                         reg = json.load(f)
                     state["registered"] = entry.name in (reg.get("order") or [])
-                except Exception:  # noqa: BLE001
+                except Exception:  # noqa: BLE001  # fail-open: self_check 里出错就失败不影响主流程
                     pass
             out.append(state)
     return {"ok": True, "extensions": out}

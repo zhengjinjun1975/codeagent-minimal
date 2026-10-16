@@ -29,7 +29,7 @@ def _isnum(v) -> bool:
     try:
         float(v)
         return True
-    except (ValueError, TypeError):
+    except (ValueError, TypeError):  # fail-open: _isnum 里出错就返回空值，调用方按缺失处理
         return False
 
 

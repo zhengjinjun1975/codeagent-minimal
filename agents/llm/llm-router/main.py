@@ -70,7 +70,7 @@ def _load_provider_registry(config_path=None):
             try:
                 cfg = json.load(open(p, encoding="utf-8"))
                 break
-            except Exception:
+            except Exception:  # fail-open: _load_provider_registry 里出错就跳过该条继续扫
                 continue
     # 兼容旧结构：{generate:{...}, review:{...}} → 转 provider 注册表
     if isinstance(cfg, dict) and "providers" not in cfg:

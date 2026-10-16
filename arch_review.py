@@ -47,7 +47,7 @@ def _imports_of(path: str) -> list:
     """解析文件 import 的模块名列表。"""
     try:
         tree = ast.parse(Path(path).read_text(encoding="utf-8", errors="ignore"))
-    except (SyntaxError, OSError):
+    except (SyntaxError, OSError):  # fail-open: _imports_of 里出错就返回空值，调用方按缺失处理
         return []
     mods = []
     for node in ast.walk(tree):
@@ -237,13 +237,13 @@ def design_intent_compare(target: str) -> dict:
     for doc in docs:
         try:
             declared += _extract_declared(doc.read_text(encoding="utf-8", errors="ignore"))
-        except Exception:
+        except Exception:  # fail-open: design_intent_compare 里出错就失败不影响主流程
             pass
     implemented = set()
     for f in files:
         try:
             tree = ast.parse(f.read_text(encoding="utf-8", errors="ignore"))
-        except (SyntaxError, OSError):
+        except (SyntaxError, OSError):  # fail-open: design_intent_compare 里出错就跳过该条继续扫
             continue
         for node in ast.walk(tree):
             if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)):

@@ -47,7 +47,7 @@ def test_sibling_prefix_rejected():
     evil = root + "-evil" + os.sep + "x.py"
     try:
         tools.ensure_inside(evil, [root])
-    except ValueError:
+    except ValueError:  # expected-exc: 输入值不满足预期格式，属可预期的解析失败分支
         return
     raise AssertionError("expected ValueError for sibling-prefix path")
 
@@ -63,7 +63,7 @@ def test_unrelated_root_rejected():
     )
     try:
         tools.ensure_inside(other, [root])
-    except ValueError:
+    except ValueError:  # expected-exc: 输入值不满足预期格式，属可预期的解析失败分支
         return
     raise AssertionError("expected ValueError for unrelated path")
 
@@ -71,7 +71,7 @@ def test_unrelated_root_rejected():
 def test_empty_roots_rejected():
     try:
         tools.ensure_inside(os.path.join(root_dir(), "tools.py"), [])
-    except ValueError:
+    except ValueError:  # expected-exc: 输入值不满足预期格式，属可预期的解析失败分支
         return
     raise AssertionError("expected ValueError for empty roots")
 

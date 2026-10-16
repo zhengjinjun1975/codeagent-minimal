@@ -111,7 +111,7 @@ def _try_event_log(runtime, capability, inputs, result):
         atom.call("event.append", session_key="runtime", kind=capability,
                   payload={"inputs": sorted(inputs.keys()), "ok": ok},
                   outcome="ok" if ok else "fail")
-    except Exception:
+    except Exception:  # fail-open: _try_event_log 里出错就失败不影响主流程
         pass
 
 
@@ -188,7 +188,7 @@ class RunBudget:
         if raw:
             try:
                 cfg.update({k: v for k, v in json.loads(raw).items() if k in cfg})
-            except Exception:
+            except Exception:  # fail-open: __init__ 里出错就失败不影响主流程
                 pass                                  # 配错了就退回默认，不因此炸链
         for k, v in (("max_steps", max_steps), ("max_repeats", max_repeats),
                      ("max_model_calls", max_model_calls)):
@@ -674,7 +674,7 @@ class AgentRuntime:
                 est_tokens=payload // 4, wall_ms=int((time.time() - t0) * 1000),
                 extra={"reused": len(out.get("reused") or []), "stopped": stopped,
                        "stopped_by": rb.stopped_by or ""})
-        except Exception:                            # noqa: BLE001  记账失败不配影响运行
+        except Exception:                            # noqa: BLE001  记账失败不配影响运行  # fail-open: _record_cost 里出错就失败不影响主流程
             pass
 
     def _record_fuse(self, task, fused, rb):
@@ -686,7 +686,7 @@ class AgentRuntime:
                                 progress="运行预算熔断：%s（已跑 %d 步 / 模型 %d 次）"
                                          % (fused["reason"], rb.steps, rb.model_calls),
                                 gate="run_budget")
-        except Exception:
+        except Exception:  # fail-open: _record_fuse 里出错就失败不影响主流程
             pass
 
     # ── 吸收 OpenCode ①：MCP 供工具 → code-review ──

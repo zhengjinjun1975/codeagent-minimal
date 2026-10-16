@@ -355,7 +355,7 @@ class DenialCache:
             os.makedirs(os.path.dirname(os.path.abspath(self.path)), exist_ok=True)
             with open(self.path, "w", encoding="utf-8") as f:
                 json.dump(self._m, f, ensure_ascii=False, indent=1)
-        except Exception:
+        except Exception:  # fail-open: _save 里出错就失败不影响主流程
             pass
 
 

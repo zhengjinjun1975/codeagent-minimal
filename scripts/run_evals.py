@@ -19,7 +19,7 @@ def load_cases(root):
         try:
             with open(path, encoding="utf-8") as f:
                 data = json.load(f)
-        except Exception:
+        except Exception:  # fail-open: load_cases 里出错就跳过该条继续扫
             continue
         if not isinstance(data, dict) or not data.get("id"):
             continue
@@ -42,7 +42,7 @@ def _dig(data, path):
         elif isinstance(cur, list):
             try:
                 cur = cur[int(part)]
-            except (ValueError, IndexError):
+            except (ValueError, IndexError):  # expected-exc: _dig 里出错就返回空值，调用方按缺失处理
                 return None
         else:
             return None
@@ -65,7 +65,7 @@ def judge(data, expect):
             value = len(value)
         try:
             return value >= expect["at_least"]
-        except TypeError:
+        except TypeError:  # fail-open: judge 里出错就返回空值，调用方按缺失处理
             return False
     return False
 

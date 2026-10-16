@@ -13,7 +13,7 @@ def _num(v) -> bool:
     try:
         float(v)
         return True
-    except (ValueError, TypeError):
+    except (ValueError, TypeError):  # fail-open: _num 里出错就返回空值，调用方按缺失处理
         return False
 
 
@@ -53,7 +53,7 @@ def describe_stream(values) -> dict:
     for v in values:
         try:
             x = float(v)
-        except (ValueError, TypeError):
+        except (ValueError, TypeError):  # expected-exc: describe_stream 里出错就跳过该条继续扫
             continue
         count += 1
         delta = x - mean

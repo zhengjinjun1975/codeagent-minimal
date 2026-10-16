@@ -1,0 +1,5 @@
+{
+ "count": 0,
+ "sites": [],
+ "note": "静默吞异常基线：未标记 except/pass 点，只降不涨"
+}

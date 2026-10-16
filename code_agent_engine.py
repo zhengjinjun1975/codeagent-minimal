@@ -41,7 +41,7 @@ def _load_local_external_mem_bridge():
             _mod = _ilu.module_from_spec(_spec)
             _spec.loader.exec_module(_mod)
             return _mod
-        except Exception:
+        except Exception:  # fail-open: _load_local_external_mem_bridge 里出错就返回空值，调用方按缺失处理
             return None
     return None
 
@@ -145,7 +145,7 @@ task: {task_type}
                 for i in issues[:5]:
                     f.write(f"- [{i.get('severity','?')}] {i.get('title','')}\n")
             f.write(f"\n[[daily/{today}|{today}的工作日志]]\n")
-    except Exception:
+    except Exception:  # fail-open: _log_to_obsidian 里出错就返回空值，调用方按缺失处理
         return
 
 
@@ -161,7 +161,7 @@ def _load_model_config():
     try:
         with open(cfg_path, encoding="utf-8") as f:
             return json.load(f)
-    except Exception:
+    except Exception:  # fail-open: _load_model_config 里出错就返回空值，调用方按缺失处理
         return {}
 
 _MCFG = _load_model_config()
@@ -448,7 +448,7 @@ def _static_analyze(content: str) -> dict:
             all_issues.extend(result["imports"])
             all_issues.extend(result["complexity"])
             all_issues.extend(result["naming"])
-        except SyntaxError:
+        except SyntaxError:  # fail-open: _static_analyze 里出错就失败不影响主流程
             pass
 
     # 综合评分
@@ -488,7 +488,7 @@ def _infer_schema_contract(task: str, extra_hint: str = "") -> str:
     for sf in schema_files[:3]:
         try:
             txt = sf.read_text(encoding="utf-8")
-        except Exception:
+        except Exception:  # fail-open: _infer_schema_contract 里出错就跳过该条继续扫
             continue
         for m2 in _re.finditer(r"CREATE TABLE IF NOT EXISTS\s+(\w+)\s*\((.*?)\)\s*;", txt, _re.S):
             tbl, body = m2.group(1), m2.group(2)
@@ -508,7 +508,7 @@ def _infer_schema_contract(task: str, extra_hint: str = "") -> str:
     for sf in schema_files[:3]:
         try:
             txt = sf.read_text(encoding="utf-8")
-        except Exception:
+        except Exception:  # fail-open: _infer_schema_contract 里出错就跳过该条继续扫
             continue
         for m3 in _re.finditer(r'ALTER TABLE\s+(\w+)\s+ADD COLUMN\s+(\w+)', txt):
             alt.setdefault(m3.group(1), []).append(m3.group(2))
@@ -666,7 +666,7 @@ def _gen_python_tests(path, content):
     """根据 AST 生成参数化测试，包含数字/字符串/列表/bool 边界值"""
     try:
         tree = ast.parse(content)
-    except SyntaxError:
+    except SyntaxError:  # fail-open: _gen_python_tests 里出错就返回空值，调用方按缺失处理
         return None
     mod = path.replace("/", ".").replace(".py", "")
     funcs, methods = [], []
@@ -826,7 +826,7 @@ class CodeAgent:
                     result["funcs"][rel] = funcs
                 if classes:
                     result["classes"][rel] = classes
-            except (SyntaxError, UnicodeDecodeError):
+            except (SyntaxError, UnicodeDecodeError):  # fail-open: load_project 里出错就跳过该条继续扫
                 continue
 
         return result
@@ -879,7 +879,7 @@ class CodeAgent:
             try:
                 content = f.read_text(encoding="utf-8")
                 tree = ast.parse(content)
-            except (SyntaxError, UnicodeDecodeError, OSError):
+            except (SyntaxError, UnicodeDecodeError, OSError):  # fail-open: reuse_search 里出错就跳过该条继续扫
                 continue
             rel = str(f.relative_to(root))
             for node in ast.walk(tree):
@@ -1026,7 +1026,7 @@ class CodeAgent:
         for rel in proj["files"]:
             try:
                 content = (root / rel).read_text(encoding="utf-8")
-            except (UnicodeDecodeError, OSError):
+            except (UnicodeDecodeError, OSError):  # expected-exc: scan_issues 里出错就跳过该条继续扫
                 continue
             sa = _static_analyze(content)
             for issue in sa.get("all_issues", []):
@@ -1607,7 +1607,7 @@ class CodeAgent:
                 for line in rules_text.split("\n"):
                     if line.strip().startswith("|") and "`" in line:
                         rules.append(line.strip())
-            except: pass
+            except: pass  # fail-open: _review_design 里出错就失败不影响主流程
 
         # 检查 A：紫蓝渐变
         for path, content in code.items():
@@ -1655,7 +1655,7 @@ class CodeAgent:
                 model_issues = _parse_json(resp.get("content","{}")).get("issues", [])
                 if model_issues:
                     score -= len(model_issues) * 3
-            except: pass
+            except: pass  # fail-open: _review_design 里出错就失败不影响主流程
 
         score = max(0, score)
         return {

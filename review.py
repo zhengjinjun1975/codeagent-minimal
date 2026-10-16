@@ -184,7 +184,7 @@ def _static_check_architecture(content: str) -> list:
                 if size > 60:
                     issues.append({"severity": "major", "title": f"函数过长({size}行): {node.name}",
                                    "line": node.lineno, "suggestion": "拆分为多个小函数"})
-    except SyntaxError:
+    except SyntaxError:  # fail-open: _static_check_architecture 里出错就失败不影响主流程
         pass
     return issues
 
@@ -347,14 +347,14 @@ def _reuse_suggestion(content: str, top_k: int = 3) -> list:
                 keywords.add(n.module.split(".")[0] if n.module else "")
             elif isinstance(n, (ast.FunctionDef, ast.ClassDef)):
                 keywords.add(n.name)
-    except SyntaxError:
+    except SyntaxError:  # fail-open: _reuse_suggestion 里出错就失败不影响主流程
         pass
     keywords = {k for k in keywords if k and len(k) >= 2}
     suggestions = []
     for atom in atoms:
         try:
             txt = open(atom, encoding="utf-8").read()
-        except Exception:
+        except Exception:  # fail-open: _reuse_suggestion 里出错就跳过该条继续扫
             continue
         hits = [k for k in keywords if k in txt or k.lower() in txt.lower()]
         if hits:
@@ -396,7 +396,7 @@ def _remote_reuse_suggestion(content: str, top_k: int = 3) -> list:
                 keywords.add((n.module or "").split(".")[0])
             elif isinstance(n, (ast.FunctionDef, ast.ClassDef)):
                 keywords.add(n.name)
-    except SyntaxError:
+    except SyntaxError:  # fail-open: _remote_reuse_suggestion 里出错就返回空值，调用方按缺失处理
         return []
     keywords = {k for k in keywords if k and len(k) >= 3 and k not in ("def", "the", "and", "for", "with", "from", "import")}
     if not keywords:
@@ -409,7 +409,7 @@ def _remote_reuse_suggestion(content: str, top_k: int = 3) -> list:
             if "oauth_token:" in line:
                 token = line.split(":", 1)[1].strip().strip('"')
                 break
-    except Exception:
+    except Exception:  # fail-open: _remote_reuse_suggestion 里出错就返回空值，调用方按缺失处理
         return []
     if not token:
         return []
@@ -426,7 +426,7 @@ def _remote_reuse_suggestion(content: str, top_k: int = 3) -> list:
         return [{"repo": i.get("repository", {}).get("full_name"),
                  "path": i.get("path"), "name": i.get("name"),
                  "url": i.get("html_url")} for i in items[:top_k]]
-    except Exception:
+    except Exception:  # fail-open: _remote_reuse_suggestion 里出错就返回空值，调用方按缺失处理
         return []
 
 
@@ -463,7 +463,7 @@ def _static_check_reuse(tree, content: str) -> list:
             methods = [n for n in cls.body if isinstance(n, (ast.FunctionDef, ast.AsyncFunctionDef))]
             if len(methods) == 1 and methods[0].name == "__init__":
                 issues.append({"severity": "minor", "title": f"过度工程: 类 {cls.name} 仅含 __init__, 可用 dict/简单结构替代", "line": cls.lineno})
-    except Exception:
+    except Exception:  # fail-open: _static_check_reuse 里出错就失败不影响主流程
         pass
     return issues
 
@@ -524,7 +524,7 @@ def _static_check_semantic(tree) -> list:
                 iss.setdefault("line", fn.lineno)
                 iss["semantic"] = True
                 issues.append(iss)
-    except Exception:
+    except Exception:  # fail-open: _static_check_semantic 里出错就失败不影响主流程
         pass
     return issues
 
@@ -656,7 +656,7 @@ def self_eval_record(file, findings, reported=None, missed=None, extra_fp=None):
         os.makedirs(os.path.dirname(path), exist_ok=True)
         with open(path, "w", encoding="utf-8") as f:
             _json.dump(rec, f, ensure_ascii=False, indent=1)
-    except Exception:
+    except Exception:  # fail-open: self_eval_record 里出错就失败不影响主流程
         pass
     total_fp = sum(r["fp"] for r in rec)
     total_reported = sum(r["reported"] for r in rec) or 1
@@ -727,7 +727,7 @@ def _static_analyze(content: str, max_complexity: int = 10, strict_undefined: bo
             all_issues.extend(result["imports"] + result["complexity"] + result["naming"]
                               + result["bugs"] + result["architecture"] + result["reuse"]
                               + result["semantic"])
-        except SyntaxError:
+        except SyntaxError:  # fail-open: _static_analyze 里出错就失败不影响主流程
             pass
     if denoise and all_issues:
         # P0-2 严重度分级去噪：逐条标 tier / 架构取舍 / 薄转发归 P2
@@ -807,7 +807,7 @@ def _external_bandit(content: str) -> list:
     if shutil.which("bandit") is None:
         try:
             import bandit  # noqa
-        except ImportError:
+        except ImportError:  # expected-exc: 可选模块不可用，缺失时降级不影响主流程
             return []
     import tempfile
     import subprocess as sp
@@ -823,11 +823,11 @@ def _external_bandit(content: str) -> list:
             sev = {"HIGH": "critical", "MEDIUM": "major", "LOW": "minor"}.get(res.get("issue_severity", "LOW"), "minor")
             issues.append({"severity": sev, "title": f"[bandit] {res.get('test_id','')} {res.get('issue_text','')[:60]}",
                            "line": res.get("line_number", 0), "suggestion": "见 bandit 文档修复", "source": "bandit"})
-    except Exception:
+    except Exception:  # fail-open: _external_bandit 里出错就失败不影响主流程
         pass
     finally:
         try: os.remove(tmp)
-        except OSError: pass
+        except OSError: pass  # fail-open: 文件系统偶发错误，旁路该文件不影响主流程
     return issues
 
 
@@ -844,7 +844,7 @@ def _external_lint(content: str) -> list:
         try:
             import pyflakes  # noqa
             tool = ["pyflakes"]
-        except ImportError:
+        except ImportError:  # expected-exc: 可选模块不可用，缺失时降级不影响主流程
             return []
     with tempfile.NamedTemporaryFile("w", suffix=".py", delete=False, encoding="utf-8") as f:
         f.write(content)
@@ -858,11 +858,11 @@ def _external_lint(content: str) -> list:
             if m:
                 issues.append({"severity": "minor", "title": f"[{tool[0]}] {m.group(2)[:70]}",
                                "line": int(m.group(1)), "suggestion": "按提示修复", "source": tool[0]})
-    except Exception:
+    except Exception:  # fail-open: _external_lint 里出错就失败不影响主流程
         pass
     finally:
         try: os.remove(tmp)
-        except OSError: pass
+        except OSError: pass  # fail-open: 文件系统偶发错误，旁路该文件不影响主流程
     return issues
 
 
@@ -870,7 +870,7 @@ def _module_exists(name: str) -> bool:
     try:
         __import__(name)
         return True
-    except ImportError:
+    except ImportError:  # expected-exc: 可选模块不可用，缺失时降级不影响主流程
         return False
 
 
@@ -931,7 +931,7 @@ def _dep_enrich(file_result, content, graph):
                 i["callers"] = callers
                 i["suggestion"] = (i.get("suggestion", "") or "").strip()
                 i["impact"] = f"改 {hit} 波及 {len(callers)} 个调用方: {', '.join(callers[:8])}"
-    except Exception:
+    except Exception:  # fail-open: _dep_enrich 里出错就失败不影响主流程
         pass
 
 
@@ -970,7 +970,7 @@ def git_diff_py_files(target: str, base: str = "HEAD") -> list:
                     cwd=root, capture_output=True, text=True, timeout=20)
         changed += [l.strip() for l in (r2.stdout or "").splitlines() if l.strip().endswith(".py")]
         changed = sorted({str(Path(root) / c) for c in changed if c})
-    except Exception:
+    except Exception:  # fail-open: git_diff_py_files 里出错就返回空值，调用方按缺失处理
         return []
     return changed
 
@@ -986,7 +986,7 @@ def light_review(target: str, base: str = "HEAD", max_complexity: int = 10) -> d
     for p in files:
         try:
             content = Path(p).read_text(encoding="utf-8", errors="ignore")
-        except Exception:
+        except Exception:  # fail-open: light_review 里出错就跳过该条继续扫
             continue
         static = _static_analyze(content, max_complexity, semantic=False, denoise=True)
         baseline = [i for i in static["all_issues"]
@@ -1083,7 +1083,7 @@ def _dataflow_analyze(tree, content):
                                 "tainted_args": tainted_args,
                                 "flow": f"source→sink 已确认: {src_desc} 流入 {cname}",
                                 "engine": "dataflow", "tier": "P0"})
-    except Exception:
+    except Exception:  # fail-open: _dataflow_analyze 里出错就失败不影响主流程
         pass
     return confirmed, sink_sites
 
@@ -1249,7 +1249,7 @@ def main():
             for r in results:
                 try:
                     _dep_enrich(r, Path(r["file"]).read_text(encoding="utf-8", errors="ignore"), graph)
-                except Exception:
+                except Exception:  # fail-open: main 里出错就失败不影响主流程
                     pass
             dep_report, dep_text = _run_dep(args.target, args.impact, args.transitive)
         except Exception as e:

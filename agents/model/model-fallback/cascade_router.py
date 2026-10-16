@@ -30,7 +30,7 @@ def _load_cache(path):
         with open(path, "r", encoding="utf-8") as f:
             data = json.load(f)
         return data if isinstance(data, dict) else {}
-    except Exception:
+    except Exception:  # fail-open: _load_cache 里出错就返回空值，调用方按缺失处理
         return {}
 
 
@@ -40,7 +40,7 @@ def _save_cache(path, data):
         with open(path, "w", encoding="utf-8") as f:
             json.dump(data, f, ensure_ascii=False)
         return True
-    except Exception:
+    except Exception:  # fail-open: _save_cache 里出错就返回空值，调用方按缺失处理
         return False
 
 
@@ -62,7 +62,7 @@ def rule_match(text, rules=None):
                         "handler": rule.get("handler", "llm"),
                         "confidence": float(rule.get("confidence", 0.0)),
                     }
-    except Exception:
+    except Exception:  # fail-open: rule_match 里出错就失败不影响主流程
         pass
     return {"matched": False, "intent": "", "handler": "llm", "confidence": 0.0}
 
@@ -81,7 +81,7 @@ def cache_lookup(text, ttl_sec=604800, store_dir=None):
                 data[key] = entry
                 _save_cache(path, data)
                 return {"hit": True, "intent": entry.get("intent", ""), "key": key}
-    except Exception:
+    except Exception:  # fail-open: cache_lookup 里出错就失败不影响主流程
         pass
     return {"hit": False, "intent": "", "key": key}
 
@@ -112,6 +112,6 @@ def cascade(text, rules=None, ttl_sec=604800, store_dir=None):
         c = cache_lookup(text, ttl_sec, store_dir)
         if c.get("hit"):
             return {"layer": "cache", "intent": c.get("intent", ""), "shortcut": True}
-    except Exception:
+    except Exception:  # fail-open: cascade 里出错就失败不影响主流程
         pass
     return {"layer": "llm", "intent": "", "shortcut": False}

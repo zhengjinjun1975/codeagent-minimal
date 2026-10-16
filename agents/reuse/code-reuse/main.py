@@ -50,7 +50,7 @@ class CodeReuseAgent(AtomicAgent):
                             try:
                                 parts.append(open(os.path.join(root, f),
                                                   encoding="utf-8", errors="ignore").read())
-                            except OSError:
+                            except OSError:  # fail-open: 文件系统偶发错误，旁路该文件不影响主流程
                                 continue
                 src = "\n\n".join(parts)
             else:

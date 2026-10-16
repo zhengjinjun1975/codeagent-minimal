@@ -29,19 +29,19 @@ def guess_type_xsd(value) -> str:
     try:
         int(v)
         return "xsd:integer"
-    except ValueError:
+    except ValueError:  # expected-exc: 输入值不满足预期格式，属可预期的解析失败分支
         pass
     try:
         float(v)
         return "xsd:decimal"
-    except ValueError:
+    except ValueError:  # expected-exc: 输入值不满足预期格式，属可预期的解析失败分支
         pass
     if v.lower() in ("true", "false"):
         return "xsd:boolean"
     try:
         datetime.strptime(v, "%Y-%m-%d")
         return "xsd:date"
-    except ValueError:
+    except ValueError:  # expected-exc: 输入值不满足预期格式，属可预期的解析失败分支
         pass
     return "xsd:string"
 

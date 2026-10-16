@@ -117,7 +117,7 @@ class MinimalistStyleAgent(AtomicAgent):
             try:
                 with open(f, encoding="utf-8") as fh:
                     out.append((f, fh.read()))
-            except (OSError, UnicodeDecodeError):
+            except (OSError, UnicodeDecodeError):  # expected-exc: _sources 里出错就失败不影响主流程
                 pass
         return out
 
@@ -160,7 +160,7 @@ class MinimalistStyleAgent(AtomicAgent):
         for name, src in srcs:
             try:
                 tree = ast.parse(src)
-            except SyntaxError:
+            except SyntaxError:  # fail-open: _deps 里出错就跳过该条继续扫
                 continue
             for top, info in _collect_imports(tree).items():
                 bucket = local if _is_local(top) else (stdlib if _is_stdlib(top) else third_party)
@@ -180,7 +180,7 @@ class MinimalistStyleAgent(AtomicAgent):
         for name, src in self._sources(path, code):
             try:
                 tree = ast.parse(src)
-            except SyntaxError:
+            except SyntaxError:  # fail-open: _independent 里出错就跳过该条继续扫
                 continue
             for node in ast.walk(tree):
                 if isinstance(node, ast.Constant) and isinstance(node.value, str):

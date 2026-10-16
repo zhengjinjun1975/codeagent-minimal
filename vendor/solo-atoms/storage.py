@@ -26,7 +26,7 @@ def atomic_write(path: str, data) -> None:
     except Exception:
         try:
             os.remove(tmp)
-        except OSError:
+        except OSError:  # fail-open: 文件系统偶发错误，旁路该文件不影响主流程
             pass
         raise
 

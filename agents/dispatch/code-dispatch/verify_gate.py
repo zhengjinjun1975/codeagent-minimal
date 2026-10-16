@@ -100,7 +100,7 @@ def _check_import(target, modules):
         try:
             with open(path, "r", encoding="utf-8", errors="ignore") as f:
                 text = f.read()
-        except OSError:
+        except OSError:  # fail-open: 文件系统偶发错误，旁路该文件不影响主流程
             continue
         for mod in modules:
             if mod in found:

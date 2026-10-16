@@ -7,7 +7,7 @@ ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
 try:
     sys.stdout.reconfigure(encoding='utf-8', errors='replace')
-except Exception:
+except Exception:  # fail-open: 模块级 里出错就失败不影响主流程
     pass
 
 

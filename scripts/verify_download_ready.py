@@ -152,7 +152,7 @@ def scan_residue():
                             if m in line:
                                 hits.append(("%s:%d" % (os.path.relpath(fp, ROOT), i), m))
                                 break
-            except OSError:
+            except OSError:  # fail-open: 文件系统偶发错误，旁路该文件不影响主流程
                 continue
     return hits
 

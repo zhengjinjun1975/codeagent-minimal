@@ -13,7 +13,7 @@ def load_templates(path=None):
         raw = data["templates"]
         if not isinstance(raw, list):
             return []
-    except Exception:
+    except Exception:  # fail-open: load_templates 里出错就返回空值，调用方按缺失处理
         return []
     out = []
     for tpl in raw:

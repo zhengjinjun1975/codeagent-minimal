@@ -63,7 +63,7 @@ def _smoke_one(path, idx):
         if inserted and d in sys.path:
             try:
                 sys.path.remove(d)
-            except ValueError:
+            except ValueError:  # expected-exc: 输入值不满足预期格式，属可预期的解析失败分支
                 pass
 
 

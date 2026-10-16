@@ -64,7 +64,7 @@ class LocalizedAgent(AtomicAgent):
                         try:
                             with open(os.path.join(r, f), encoding="utf-8") as fh:
                                 out.append((os.path.join(r, f), fh.read()))
-                        except (OSError, UnicodeDecodeError):
+                        except (OSError, UnicodeDecodeError):  # expected-exc: _sources 里出错就失败不影响主流程
                             pass
             return out
         if target and os.path.isfile(target) and target.endswith(".py"):
@@ -80,7 +80,7 @@ class LocalizedAgent(AtomicAgent):
         for name, src in srcs:
             try:
                 tree = ast.parse(src)
-            except SyntaxError:
+            except SyntaxError:  # fail-open: _audit 里出错就跳过该条继续扫
                 continue
             for node in ast.walk(tree):
                 if isinstance(node, ast.Import):
@@ -108,7 +108,7 @@ class LocalizedAgent(AtomicAgent):
         try:
             with socket.create_connection((host, port), timeout=timeout):
                 return True
-        except OSError:
+        except OSError:  # fail-open: 文件系统偶发错误，旁路该文件不影响主流程
             return False
 
     def _chain(self, local_only=True, candidates=None, timeout=1.0):

@@ -111,7 +111,7 @@ def _load_safe(path):
         sys.argv = [path]
         spec.loader.exec_module(mod)
         return mod
-    except Exception:
+    except Exception:  # fail-open: _load_safe 里出错就返回空值，调用方按缺失处理
         return None
 
 
@@ -157,7 +157,7 @@ def git_changed_py(repo_root=".") -> list:
                     p = os.path.join(base, line)
                     if os.path.isfile(p):
                         changed.append(p)
-    except Exception:
+    except Exception:  # fail-open: git_changed_py 里出错就返回空值，调用方按缺失处理
         return []
     # 去重保持顺序
     seen, out = set(), []

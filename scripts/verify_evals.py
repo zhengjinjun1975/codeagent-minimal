@@ -29,12 +29,12 @@ def judge(data, expect):
     if 'contains' in expect:
         try:
             return expect['contains'] in val
-        except TypeError:
+        except TypeError:  # fail-open: judge 里出错就返回空值，调用方按缺失处理
             return False
     if 'at_least' in expect:
         try:
             return val >= expect['at_least']
-        except TypeError:
+        except TypeError:  # fail-open: judge 里出错就返回空值，调用方按缺失处理
             return False
     return False
 
@@ -171,7 +171,7 @@ def check_8_cleanup():
     before = _count_tmp()
     try:
         _run_runner()
-    except Exception:
+    except Exception:  # fail-open: check_8_cleanup 里出错就失败不影响主流程
         pass
     after = _count_tmp()
     print('  temp 前=%d 后=%d' % (before, after))

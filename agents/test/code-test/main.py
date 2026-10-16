@@ -217,7 +217,7 @@ class CodeTestAgent(AtomicAgent):
                 funcs = [n.name for n in ast.walk(tree)
                          if isinstance(n, (ast.FunctionDef, ast.AsyncFunctionDef))
                          and not n.name.startswith("_")]
-            except SyntaxError:
+            except SyntaxError:  # fail-open: _snapshot 里出错就失败不影响主流程
                 pass
         sd = snapshot_dir or os.path.join(os.path.dirname(os.path.abspath(path)),
                                           ".codeagent_snapshots")

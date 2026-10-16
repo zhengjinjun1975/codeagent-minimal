@@ -54,7 +54,7 @@ def should_share(text, severity=None, conf=None):
         try:
             if float(conf) < CONF_FLOOR:
                 return False, f"low_conf={conf}"          # 显式试探级 conf
-        except (TypeError, ValueError):
+        except (TypeError, ValueError):  # expected-exc: should_share 里出错就失败不影响主流程
             pass                                          # 非法 conf 交 external_mem 兜底
     if is_noise(text):
         return False, "noise_marker"                       # 探测/自测/占位噪音
