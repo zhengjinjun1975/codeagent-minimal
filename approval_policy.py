@@ -125,6 +125,41 @@ def normalize_command(cmd) -> str:
     return " ".join([first] + parts[1:])
 
 
+# ── 命令链切分（防「allow 前缀 + 高危尾段」绕过）──────────────────────────
+# 为什么必须切：规则是对**整串**做 fnmatch，而 allow 规则几乎都是前缀通配
+# （echo*/ls*/cat*/git status*）。于是 "echo hi && rm -rf /" 整串命中 echo* → benign，
+# 而 deny 规则 "rm -rf *" 对整串不匹配（fnmatch 从头匹配）。实际执行侧是 shell，
+# && 之后真会跑 —— 等于把高危命令挂在 allow 前缀后面就放行了。
+# 同一个口子还能走 `;` `||` `|` 管道、`$()` 与反引号命令替换、换行。
+_CHAIN_SPLIT_RE = re.compile(r"&&|\|\||[;|\n\r`]|\$\(")
+_QUOTED_RE = re.compile(r"\"[^\"]*\"|'[^']*'")
+_PLACEHOLDER_RE = re.compile(r"\x00(\d+)\x00")
+
+
+def _restore_quoted(text, keep):
+    """把占位符还原成原引号段。"""
+    return _PLACEHOLDER_RE.sub(lambda m: keep[int(m.group(1))], text)
+
+
+def split_command_chain(cmd):
+    """按 shell 执行分隔符把命令串切成子命令（引号内的分隔符属字面量，不切）。
+
+    无分隔符时返回单元素列表，调用方行为与切分前**完全一致**（存量调用零影响）。
+    做法：先把引号段替换成占位符（这样切分不会碰到引号内的 |、&&），切完再还原。
+    """
+    if not isinstance(cmd, str) or not cmd:
+        return [cmd]
+    keep = []
+
+    def _stash(m):
+        keep.append(m.group(0))
+        return "\x00%d\x00" % (len(keep) - 1)
+
+    masked = _QUOTED_RE.sub(_stash, cmd)
+    parts = [_restore_quoted(p, keep).strip() for p in _CHAIN_SPLIT_RE.split(masked)]
+    return [p for p in parts if p] or [cmd]
+
+
 def match_pattern(pattern: str, value: str) -> bool:
     """通配匹配：前缀/后缀/任意段（fnmatch），**大小写不敏感**（Windows 命令大小写混写很常见）。"""
     if not pattern:
@@ -204,6 +239,42 @@ def apply_scope(dec, resource, scope, scope_action=None, resource_type="command"
     return out
 
 
+_DECISION_RANK = {"allow": 0, "default": 1, "ask": 2, "deny": 3}
+
+
+def _judge_one(value, rules, default, resource_type="command") -> dict:
+    """对单条命令/资源跑 deny > ask > allow 扫描，返回判定。"""
+    match_value = normalize_command(value) if resource_type == "command" else value
+    for effect in ("deny", "ask", "allow"):
+        for r in rules:
+            if r.get("effect") != effect:
+                continue
+            if evaluate_rule(r, match_value, resource_type):
+                return {"decision": effect, "reason": f"命中规则: {r.get('pattern','')}",
+                        "rule": r, "tier": _tier_of(effect, r), "normalized": match_value}
+    return {"decision": default, "reason": f"未命中规则，默认策略: {default}",
+            "rule": None, "tier": _tier_of(default, None), "normalized": match_value}
+
+
+def _judge_chain(segs, rules, default, resource_type, whole=None) -> dict:
+    """命令链「逐段 + 整串」都判，取**最严**（deny > ask > default > allow）。
+
+    为什么两头都要判：只判整串会被 allow 前缀躲过（echo hi && rm -rf /）；
+    只逐段又会漏掉**按整串写的** deny 规则（"curl *| sh"、"wget *| bash"）。
+    两者都判再取最严，才两头都堵住。
+    """
+    results = [_judge_one(s, rules, default, resource_type) for s in segs]
+    if whole is not None:
+        results.append(whole)
+    worst = results[0]
+    for r in results[1:]:
+        if _DECISION_RANK.get(r["decision"], 1) > _DECISION_RANK.get(worst["decision"], 1):
+            worst = r
+    out = dict(worst)
+    out["chain_segments"] = segs
+    return out
+
+
 def _check_command_by_rules(resource, resource_type="command", policy=None,
                             deny_override=True) -> dict:
     """纯字符串规则判定（原有逻辑原样保留，供 check_command 与作用域合判使用）。"""
@@ -220,20 +291,14 @@ def _check_command_by_rules(resource, resource_type="command", policy=None,
             if r.get("effect") == "deny" and r not in rules:
                 rules.append(r)
 
-    # 命令类先归一化再匹配（绝对路径解释器 → python；大小写不敏感见 match_pattern）
-    match_value = normalize_command(resource) if resource_type == "command" else resource
-
-    # 按优先级 deny > ask > allow 扫描
-    for effect in ("deny", "ask", "allow"):
-        for r in rules:
-            if r.get("effect") != effect:
-                continue
-            if evaluate_rule(r, match_value, resource_type):
-                tier = _tier_of(effect, r)
-                return {"decision": effect, "reason": f"命中规则: {r.get('pattern','')}",
-                        "rule": r, "tier": tier, "normalized": match_value}
-    return {"decision": default, "reason": f"未命中规则，默认策略: {default}",
-            "rule": None, "tier": _tier_of(default, None), "normalized": match_value}
+    # 命令类先按 shell 分隔符切成子命令，逐段判定取最严（防命令链绕过）。
+    # 单段（绝大多数存量调用）直接走 _judge_one，行为与切分前一致。
+    if resource_type == "command":
+        segs = split_command_chain(resource)
+        if len(segs) > 1:
+            whole = _judge_one(resource, rules, default, resource_type)
+            return _judge_chain(segs, rules, default, resource_type, whole)
+    return _judge_one(resource, rules, default, resource_type)
 
 
 def _tier_of(effect, rule):

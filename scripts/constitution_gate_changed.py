@@ -59,7 +59,9 @@ def load_baseline():
     """存量台账：{文件: {越限种类: 条数}}（不记行号，行号会漂）。读不到返回空表。"""
     p = os.path.join(ROOT, "config", "constitution_baseline.json")
     try:
-        d = json.load(io.open(p, encoding="utf-8"))
+        # 用内置 open：本件未 import io，原 io.open 会抛 NameError 被下面 except 吞掉，
+        # 于是存量台账永远读不到 → 每个改动文件的存量越限都被当成"本次新引入"报红。
+        d = json.load(open(p, encoding="utf-8"))
         return {k: dict(v) for k, v in (d.get("files") or {}).items() if isinstance(v, dict)}
     except Exception as e:
         # 读不到台账就按空表处理，但必须留痕（静默吞错是宪法禁止项）
