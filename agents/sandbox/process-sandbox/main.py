@@ -30,7 +30,7 @@ import approval_policy as ap   # 执行期审批门（P0：高危命令默认拒
 
 class ProcessSandboxAgent(AtomicAgent):
     name = "process-sandbox"
-    version = "0.2.0"
+    version = "0.3.0"
     domain = "sandbox"
     description = ("进程沙箱原子（P0 安全边界，借鉴 Codex sandboxing）: 安全执行不可信PoC/命令，"
                    "执行期审批门(高危默认拒)+子进程隔离+超时+资源限制+输出封顶+可执行白名单+"

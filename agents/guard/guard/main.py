@@ -68,7 +68,7 @@ def _command_exec_issues(content: str) -> list:
 
 class GuardAgent(AtomicAgent):
     name = "guard"
-    version = "0.1.0"
+    version = "0.2.0"
     domain = "guard"
     description = ("护栏钩子原子（P2，借鉴Codex guardian）: code变更前置/后置安全审查钩子流水线, "
                    "复用security_scan 10维度+secret+误报治理做门禁(pre/post/pipeline/check)。纯stdlib数据不出厂。")
