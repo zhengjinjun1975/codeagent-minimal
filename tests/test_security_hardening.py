@@ -17,6 +17,7 @@ import sys
 import ast
 import tempfile
 import platform
+from pathlib import Path
 
 REPO_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 if REPO_ROOT not in sys.path:
@@ -83,19 +84,28 @@ def test_sandbox_cwd_isolation_relative_write_contained():
 
 
 # ══════════ 2. 子进程安全：shell=False 参数列表，防命令注入 ══════════
+_SKIP_DIRS = {".git", "__pycache__", ".pytest_cache", "node_modules", ".venv", ".mypy_cache"}
+_SUBPROC_RE = re.compile(
+    r"subprocess\.(?:run|Popen|call|check_call|check_output)\(([^)]*)", re.S)
+
+
+def _shell_true_hits(p):
+    """单文件里 subprocess 调用的 shell=True 片段（空列表=干净）。"""
+    src = p.read_text(encoding="utf-8", errors="ignore")
+    return [m.group(1)[:80] for m in _SUBPROC_RE.finditer(src) if "shell=True" in m.group(1)]
+
+
 def test_no_shell_true_in_subprocess_calls():
-    """全仓 subprocess 调用不得含 shell=True（命令注入面为零）。"""
-    targets = ["bug_deep.py", "security_scan.py", "codeagent.py",
-               "agent_runtime.py", "agents/codereview/code-review/main.py",
-               "agents/dispatch/code-dispatch/main.py",
-               "agents/mcp/mcp-client/main.py"]
-    for rel in targets:
-        p = os.path.join(REPO_ROOT, rel)
-        if not os.path.exists(p):
-            continue
-        src = open(p, encoding="utf-8").read()
-        for m in re.finditer(r"subprocess\.(?:run|Popen|call|check_output)\(([^)]*)", src, re.S):
-            assert "shell=True" not in m.group(1), f"{rel} 存在 shell=True: {m.group(1)[:80]}"
+    """全仓（递归）subprocess 调用不得含 shell=True（命令注入面为零）。
+
+    为什么改成递归：原实现是 7 个文件的**白名单**，函数名却宣称"全仓"。
+    于是 agents/code/code-runloop/tools.py 与 lab/debug_orchestrator.py 里真实存在的
+    shell=True 一直漏在名单外 —— 白名单守不住新增文件，只有递归扫才守得住。
+    """
+    files = [p for p in Path(REPO_ROOT).rglob("*.py") if not (_SKIP_DIRS & set(p.parts))]
+    hits = ["%s: %s" % (p.relative_to(Path(REPO_ROOT)), h)
+            for p in files for h in _shell_true_hits(p)]
+    assert not hits, "存在 shell=True 命令注入面:\n" + "\n".join(hits)
 
 
 def test_sandbox_runs_argument_list_not_shell():

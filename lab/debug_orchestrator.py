@@ -19,6 +19,7 @@
 import json
 import os
 import re
+import shlex
 import subprocess
 import sys
 import threading
@@ -310,10 +311,24 @@ def _py_compile(absf, timeout=60):
             "detail": (msgs[0] if msgs else (r.stderr or r.stdout or "")[:300])}
 
 
+def _argv_of(cmd):
+    """命令串 → argv。posix=False 保留 Windows 路径反斜杠（posix 模式会当转义吃掉）。"""
+    argv = shlex.split(str(cmd), posix=False)
+    return [a[1:-1] if len(a) >= 2 and a[0] == a[-1] and a[0] in "\"'" else a for a in argv]
+
+
 def _run_cmd(cmd, cwd=None, timeout=120):
+    """执行测试命令（REPRO / REGRESS 的真实 oracle）。
+
+    安全：一律参数列表直传 shell=False。test_cmd 可能来自前端/用户输入，
+    用 shell 执行等于把命令注入面直接交出去（`a; rm -rf x` 一并执行）。
+    """
     t0 = time.time()
     try:
-        r = subprocess.run(cmd, shell=True, cwd=cwd, capture_output=True, text=True,
+        argv = list(cmd) if isinstance(cmd, (list, tuple)) else _argv_of(cmd)
+        if not argv:
+            return {"code": -1, "out": "命令为空，未执行", "elapsed": 0}
+        r = subprocess.run(argv, shell=False, cwd=cwd, capture_output=True, text=True,
                            timeout=timeout, encoding="utf-8", errors="replace")
         return {"code": r.returncode, "out": (r.stdout or "") + (r.stderr or ""),
                 "elapsed": round(time.time() - t0, 2)}

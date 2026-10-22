@@ -117,6 +117,25 @@ class SecretVaultAgent(AtomicAgent):
     def _vault_dir(self, vault_dir=None):
         return vault_dir or os.path.join(REPO_ROOT, ".codeagent", "secrets")
 
+    def _vault_path(self, vd, name):
+        """密钥名 → vault 内路径；名里的路径分隔符一律替换成下划线，再做包含性兜底。
+
+        为什么不能只 replace(os.sep)：Windows 上 os.sep 是反斜杠，名里的 '/' 不被替换，
+        os.path.join 会顺着 '/' 逃出 vault 目录（读写任意 .json）；若名是绝对路径，
+        join 更会直接丢掉 vd。故 '/'、'\\\\'、NUL 全部处理，再用 realpath 兜一层。
+        """
+        safe = str(name)
+        for ch in ("/", "\\", "\x00"):
+            safe = safe.replace(ch, "_")
+        if not safe.strip("_."):
+            raise ValueError(f"密钥名非法: {name!r}")
+        path = os.path.join(vd, safe + ".json")
+        real_dir = os.path.realpath(vd)
+        real = os.path.realpath(path)
+        if real != real_dir and not real.startswith(real_dir + os.sep):
+            raise ValueError(f"密钥名越界被拒: {name!r}")
+        return path
+
     def _encrypt(self, plaintext=None, passphrase=None):
         pw = self._passphrase(passphrase)
         if not pw:
@@ -143,7 +162,7 @@ class SecretVaultAgent(AtomicAgent):
             bundle = encrypt(value, pw)
             vd = self._vault_dir(vault_dir)
             os.makedirs(vd, exist_ok=True)
-            path = os.path.join(vd, name.replace(os.sep, "_") + ".json")
+            path = self._vault_path(vd, name)
             with open(path, "w", encoding="utf-8") as f:
                 json.dump(bundle, f)
             try:
@@ -161,10 +180,11 @@ class SecretVaultAgent(AtomicAgent):
             return self._envelope(False, degraded=True, error="缺 name 或主口令")
         try:
             vd = self._vault_dir(vault_dir)
-            path = os.path.join(vd, name.replace(os.sep, "_") + ".json")
+            path = self._vault_path(vd, name)
             if not os.path.isfile(path):
                 return self._envelope(False, degraded=True, error=f"密钥不存在: {name}")
-            bundle = json.load(open(path, encoding="utf-8"))
+            with open(path, encoding="utf-8") as f:
+                bundle = json.load(f)
             plain = decrypt(bundle, pw)
             return {"name": name, "value": plain, "decrypted": plain, "masked": mask(plain)}
         except Exception as e:

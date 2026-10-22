@@ -10,11 +10,55 @@ run / read_file / grep / edit / write / verify_cmd。
 """
 import os
 import re
+import shlex
 import subprocess
 
 DEFAULT_TIMEOUT = 60
 OUT_MAX_LINES = 250      # 截断保尾: 最多保留的行数(前缀 [truncated N lines])
 OUT_MAX_CHARS = 20000    # 字节帽
+
+# 命令串里属 shell 语法的分隔/替换符。本工具以参数列表直传(shell=False)，这些字符
+# **不会**被解释；混进来只会让人误以为能链式/重定向，静默按字面量传参等于假执行。
+_SHELL_META = ";|&<>`"
+_QUOTED_RE = re.compile(r"\"[^\"]*\"|'[^']*'")
+
+
+def _meta_outside_quote(tok):
+    """token 内「引号外」是否含 shell 元字符（引号内的 | & 是字面量，不该拦）。
+
+    做法：先删掉成对引号段，再在剩下的裸串里找 —— 比逐字符状态机扁平，也不易漏。
+    不成对引号（如 `echo "abc | x`）会保留 `|` 判为元字符：宁可拒，不放过。
+    """
+    bare = _QUOTED_RE.sub("", tok)
+    return any(ch in bare for ch in _SHELL_META) or "$(" in bare
+
+
+def _strip_quote(tok):
+    """剥掉成对外层引号。posix=False 切分保留引号，故 Windows 路径的反斜杠不被吃掉。"""
+    if len(tok) >= 2 and tok[0] == tok[-1] and tok[0] in "\"'":
+        return tok[1:-1]
+    return tok
+
+
+def _prepare_argv(cmd):
+    """cmd → (argv, meta, err)。err 非空表示调用方直接回这个错误 dict。
+
+    为什么 posix=False：posix 模式把 C:\\x\\y.py 的反斜杠当转义吃掉，Windows 路径直接废。
+    """
+    if isinstance(cmd, (list, tuple)):
+        argv = [str(x) for x in cmd]
+        return argv, [], None if argv else {"status": "error", "reason": "cmd 为空", "exit_code": 1}
+    if not cmd or not str(cmd).strip():
+        return [], [], {"status": "error", "reason": "cmd 为空", "exit_code": 1}
+    try:
+        raw = shlex.split(str(cmd), posix=False)
+    except ValueError as e:
+        return [], [], {"status": "error", "reason": f"命令解析失败: {e}", "exit_code": 2}
+    argv = [_strip_quote(t) for t in raw]
+    meta = [t for t in raw if _meta_outside_quote(t)]
+    if not argv:
+        return [], [], {"status": "error", "reason": "cmd 为空", "exit_code": 1}
+    return argv, meta, None
 
 
 def resolve_roots(*paths):
@@ -78,15 +122,27 @@ def truncate_tail(text, max_lines=OUT_MAX_LINES, max_chars=OUT_MAX_CHARS):
 
 def run(cmd, cwd=None, timeout=DEFAULT_TIMEOUT, max_lines=OUT_MAX_LINES,
         max_chars=OUT_MAX_CHARS, env=None):
-    """run(cmd, cwd, timeout): 真执行; 分列捕获; 截断保尾; exit_code/超时哨兵124。"""
-    if not cmd or not str(cmd).strip():
-        return {"status": "error", "reason": "cmd 为空", "exit_code": 1}
+    """run(cmd, cwd, timeout): 真执行; 分列捕获; 截断保尾; exit_code/超时哨兵124。
+
+    安全：一律 shell=False + 参数列表执行，命令串只切分不解释。cmd 可传 list（原样当
+    argv）或 str（按 shell 词法切分）。含 shell 元字符的串直接拒绝并回理由 —— 本工具
+    不提供 shell 语义，静默按字面量传参只会让人误判"命令已经跑过了"。
+    """
+    argv, meta, err = _prepare_argv(cmd)
+    if err:
+        return err
+    if meta:
+        return {"status": "error", "exit_code": 2, "output": "", "timeout": False,
+                "truncated": False,
+                "reason": ("命令含 shell 元字符 %s，已拒绝：本工具以参数列表直传"
+                           "(shell=False)，不会解释 &&/||/;/|/重定向/命令替换。"
+                           "请拆成多条独立命令分别调用。" % ", ".join(meta[:3]))}
     full_env = dict(os.environ)
     if env:
         full_env.update(env)
     timeout = int(timeout or DEFAULT_TIMEOUT)
     try:
-        p = subprocess.run(str(cmd), shell=True, cwd=cwd, env=full_env,
+        p = subprocess.run(argv, shell=False, cwd=cwd, env=full_env,
                            capture_output=True, text=True,
                            timeout=timeout, errors="replace")
         code = p.returncode
