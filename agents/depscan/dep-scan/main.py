@@ -31,7 +31,7 @@ import chain_break  # 跨仓库断链（P1-6）
 
 class DepScanAgent(AtomicAgent):
     name = "dep-scan"
-    version = "0.1.0"
+    version = "0.2.0"
     domain = "depscan"
     description = "依赖漏洞SCA+污点+跨仓库断链原子：复用 dep_scan + chain_break，纯 stdlib 数据不出厂"
     provides = ["depscan.scan", "depscan.sca", "depscan.taint", "depscan.osv",

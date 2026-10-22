@@ -3,10 +3,10 @@
 > ⭐ 觉得有用就给我们一个 **Star**，支持持续迭代。
 > [![GitHub stars](https://img.shields.io/github/stars/zhengjinjun1975/codeagent-minimal?style=social)](https://github.com/zhengjinjun1975/codeagent-minimal)
 
-> **v0.8.3 · 一体化完整版**：一个本地运行的代码智能体，`git clone` 即用，核心只用 Python 标准库、数据不出厂，Apache-2.0（依赖清单见 [requirements-optional.txt](requirements-optional.txt)）。
+> **v0.8.4 · 一体化完整版**：一个本地运行的代码智能体，`git clone` 即用，核心只用 Python 标准库、数据不出厂，Apache-2.0（依赖清单见 [requirements-optional.txt](requirements-optional.txt)）。
 
 [![License](https://img.shields.io/badge/License-Apache-2.0-blue.svg)](LICENSE)
-[![Version](https://img.shields.io/badge/version-0.8.3-blue.svg)](CHANGELOG.md)
+[![Version](https://img.shields.io/badge/version-0.8.4-blue.svg)](CHANGELOG.md)
 
 ---
 

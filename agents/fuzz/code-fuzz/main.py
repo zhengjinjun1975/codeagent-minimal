@@ -29,7 +29,7 @@ import fuzz_engine  # 复用核心：核心零改动
 
 class CodeFuzzAgent(AtomicAgent):
     name = "code-fuzz"
-    version = "0.1.0"
+    version = "0.2.0"
     domain = "fuzz"
     description = "属性模糊测试原子：复用 fuzz_engine，隔离执行纯 stdlib"
     provides = ["fuzz.gen", "fuzz.run", "fuzz.property", "fuzz.project"]
