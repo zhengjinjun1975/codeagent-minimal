@@ -419,6 +419,39 @@ def test_g15_fires_on_hardcoded_chain(mini_copy):
         "登记过的代码内组合仍被报红"
 
 
+# ── G15 的写法变体：关键字传链 ──
+def test_g15_fires_on_keyword_chain(mini_copy):
+    """`run_chain(chain=steps)` 与 `run_chain(steps)` 语义相同，必须同样报红。
+
+    变异测试发现的漏：抽取只看位置参数 args[0]，把链改成关键字传就整条消失，
+    而 G15 是"组合单一来源"的唯一守门人 —— 它看不见等于组合源可以偷偷分叉。
+    """
+    (mini_copy / "hard_kw.py").write_text(textwrap.dedent('''
+        def run(rt, task=None):
+            steps = [
+                {"capability": "alpha.bump", "inputs": {"path": "."}},
+                {"capability": "beta.run", "inputs": {"target": "."}},
+            ]
+            return rt.run_chain(chain=steps, task=task)
+        '''), encoding="utf-8")
+    g = core.build_graph(mini_copy)
+    hits = [f for f in g["findings"] if f["rule"] == "G15_IMPLICIT_CHAIN"]
+    assert hits, "关键字传链的写死组合没报 —— 换个写法就能绕过 G15"
+    code = [c for c in g["chains"] if c["kind"] == "code" and c["steps"]]
+    assert any(c["name"].endswith("run") for c in code), code
+
+
+def test_auto_chain_none_is_not_a_hardcoded_chain(mini_copy):
+    """`run_chain(chain=None)` 是自动选链（交给模板表），不是写死的组合 —— 不许误报。"""
+    (mini_copy / "auto_none.py").write_text(textwrap.dedent('''
+        def run(rt, task=None):
+            return rt.run_chain(chain=None, task=task)
+        '''), encoding="utf-8")
+    g = core.build_graph(mini_copy)
+    hits = [f for f in g["findings"] if f["rule"] == "G15_IMPLICIT_CHAIN"]
+    assert not hits, "自动选链被判成写死的组合（假红）：%s" % [f["subject"] for f in hits]
+
+
 # ── G17：签名破坏 ──
 def test_g17_fires_on_removed_param(mini_copy):
     p = mini_copy / "config" / "atoms_signatures.json"

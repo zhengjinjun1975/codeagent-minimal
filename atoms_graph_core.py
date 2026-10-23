@@ -508,9 +508,29 @@ def _local_lists(fn):
     return out
 
 
+CHAIN_KW = "chain"
+
+
+def _chain_arg(call):
+    """取 run_chain 的链参数：先看位置参数，再看 `chain=` 关键字。
+
+    为什么非要看关键字：`run_chain(chain=steps)` 与 `run_chain(steps)` 语义完全一样，
+    但 AST 上前者的 args 是空的。只认 args[0] 的话，把参数改成关键字写法（重构时
+    很常见的动作）就能让「代码里写死的组合」从图上整条消失 —— 而 G15 查的正是这个，
+    消失即等于放行。变异测试当场把这条漏掉了（写死一条 2 步链，门仍 pass）。
+    """
+    if call.args:
+        return call.args[0]
+    for k in call.keywords:
+        if k.arg == CHAIN_KW:
+            return k.value
+    return None
+
+
 def _is_run_chain(node):
-    return (isinstance(node, ast.Call) and isinstance(node.func, ast.Attribute)
-            and node.func.attr == "run_chain" and bool(node.args))
+    if not (isinstance(node, ast.Call) and isinstance(node.func, ast.Attribute)):
+        return False
+    return node.func.attr == "run_chain" and _chain_arg(node) is not None
 
 
 def _chain_row(cid, rel, fn, call, owner):
@@ -533,14 +553,15 @@ def _code_chains_in_fn(fn, rel, owner):
     for call in ast.walk(fn):
         if not _is_run_chain(call):
             continue
-        hit = next((r for r in _name_refs(call.args[0]) if r in locals_), None)
+        arg = _chain_arg(call)
         row = _chain_row(cid, rel, fn, call, owner)
+        hit = next((r for r in _name_refs(arg) if r in locals_), None)
         if hit:
             steps, def_line = locals_[hit]
             row.update(steps=steps, line=def_line)
             out.append(row)
-        elif any(isinstance(a, ast.Constant) and a.value is None for a in call.args):
-            continue  # run_chain(None) = 自动选链，交给模板表，不算写死的组合
+        elif isinstance(arg, ast.Constant) and arg.value is None:
+            continue  # run_chain(None) / run_chain(chain=None) = 自动选链，交给模板表
         else:
             row.update(line=call.lineno, dynamic=True, passthrough=True,
                        reason="组合由运行时给出（参数透传），不是代码里的组合定义")
