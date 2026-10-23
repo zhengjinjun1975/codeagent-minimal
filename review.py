@@ -32,6 +32,8 @@ import argparse
 import urllib.request
 from pathlib import Path
 
+import lang_profile
+
 __version__ = "0.1.1"
 
 # ═══════════════════════════════════════════════════
@@ -737,6 +739,70 @@ def _static_analyze(content: str, max_complexity: int = 10, strict_undefined: bo
     result["all_issues"] = all_issues
     return result
 
+
+def _check_generic_text(content: str) -> list:
+    """语言无关的文本级检查：超长行 + 未完成标记。
+
+    特意不判语法 —— 我们对这门语言没有解析器，判语法就是拿错尺子。
+    """
+    issues = []
+    for idx, line in enumerate(content.split("\n"), 1):
+        if len(line) > 200:
+            issues.append({"severity": "minor", "kind": "generic",
+                           "title": f"行过长 L{idx}({len(line)}>200)",
+                           "line": idx, "suggestion": "换行拆分"})
+            break
+    for mark in ("TODO", "FIXME", "XXX"):
+        if mark in content:
+            issues.append({"severity": "info", "kind": "generic",
+                           "title": f"含未完成标记: {mark}",
+                           "suggestion": "清理或登记为待办"})
+            break
+    return issues
+
+
+def _static_analyze_lexical(content: str, language: str, denoise: bool = True) -> dict:
+    """非 Python 文件：只做语言无关的文本级检查，绝不用 Python 解析器判语法。
+
+    为什么单开一条路：改动前所有文件都走 ast.parse。一个 .js 文件的合法注释
+    `// 后端选择：改这一个常量…` 会被报成
+    「语法错误: invalid character '：' (U+FF1A)」并且标成 P0「安全/断链/高影响」。
+    那不是审代码，是拿错尺子；结果是工具的可信度被误报烧掉。
+
+    结论里显式带 coverage，写清「做了哪些检查、没做哪些」——不冒充结构分析。
+    """
+    clean = _strip_self_check_code(content)
+    security = _static_check_security(clean)
+    network = _static_check_network(clean)
+    generic = _check_generic_text(content)
+    issues = security + network + generic
+    if denoise and issues:
+        issues = [_classify_tier(i) for i in issues]
+    penalty = sum(SEVERITY_WEIGHTS.get(i["severity"], 5) for i in issues)
+    return {
+        "syntax": [], "imports": [], "complexity": [], "naming": [],
+        "security": security, "network": network, "bugs": [],
+        "architecture": [], "reuse": [], "semantic": [], "generic": generic,
+        "all_issues": issues,
+        "score": max(0, 100 - penalty),
+        "language": language,
+        "parser": None,
+        "coverage": lang_profile.note_for(lang_profile.SUPPORT_LEXICAL),
+    }
+
+
+def _analyze_dispatch(path: str, content: str, opts: dict) -> dict:
+    """按文件语言分流：有解析器走完整分析，没解析器走文本级分析。
+
+    opts 打包传参（max_complexity/strict_undefined/semantic/denoise），
+    避免在已经偏长的 review_file 签名上再加四个形参。
+    """
+    info = lang_profile.classify(path)
+    if info["support"] == lang_profile.SUPPORT_NATIVE:
+        return _static_analyze(content, opts["max_complexity"], opts["strict_undefined"],
+                               semantic=opts["semantic"], denoise=opts["denoise"])
+    return _static_analyze_lexical(content, info["language"], opts["denoise"])
+
 # ═══════════════════════════════════════════════════
 # 可选 LLM 增强审查 (OpenAI 兼容, 用标准库 urllib)
 # ═══════════════════════════════════════════════════
@@ -874,17 +940,28 @@ def _module_exists(name: str) -> bool:
         return False
 
 
+def _apply_external(static: dict, content: str, denoise: bool) -> None:
+    """跑外部工具（bandit / pyflakes）并把结果并入扣分。
+
+    只对 Python 有效 —— 这两个工具只认 Python，对 .js 跑它们没有意义。
+    """
+    ext = _external_bandit(content) + _external_lint(content)
+    if not ext:
+        return
+    static["all_issues"].extend(ext)
+    if denoise:
+        static["all_issues"] = [_classify_tier(i) for i in static["all_issues"]]
+    penalty = sum(SEVERITY_WEIGHTS.get(i["severity"], 5) for i in static["all_issues"])
+    static["score"] = max(0, 100 - penalty)
+
+
 def review_file(path: str, use_llm: bool, max_complexity: int = 10, strict_undefined: bool = False, external: bool = False, reuse_atoms: bool = False, semantic: bool = True, denoise: bool = True) -> dict:
     content = Path(path).read_text(encoding="utf-8", errors="ignore")
-    static = _static_analyze(content, max_complexity, strict_undefined, semantic=semantic, denoise=denoise)
-    if external:
-        ext = _external_bandit(content) + _external_lint(content)
-        if ext:
-            static["all_issues"].extend(ext)
-            if denoise:
-                static["all_issues"] = [_classify_tier(i) for i in static["all_issues"]]
-            penalty = sum(SEVERITY_WEIGHTS.get(i["severity"], 5) for i in static["all_issues"])
-            static["score"] = max(0, 100 - penalty)
+    opts = {"max_complexity": max_complexity, "strict_undefined": strict_undefined,
+            "semantic": semantic, "denoise": denoise}
+    static = _analyze_dispatch(path, content, opts)
+    if external and lang_profile.is_native(path):
+        _apply_external(static, content, denoise)
     # P0-2 严重度去噪汇总：按 P0/P1/P2 分级计数
     by_tier = {"P0": 0, "P1": 0, "P2": 0}
     for i in static["all_issues"]:
@@ -897,6 +974,10 @@ def review_file(path: str, use_llm: bool, max_complexity: int = 10, strict_undef
         "issues": [dict(i, file=path) for i in static["all_issues"]],
         "severity_summary": by_tier,
     }
+    # 非 Python 文件带 language/parser/coverage：让调用方一眼看出「看懂了多少」
+    for key in ("language", "parser", "coverage"):
+        if key in static:
+            file_result[key] = static[key]
     # 应用接口：检索本地代码原子库(atoms/)给复用建议（复用优先·极简落地）
     if reuse_atoms:
         file_result["reuse_suggestions"] = _reuse_suggestion(content)

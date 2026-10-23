@@ -1480,7 +1480,7 @@
   "project.scan": {
    "atom": "code-project",
    "params": [
-    "impact",
+    "file_pattern",
     "max_complexity",
     "path"
    ],
@@ -1974,5 +1974,5 @@
   }
  },
  "_note": "本文件由 `scripts/verify_atoms_graph.py --update-signatures` 生成，禁手写。它是签名基线：删参数/加必填/改名会触发 G17，改完必须重新生成并写明理由。",
- "reason": "model.route 露出 candidates 参数：底层 route() 早就支持自定义候选清单，能力层此前不透传，manifest 声明了却传不进来（契约对账发现）"
+ "reason": "project.scan/project.analyze 删掉 impact 形参：该形参从建库起只在签名里接收、函数体从未引用，全仓无调用点传它（grep 到的 impact= 全部属于 dep_report / impact.analyze）。留着等于对调用方承诺一个不会发生的分析——与「判不了要说判不了」同等口径，假参数也必须清掉。同批新增 coverage 输出（多语言覆盖度，empty=true 时 ok 恒为 false）。受影响调用点：0 个（capability 层调用全部只传 path）。"
 }

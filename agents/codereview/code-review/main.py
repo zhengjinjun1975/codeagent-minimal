@@ -22,6 +22,7 @@ from atomic_base import AtomicAgent
 
 import review as rv
 import dep_audit as da
+import audit_scan
 
 class CodeReviewAgent(AtomicAgent):
     name = "code-review"
@@ -136,89 +137,151 @@ class CodeReviewAgent(AtomicAgent):
     def _review(self, path=None, code=None, mode="code", use_llm=False,
                 reuse_atoms=True, max_complexity=10, lsp=False, lsp_server=None,
                 semantic=True, denoise=True):
-        lsp_diags = []
-        if lsp:
-            lsp_diags = self._run_lsp(path=path, code=code, lsp_server=lsp_server)
-        if path:
-            # ── path 分支：直接复用 review_file 的完整审查结果。
-            #    修复 P0-1：不再把审查结果 dict 当源码二次 _static_analyze（否则安全缺陷被漏报）。
-            p = str(path)
-            content = open(p, encoding="utf-8", errors="ignore").read()
-            fr = rv.review_file(p, use_llm=use_llm,
-                                max_complexity=max_complexity, reuse_atoms=reuse_atoms,
-                                semantic=semantic, denoise=denoise)
-            if mode == "code":
-                try:
-                    graph = da.build_graph([p])
-                    rv._dep_enrich(fr, content, graph)
-                except Exception:  # fail-open: _review 里出错就失败不影响主流程
-                    pass
-            r = {"file": p,
-                 "score": fr.get("static_score", fr.get("score", 0)),
-                 "static_issues": fr["static_issues"],
-                 "issues": fr["issues"]}   # 已带 file=p 与依赖图增强
-            if fr.get("severity_summary"):
-                r["severity_summary"] = fr["severity_summary"]
-            if reuse_atoms and fr.get("reuse_suggestions"):
-                r["reuse_suggestions"] = fr["reuse_suggestions"]
-            if mode in ("design", "layout", "content"):
-                extra = self._mode_rules(p, content, mode)
-                r["issues"].extend(extra)
-                r["mode_issues"] = extra
-                if denoise:
-                    extra = [rv._classify_tier(i) for i in extra]
-                penalty = sum(rv.SEVERITY_WEIGHTS.get(i["severity"], 3) for i in extra)
-                r["score"] = max(0, r["score"] - penalty)
-            results, issues = [r], r["issues"]
+        """审查入口：只做分派与聚合，具体工种交给下面几个方法。
+
+        2026-10-23 加的入口校验：目录此前被当文件 open，抛 PermissionError，
+        再被执行层包成 ATOM_FAIL —— 用户看到「原子执行失败」，真实原因只是
+        「传了个目录」。错误码是给调用方判断用的，报错层级错位会让排查方向
+        整个跑偏，所以类型问题必须在入口说清。
+        """
+        lsp_diags = self._run_lsp(path=path, code=code, lsp_server=lsp_server) if lsp else []
+        opts = {"mode": mode, "use_llm": use_llm, "reuse_atoms": reuse_atoms,
+                "max_complexity": max_complexity, "semantic": semantic, "denoise": denoise}
+        target = str(path) if path else ""
+        if target and not os.path.exists(target):
+            return self._envelope(False, degraded=False, code="BAD_PATH",
+                                  error="路径不存在：%s" % target)
+        if target and os.path.isdir(target):
+            return self._review_tree(target, opts)
+        if target:
+            results, issues = self._review_path(target, opts)
         elif code:
-            results, issues = [], []
-            for name, content in code.items():
-                if not isinstance(content, str):
-                    content = content.get("content", str(content))
-                static = rv._static_analyze(content, max_complexity=max_complexity,
-                                            semantic=semantic, denoise=denoise)
-                r = {"file": name, "score": static["score"],
-                     "static_issues": static["all_issues"],
-                     "issues": [dict(i, file=name) for i in static["all_issues"]],
-                     "severity_summary": static.get("severity_summary", {})}
-                if reuse_atoms:
-                    r["reuse_suggestions"] = rv._reuse_suggestion(content)
-                if mode in ("design", "layout", "content"):
-                    extra = self._mode_rules(name, content, mode)
-                    r["issues"].extend(extra)
-                    r["mode_issues"] = extra
-                    if denoise:
-                        extra = [rv._classify_tier(i) for i in extra]
-                    penalty = sum(rv.SEVERITY_WEIGHTS.get(i["severity"], 3) for i in extra)
-                    r["score"] = max(0, r["score"] - penalty)
-                results.append(r)
-                issues.extend(r["issues"])
+            results, issues = self._review_code(code, opts)
         else:
             return self._envelope(False, degraded=True, error="缺 path 或 code 入参")
+        label = target or (list(code)[0] if isinstance(code, dict) and code else "")
+        payload = {"issues": issues, "lsp_diags": lsp_diags, "label": label}
+        return self._aggregate(results, payload, opts)
 
+    def _review_tree(self, root, opts):
+        """目录入参：展开 → 读内容 → 复用批量审查，最后挂上覆盖度。
+
+        复用 read_all + _review_code，不另写一套聚合：同一份结论只能有一个出处，
+        否则「审一个文件」和「审一个目录」很快又会给出两套口径。
+        """
+        files = audit_scan.collect(root)
+        cov = audit_scan.coverage(files)
+        if not files:
+            return audit_scan.empty_verdict(root, cov)
+        contents, errors = audit_scan.read_all(files)
+        if not contents:
+            failed = audit_scan.empty_verdict(root, cov)
+            failed["data"]["unreadable"] = errors
+            failed["error"] = "文件全都读不了，未做任何检查：%s" % root
+            return failed
+        r = self._review(code=contents, mode=opts["mode"], denoise=opts["denoise"],
+                         max_complexity=opts["max_complexity"], use_llm=opts["use_llm"],
+                         reuse_atoms=False, semantic=True)
+        r["root"] = root
+        r["coverage"] = cov
+        r["unreadable"] = errors
+        r["summary"] = "%s；%s" % (audit_scan.describe(cov), r.get("summary", ""))
+        return r
+
+    def _review_path(self, p, opts):
+        """单文件入参：审查 + 依赖图增强 + 模式规则。"""
+        with open(p, encoding="utf-8", errors="ignore") as fh:
+            content = fh.read()
+        fr = rv.review_file(p, use_llm=opts["use_llm"],
+                            max_complexity=opts["max_complexity"],
+                            reuse_atoms=opts["reuse_atoms"],
+                            semantic=opts["semantic"], denoise=opts["denoise"])
+        if opts["mode"] == "code":
+            self._attach_deps(p, content, fr)
+        r = {"file": p,
+             "score": fr.get("static_score", fr.get("score", 0)),
+             "static_issues": fr["static_issues"],
+             "issues": fr["issues"]}
+        if fr.get("severity_summary"):
+            r["severity_summary"] = fr["severity_summary"]
+        for key in ("language", "parser", "coverage"):
+            if key in fr:
+                r[key] = fr[key]
+        if opts["reuse_atoms"] and fr.get("reuse_suggestions"):
+            r["reuse_suggestions"] = fr["reuse_suggestions"]
+        r["score"] = self._apply_mode_rules(p, content, opts, r)
+        return [r], r["issues"]
+
+    def _attach_deps(self, p, content, fr):
+        """依赖图增强：把每个 issue 关联到「谁调用它」。拿不到图就跳过。"""
+        try:
+            graph = da.build_graph([p])
+            rv._dep_enrich(fr, content, graph)
+        except Exception:  # fail-open: 依赖图不可用就跳过增强，不影响审查结论
+            pass
+
+    def _review_code(self, code, opts):
+        """code 字典入参：{文件名: 内容} 或 {文件名: {content: ...}}。"""
+        results, issues = [], []
+        for name, content in code.items():
+            if not isinstance(content, str):
+                content = content.get("content", str(content))
+            one = self._review_one_code(name, content, opts)
+            results.append(one)
+            issues.extend(one["issues"])
+        return results, issues
+
+    def _review_one_code(self, name, content, opts):
+        """审一段内存里的代码。按文件名判语言，非 Python 不走 Python 解析器。"""
+        static = rv._analyze_dispatch(name, content, {
+            "max_complexity": opts["max_complexity"], "strict_undefined": False,
+            "semantic": opts["semantic"], "denoise": opts["denoise"]})
+        r = {"file": name, "score": static["score"],
+             "static_issues": static["all_issues"],
+             "issues": [dict(i, file=name) for i in static["all_issues"]],
+             "severity_summary": static.get("severity_summary", {})}
+        for key in ("language", "parser", "coverage"):
+            if key in static:
+                r[key] = static[key]
+        if opts["reuse_atoms"]:
+            r["reuse_suggestions"] = rv._reuse_suggestion(content)
+        r["score"] = self._apply_mode_rules(name, content, opts, r)
+        return r
+
+    def _apply_mode_rules(self, name, content, opts, r):
+        """design/layout/content 三种模式的额外规则，并折算扣分。返回新分数。"""
+        if opts["mode"] not in ("design", "layout", "content"):
+            return r["score"]
+        extra = self._mode_rules(name, content, opts["mode"])
+        r["issues"].extend(extra)
+        r["mode_issues"] = extra
+        if opts["denoise"]:
+            extra = [rv._classify_tier(i) for i in extra]
+        penalty = sum(rv.SEVERITY_WEIGHTS.get(i["severity"], 3) for i in extra)
+        return max(0, r["score"] - penalty)
+
+    def _aggregate(self, results, payload, opts):
+        """把逐文件结果合成一个结论：平均分、分级计数、LSP 并入评分。
+
+        payload 装「逐文件之外还要并进来的东西」：issues（扁平汇总）、
+        lsp_diags（LSP 诊断）、label（LSP issue 归属哪个文件）。
+        """
+        issues = payload["issues"]
+        lsp_diags = payload["lsp_diags"]
         score = int(round(sum(r["score"] for r in results) / len(results))) if results else 0
-        # P0-2 严重度去噪：全量聚合 P0/P1/P2 分级计数
         by_tier = {"P0": 0, "P1": 0, "P2": 0}
         for r in results:
             for i in r.get("issues", []):
                 t = i.get("tier", rv.SEVERITY_TIER.get(i.get("severity", "minor"), "P2"))
                 by_tier[t] = by_tier.get(t, 0) + 1
-        # LSP 诊断并入评分（OpenCode P1-3）：severity 1=error→重罚, 2=warn→中罚, 3=info→轻罚
         if lsp_diags:
-            lsp_issues = [{"severity": _sev_map(d.get("severity", 3)),
-                           "title": f"LSP[{d.get('source','lsp')}] {d.get('message','')[:80]}",
-                           "suggestion": "按 LSP 诊断修复",
-                           "file": path or (list(code.keys())[0] if isinstance(code, dict) and code else "?")}
-                          for d in lsp_diags]
-            penalty = sum(rv.SEVERITY_WEIGHTS.get(i["severity"], 3) for i in lsp_issues)
-            score = max(0, score - penalty)
-            issues = list(issues) + lsp_issues
+            score, issues = self._merge_lsp(lsp_diags, score, issues, payload["label"])
         return {"files": results, "score": score, "issues": issues,
                 "severity_summary": by_tier,
                 "lsp_diagnostics": lsp_diags,
                 "static_issues": [i for r in results for i in r["static_issues"]],
-                "summary": f"{mode} 审查 {len(results)} 文件, 平均分 {score}"
-                           + (f", LSP 诊断 {len(lsp_diags)} 项" if lsp_diags else ""),
+                "summary": "%s 审查 %d 文件, 平均分 %d" % (opts["mode"], len(results), score)
+                           + (", LSP 诊断 %d 项" % len(lsp_diags) if lsp_diags else ""),
                 # P1-4 人类在环：审查结论为 AI 生成，需人工复核后再放行（渐进式，不自动放行）
                 "human_review": {
                     "needs_review": True,
@@ -226,6 +289,17 @@ class CodeReviewAgent(AtomicAgent):
                     "progressive": True,
                     "auto_pass": False,
                 }}
+
+    def _merge_lsp(self, lsp_diags, score, issues, label):
+        """LSP 诊断并入评分（severity 1=error→重罚, 2=warn→中罚, 3=info→轻罚）。"""
+        lsp_issues = [{"severity": _sev_map(d.get("severity", 3)),
+                       "title": "LSP[%s] %s" % (d.get("source", "lsp"),
+                                                d.get("message", "")[:80]),
+                       "suggestion": "按 LSP 诊断修复",
+                       "file": label or "?"}
+                      for d in lsp_diags]
+        penalty = sum(rv.SEVERITY_WEIGHTS.get(i["severity"], 3) for i in lsp_issues)
+        return max(0, score - penalty), list(issues) + lsp_issues
 
     # ── LSP 诊断客户端（OpenCode P1-3）：连本地 LSP server 拉 diagnostics ──
     def _run_lsp(self, path=None, code=None, lsp_server=None, timeout=30):

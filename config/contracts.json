@@ -3,7 +3,7 @@
  "summary": {
   "atoms": 41,
   "capabilities": 166,
-  "declared_inputs": 278,
+  "declared_inputs": 277,
   "broken": 0,
   "undeclared": 56,
   "judgeable": 35,
@@ -700,7 +700,7 @@
   {
    "atom": "code-project",
    "domain": "project",
-   "version": "0.1.0",
+   "version": "0.2.0",
    "open_source": true,
    "entry": "main.py",
    "path": "agents/project/code-project",
@@ -713,18 +713,17 @@
    "declared_inputs": [
     "path",
     "file_pattern",
-    "max_complexity",
-    "impact"
+    "max_complexity"
    ],
    "declared_outputs": [
     "files",
     "snapshot",
     "issues",
-    "summary"
+    "summary",
+    "coverage"
    ],
    "accepted_params": [
     "file_pattern",
-    "impact",
     "max_complexity",
     "path"
    ],

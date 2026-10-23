@@ -17,7 +17,7 @@
 |----|----|
 | 原子 | 41 |
 | 能力 | 166 |
-| 声明输入 | 278 |
+| 声明输入 | 277 |
 | 断链 | 0 |
 | 漏记 | 56 |
 | 可静态判定的原子 | 35 / 41 |
@@ -44,7 +44,7 @@
 | `code-implement` | code | 2 | 7 | 0 | 0 |
 | `code-memory` | memory | 3 | 4 | 0 | 3 |
 | `code-plan` | plan | 2 | 5 | 0 | 1 |
-| `code-project` | project | 3 | 4 | 0 | 0 |
+| `code-project` | project | 3 | 3 | 0 | 0 |
 | `code-reuse` | reuse | 3 | 3 | 0 | 0 |
 | `code-review` | codereview | 9 | 11 | 0 | 6 |
 | `code-runloop` | code | 2 | 9 | 0 | 2 |
@@ -195,12 +195,12 @@
 
 ### code-project
 
-- 域：project ｜ 版本：0.1.0 ｜ 开源：是 ｜ 入口：`main.py`
+- 域：project ｜ 版本：0.2.0 ｜ 开源：是 ｜ 入口：`main.py`
 - 能力（3）：`project.analyze`、`project.load`、`project.scan`
 - 依赖：（无）
-- 声明输入：`path`、`file_pattern`、`max_complexity`、`impact`
-- 声明输出：`files`、`snapshot`、`issues`、`summary`
-- 实现接受：`file_pattern`、`impact`、`max_complexity`、`path`
+- 声明输入：`path`、`file_pattern`、`max_complexity`
+- 声明输出：`files`、`snapshot`、`issues`、`summary`、`coverage`
+- 实现接受：`file_pattern`、`max_complexity`、`path`
 
 ### code-reuse
 
