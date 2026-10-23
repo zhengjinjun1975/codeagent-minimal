@@ -372,24 +372,30 @@ def _site_of(node, rel, caller, scan):
     }
 
 
-def scan_calls(repo, atom_of):
+def scan_calls(repo, atom_of, skipped=None):
     """返回调用点列表。用 AST 而不是正则：只有 AST 能拿到调用点实际传了哪些关键字参数
     —— 这正是「编排传错参数 → TypeError → 被信封降级」的根因位置。
 
     二期每个调用点都带 `evidence`（门看得清多少）与 `seal`（包装器声明的转发边界）。
     `blind` 与 `sealed` 也**照样进列表**：看不见的东西必须被计数，否则门会假装全覆盖。
+
+    `skipped` 收集读不了/解析不了的文件：那些文件里的调用点门一个也看不见，
+    不计数就等于把盲区从账上抹掉（与 count_raw_sites 同一口径）。
     """
+    skipped = [] if skipped is None else skipped
     rows = []
     for p in _iter_py(repo, skip_tests=True):
         try:
             text = p.read_text(encoding="utf-8", errors="ignore")
-        except OSError:
+        except OSError as e:
+            skipped.append("%s: %s" % (_rel(p, repo), e))
             continue
         if "run_capability(" not in text:
             continue
         try:
             tree = ast.parse(text)
-        except SyntaxError:
+        except SyntaxError as e:
+            skipped.append("%s: SyntaxError line %s" % (_rel(p, repo), e.lineno))
             continue
         lines = text.splitlines()
         spans = _fn_spans(tree)
@@ -569,19 +575,23 @@ def _code_chains_in_fn(fn, rel, owner):
     return out
 
 
-def scan_code_chains(repo, atom_of):
-    """抽取代码内写死的组合（局部 list 字面量 + run_chain 引用）。"""
+def scan_code_chains(repo, atom_of, skipped=None):
+    """抽取代码内写死的组合（局部 list 字面量 + run_chain 引用）。
+    `skipped` 同 scan_calls：读不了/解析不了的文件要记下来，否则 G15 少看一处还报绿。"""
+    skipped = [] if skipped is None else skipped
     chains = []
     for p in _iter_py(repo, skip_tests=True):
         try:
             text = p.read_text(encoding="utf-8", errors="ignore")
-        except OSError:
+        except OSError as e:
+            skipped.append("%s: %s" % (_rel(p, repo), e))
             continue
         if "run_chain(" not in text:
             continue
         try:
             tree = ast.parse(text)
-        except SyntaxError:
+        except SyntaxError as e:
+            skipped.append("%s: SyntaxError line %s" % (_rel(p, repo), e.lineno))
             continue
         rel = _rel(p, repo)
         owner = atom_of(p) or "<编排层>"
@@ -940,7 +950,8 @@ def _scan_repo(repo):
     prov = {c: n for n, a in atoms.items() for c in a["provides"]}
     impls = {n: scan_impl(a, repo) for n, a in atoms.items()}
 
-    calls = scan_calls(repo, atom_of)
+    skipped = []
+    calls = scan_calls(repo, atom_of, skipped)
     for c in calls:
         # 能力名来自变量的调用点：名字不知道，**不算幻影**（那会天天误报）。
         # 它们只贡献"看不见多少"这个事实，不参与名字核对。
@@ -948,7 +959,7 @@ def _scan_repo(repo):
         c["atom"] = prov.get(c["capability"]) if c["capability"] else None
 
     tpl_chains, tpl_rel = load_template_chains(repo)
-    chains = tpl_chains + scan_code_chains(repo, atom_of)
+    chains = tpl_chains + scan_code_chains(repo, atom_of, skipped)
     _attach_resolution(chains, prov, impls)
 
     entries = load_entries(repo)
@@ -959,7 +970,8 @@ def _scan_repo(repo):
                 for n, a in atoms.items() for dp in (a.get("depends_on") or [])]
     sig_snap = load_signatures(repo)
     sig_now = build_signatures(impls, prov)
-    raw_sites, skipped = count_raw_sites(repo)
+    raw_sites, raw_skipped = count_raw_sites(repo)
+    skipped.extend(raw_skipped)
     return {
         "repo": repo, "reg": reg, "atoms": atoms, "prov": prov, "impls": impls,
         "calls": calls, "raw_sites": raw_sites, "raw_sites_skipped": skipped,
@@ -1328,7 +1340,10 @@ def _site_metrics(ctx):
         "call_sites_raw": ctx["raw_sites"],
         "call_sites_static": ev["verified"] + ev["name-only"],
         "call_sites_dynamic": max(0, ctx["raw_sites"] - len(calls)),
-        "unreadable_files": list(ctx["raw_sites_skipped"]),
+        # 三条扫描路径（count_raw_sites / scan_calls / scan_code_chains）里读不了、
+        # 解析不了、或者根本扫不进去的文件全记在这。以前只有第一条记，后两条
+        # 悄悄 continue——那些文件里的调用点门一个也看不见，盲区却报绿。
+        "skipped_files": list(ctx["raw_sites_skipped"]),
         "evidence": {k: ev[k] for k in EVIDENCE_LEVELS},
         "evidence_ratio": {k: round(ev[k] / float(len(calls) or 1), 4) for k in EVIDENCE_LEVELS},
         "blind_ratio": round(unseen / float(total), 4),
