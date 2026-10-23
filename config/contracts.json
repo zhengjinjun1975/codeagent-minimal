@@ -1,0 +1,2555 @@
+{
+ "schema": "codeagent-contracts-v1",
+ "summary": {
+  "atoms": 41,
+  "capabilities": 166,
+  "declared_inputs": 278,
+  "broken": 0,
+  "undeclared": 56,
+  "judgeable": 35,
+  "unjudgeable_atoms": [
+   "code-review",
+   "deadcode",
+   "doc-freshness",
+   "git-ops",
+   "mcp-client",
+   "method-impact"
+  ]
+ },
+ "atoms": [
+  {
+   "atom": "arch-review",
+   "domain": "archreview",
+   "version": "0.1.0",
+   "open_source": true,
+   "entry": "main.py",
+   "path": "agents/archreview/arch-review",
+   "provides": [
+    "archreview.layers",
+    "archreview.boundary",
+    "archreview.surface",
+    "archreview.intent"
+   ],
+   "depends_on": [],
+   "declared_inputs": [
+    "path"
+   ],
+   "declared_outputs": [
+    "layers",
+    "by_layer",
+    "violations",
+    "boundaries",
+    "inventory",
+    "missing",
+    "summary"
+   ],
+   "accepted_params": [
+    "path"
+   ],
+   "broken": [],
+   "undeclared": [],
+   "judgeable": true,
+   "permission": {},
+   "resource": {},
+   "capabilities": [
+    "archreview.boundary",
+    "archreview.intent",
+    "archreview.layers",
+    "archreview.surface"
+   ]
+  },
+  {
+   "atom": "atomicity-audit",
+   "domain": "atomic",
+   "version": "0.1.0",
+   "open_source": true,
+   "entry": "main.py",
+   "path": "agents/atomic/atomicity-audit",
+   "provides": [
+    "atomicity.manifest",
+    "atomicity.registry",
+    "atomicity.breaks"
+   ],
+   "depends_on": [],
+   "declared_inputs": [
+    "agents_dir",
+    "registry_path"
+   ],
+   "declared_outputs": [
+    "ok",
+    "issues",
+    "agents",
+    "registry_mismatch",
+    "breaks",
+    "verdict"
+   ],
+   "accepted_params": [
+    "agents_dir",
+    "registry_path"
+   ],
+   "broken": [],
+   "undeclared": [],
+   "judgeable": true,
+   "permission": {},
+   "resource": {},
+   "capabilities": [
+    "atomicity.breaks",
+    "atomicity.manifest",
+    "atomicity.registry"
+   ]
+  },
+  {
+   "atom": "browser-smoke",
+   "domain": "web",
+   "version": "0.1.0",
+   "open_source": true,
+   "entry": "main.py",
+   "path": "agents/web/browser-smoke",
+   "provides": [
+    "browsersmoke.run",
+    "ui.smoke"
+   ],
+   "depends_on": [],
+   "declared_inputs": [
+    "url",
+    "login",
+    "routes",
+    "chrome_path",
+    "port",
+    "headless",
+    "wait_sec",
+    "min_body"
+   ],
+   "declared_outputs": [
+    "results",
+    "summary",
+    "ok"
+   ],
+   "accepted_params": [
+    "chrome_path",
+    "headless",
+    "login",
+    "min_body",
+    "port",
+    "routes",
+    "url",
+    "wait_sec"
+   ],
+   "broken": [],
+   "undeclared": [],
+   "judgeable": true,
+   "permission": {},
+   "resource": {},
+   "capabilities": [
+    "browsersmoke.run",
+    "ui.smoke"
+   ]
+  },
+  {
+   "atom": "bug-deep",
+   "domain": "bugdeep",
+   "version": "0.1.0",
+   "open_source": true,
+   "entry": "main.py",
+   "path": "agents/bugdeep/bug-deep",
+   "provides": [
+    "bugdeep.model",
+    "bugdeep.adv",
+    "bugdeep.poc",
+    "bugdeep.rule"
+   ],
+   "depends_on": [],
+   "declared_inputs": [
+    "path",
+    "code",
+    "sink",
+    "title",
+    "rules_file"
+   ],
+   "declared_outputs": [
+    "attack_surface",
+    "findings",
+    "confirmed",
+    "evidence",
+    "rule",
+    "summary"
+   ],
+   "accepted_params": [
+    "code",
+    "path",
+    "rules_file",
+    "run",
+    "sink",
+    "timeout",
+    "title",
+    "verify"
+   ],
+   "broken": [],
+   "undeclared": [
+    "run",
+    "timeout",
+    "verify"
+   ],
+   "judgeable": true,
+   "permission": {},
+   "resource": {},
+   "capabilities": [
+    "bugdeep.adv",
+    "bugdeep.model",
+    "bugdeep.poc",
+    "bugdeep.rule"
+   ]
+  },
+  {
+   "atom": "cli-providers",
+   "domain": "subagent",
+   "version": "0.1.0",
+   "open_source": true,
+   "entry": "main.py",
+   "path": "agents/subagent/cli-providers",
+   "provides": [
+    "subagent.providers",
+    "subagent.dispatch",
+    "subagent.probe"
+   ],
+   "depends_on": [],
+   "declared_inputs": [
+    "task",
+    "provider",
+    "cwd",
+    "timeout",
+    "name"
+   ],
+   "declared_outputs": [
+    "providers",
+    "count",
+    "usable",
+    "ok",
+    "degraded",
+    "provider"
+   ],
+   "accepted_params": [
+    "cwd",
+    "name",
+    "provider",
+    "task",
+    "timeout"
+   ],
+   "broken": [],
+   "undeclared": [],
+   "judgeable": true,
+   "permission": {
+    "needs": [
+     "exec"
+    ],
+    "network": false
+   },
+   "resource": {
+    "model_calls": 0,
+    "timeout_sec": 600,
+    "memory_mb": 512
+   },
+   "capabilities": [
+    "subagent.dispatch",
+    "subagent.probe",
+    "subagent.providers"
+   ]
+  },
+  {
+   "atom": "code-deliver",
+   "domain": "deliver",
+   "version": "0.1.0",
+   "open_source": true,
+   "entry": "main.py",
+   "path": "agents/deliver/code-deliver",
+   "provides": [
+    "deliver.report",
+    "deliver.package"
+   ],
+   "depends_on": [],
+   "declared_inputs": [
+    "chain",
+    "outputs",
+    "evidence"
+   ],
+   "declared_outputs": [
+    "report",
+    "artifacts",
+    "verdict"
+   ],
+   "accepted_params": [
+    "artifacts",
+    "chain",
+    "evidence",
+    "outputs"
+   ],
+   "broken": [],
+   "undeclared": [
+    "artifacts"
+   ],
+   "judgeable": true,
+   "permission": {},
+   "resource": {},
+   "capabilities": [
+    "deliver.package",
+    "deliver.report"
+   ]
+  },
+  {
+   "atom": "code-dispatch",
+   "domain": "dispatch",
+   "version": "0.4.0",
+   "open_source": true,
+   "entry": "main.py",
+   "path": "agents/dispatch/code-dispatch",
+   "provides": [
+    "dispatch.template",
+    "dispatch.budget",
+    "dispatch.verify",
+    "dispatch.conflict",
+    "dispatch.permission",
+    "dispatch.verify_artifact",
+    "dispatch.assert_exit",
+    "dispatch.chain_select",
+    "dispatch.chain_default"
+   ],
+   "depends_on": [],
+   "declared_inputs": [
+    "background",
+    "goal",
+    "constraint",
+    "redline",
+    "deliverable",
+    "task",
+    "files_needed",
+    "language",
+    "claims",
+    "workdir",
+    "rerun_cmd",
+    "tasks",
+    "workspace",
+    "policy",
+    "action",
+    "resource",
+    "resource_type",
+    "target",
+    "expect",
+    "mode",
+    "script_path",
+    "templates_path",
+    "name"
+   ],
+   "declared_outputs": [
+    "template",
+    "budget",
+    "items",
+    "summary",
+    "conflicts",
+    "safe",
+    "recommendation",
+    "decision",
+    "policy",
+    "passed",
+    "checks",
+    "exit_code",
+    "stdout_tail",
+    "ok",
+    "matched",
+    "source",
+    "chain",
+    "template_name",
+    "score",
+    "hits",
+    "dropped",
+    "reason",
+    "default"
+   ],
+   "accepted_params": [
+    "action",
+    "available",
+    "background",
+    "budget",
+    "claims",
+    "constraint",
+    "decision",
+    "deliverable",
+    "expect",
+    "files_needed",
+    "goal",
+    "language",
+    "mode",
+    "name",
+    "policy",
+    "redline",
+    "rerun_cmd",
+    "resource",
+    "resource_type",
+    "rules",
+    "script_path",
+    "state_file",
+    "target",
+    "task",
+    "tasks",
+    "templates_path",
+    "workdir",
+    "workspace"
+   ],
+   "broken": [],
+   "undeclared": [
+    "available",
+    "budget",
+    "decision",
+    "rules",
+    "state_file"
+   ],
+   "judgeable": true,
+   "permission": {
+    "needs": [
+     "read",
+     "write",
+     "exec"
+    ],
+    "network": false
+   },
+   "resource": {
+    "model_calls": 0,
+    "timeout_sec": 600,
+    "memory_mb": 512
+   },
+   "capabilities": [
+    "dispatch.assert_exit",
+    "dispatch.budget",
+    "dispatch.chain_default",
+    "dispatch.chain_select",
+    "dispatch.conflict",
+    "dispatch.permission",
+    "dispatch.template",
+    "dispatch.verify",
+    "dispatch.verify_artifact"
+   ]
+  },
+  {
+   "atom": "code-evolve",
+   "domain": "evolve",
+   "version": "0.1.0",
+   "open_source": true,
+   "entry": "main.py",
+   "path": "agents/evolve/code-evolve",
+   "provides": [
+    "evolve.refine",
+    "evolve.skill",
+    "evolve.self_prompt",
+    "evolve.tdd"
+   ],
+   "depends_on": [
+    "memory.recall"
+   ],
+   "declared_inputs": [
+    "task",
+    "outcome",
+    "snapshot",
+    "memdir",
+    "auto_sediment",
+    "top_k"
+   ],
+   "declared_outputs": [
+    "observation",
+    "attribution",
+    "refinement",
+    "kept",
+    "verdict",
+    "skills",
+    "prompt",
+    "tdd"
+   ],
+   "accepted_params": [
+    "action",
+    "auto_sediment",
+    "bucket",
+    "max_fix",
+    "memdir",
+    "outcome",
+    "path",
+    "snapshot",
+    "task",
+    "top_k"
+   ],
+   "broken": [],
+   "undeclared": [
+    "action",
+    "bucket",
+    "max_fix",
+    "path"
+   ],
+   "judgeable": true,
+   "permission": {},
+   "resource": {},
+   "capabilities": [
+    "evolve.refine",
+    "evolve.self_prompt",
+    "evolve.skill",
+    "evolve.tdd"
+   ]
+  },
+  {
+   "atom": "code-fuzz",
+   "domain": "fuzz",
+   "version": "0.2.0",
+   "open_source": true,
+   "entry": "main.py",
+   "path": "agents/fuzz/code-fuzz",
+   "provides": [
+    "fuzz.gen",
+    "fuzz.run",
+    "fuzz.property",
+    "fuzz.project"
+   ],
+   "depends_on": [],
+   "declared_inputs": [
+    "path",
+    "funcname",
+    "iterations",
+    "timeout",
+    "seed",
+    "max_cases",
+    "properties",
+    "max_funcs"
+   ],
+   "declared_outputs": [
+    "func",
+    "cases",
+    "coverage_hint",
+    "runs",
+    "crashed",
+    "unhandled",
+    "failures",
+    "ok",
+    "details"
+   ],
+   "accepted_params": [
+    "funcname",
+    "iterations",
+    "max_cases",
+    "max_funcs",
+    "path",
+    "properties",
+    "seed",
+    "timeout"
+   ],
+   "broken": [],
+   "undeclared": [],
+   "judgeable": true,
+   "permission": {},
+   "resource": {},
+   "capabilities": [
+    "fuzz.gen",
+    "fuzz.project",
+    "fuzz.property",
+    "fuzz.run"
+   ]
+  },
+  {
+   "atom": "code-implement",
+   "domain": "code",
+   "version": "0.2.0",
+   "open_source": true,
+   "entry": "main.py",
+   "path": "agents/code/code-implement",
+   "provides": [
+    "code.implement",
+    "code.write"
+   ],
+   "depends_on": [],
+   "declared_inputs": [
+    "task",
+    "language",
+    "path",
+    "output_dir",
+    "domain",
+    "loop",
+    "max_iter"
+   ],
+   "declared_outputs": [
+    "files",
+    "score",
+    "summary",
+    "issues",
+    "versions",
+    "written",
+    "write_error",
+    "engine"
+   ],
+   "accepted_params": [
+    "domain",
+    "language",
+    "loop",
+    "max_iter",
+    "output_dir",
+    "path",
+    "task"
+   ],
+   "broken": [],
+   "undeclared": [],
+   "judgeable": true,
+   "permission": {},
+   "resource": {},
+   "capabilities": [
+    "code.implement",
+    "code.write"
+   ]
+  },
+  {
+   "atom": "code-memory",
+   "domain": "memory",
+   "version": "0.1.1",
+   "open_source": true,
+   "entry": "main.py",
+   "path": "agents/memory/code-memory",
+   "provides": [
+    "memory.save",
+    "memory.recall",
+    "memory.sediment"
+   ],
+   "depends_on": [],
+   "declared_inputs": [
+    "findings",
+    "task",
+    "memdir",
+    "top_k"
+   ],
+   "declared_outputs": [
+    "added",
+    "lessons",
+    "prompt",
+    "skills"
+   ],
+   "accepted_params": [
+    "action",
+    "bucket",
+    "conf",
+    "findings",
+    "memdir",
+    "task",
+    "top_k"
+   ],
+   "broken": [],
+   "undeclared": [
+    "action",
+    "bucket",
+    "conf"
+   ],
+   "judgeable": true,
+   "permission": {},
+   "resource": {},
+   "capabilities": [
+    "memory.recall",
+    "memory.save",
+    "memory.sediment"
+   ]
+  },
+  {
+   "atom": "code-plan",
+   "domain": "plan",
+   "version": "0.1.0",
+   "open_source": true,
+   "entry": "main.py",
+   "path": "agents/plan/code-plan",
+   "provides": [
+    "plan.think",
+    "plan.gen"
+   ],
+   "depends_on": [
+    "taskstate.track"
+   ],
+   "declared_inputs": [
+    "task",
+    "language",
+    "domain",
+    "files_needed",
+    "spec"
+   ],
+   "declared_outputs": [
+    "plan",
+    "assumptions",
+    "files_needed",
+    "constraint_chain",
+    "questions",
+    "files",
+    "score"
+   ],
+   "accepted_params": [
+    "code",
+    "domain",
+    "files_needed",
+    "language",
+    "spec",
+    "task"
+   ],
+   "broken": [],
+   "undeclared": [
+    "code"
+   ],
+   "judgeable": true,
+   "permission": {},
+   "resource": {},
+   "capabilities": [
+    "plan.gen",
+    "plan.think"
+   ]
+  },
+  {
+   "atom": "code-project",
+   "domain": "project",
+   "version": "0.1.0",
+   "open_source": true,
+   "entry": "main.py",
+   "path": "agents/project/code-project",
+   "provides": [
+    "project.load",
+    "project.scan",
+    "project.analyze"
+   ],
+   "depends_on": [],
+   "declared_inputs": [
+    "path",
+    "file_pattern",
+    "max_complexity",
+    "impact"
+   ],
+   "declared_outputs": [
+    "files",
+    "snapshot",
+    "issues",
+    "summary"
+   ],
+   "accepted_params": [
+    "file_pattern",
+    "impact",
+    "max_complexity",
+    "path"
+   ],
+   "broken": [],
+   "undeclared": [],
+   "judgeable": true,
+   "permission": {},
+   "resource": {},
+   "capabilities": [
+    "project.analyze",
+    "project.load",
+    "project.scan"
+   ]
+  },
+  {
+   "atom": "code-reuse",
+   "domain": "reuse",
+   "version": "0.1.0",
+   "open_source": true,
+   "entry": "main.py",
+   "path": "agents/reuse/code-reuse",
+   "provides": [
+    "reuse.local",
+    "reuse.atom",
+    "reuse.remote"
+   ],
+   "depends_on": [],
+   "declared_inputs": [
+    "content",
+    "path",
+    "top_k"
+   ],
+   "declared_outputs": [
+    "suggestions",
+    "atoms",
+    "count"
+   ],
+   "accepted_params": [
+    "content",
+    "path",
+    "top_k"
+   ],
+   "broken": [],
+   "undeclared": [],
+   "judgeable": true,
+   "permission": {},
+   "resource": {},
+   "capabilities": [
+    "reuse.atom",
+    "reuse.local",
+    "reuse.remote"
+   ]
+  },
+  {
+   "atom": "code-review",
+   "domain": "codereview",
+   "version": "0.2.1",
+   "open_source": true,
+   "entry": "main.py",
+   "path": "agents/codereview/code-review",
+   "provides": [
+    "codereview.review",
+    "codereview.design",
+    "codereview.layout",
+    "codereview.content",
+    "codereview.lsp",
+    "codereview.semantic",
+    "codereview.self_eval",
+    "codereview.light",
+    "codereview.deep"
+   ],
+   "depends_on": [
+    "impact.analyze"
+   ],
+   "declared_inputs": [
+    "path",
+    "code",
+    "mode",
+    "use_llm",
+    "reuse_atoms",
+    "max_complexity",
+    "lsp",
+    "lsp_server",
+    "semantic",
+    "denoise",
+    "base"
+   ],
+   "declared_outputs": [
+    "score",
+    "issues",
+    "static_issues",
+    "model",
+    "reuse_suggestions",
+    "lsp_diagnostics",
+    "severity_summary",
+    "self_eval",
+    "human_review",
+    "security_baseline",
+    "dataflow_findings",
+    "adversarial",
+    "changed_files"
+   ],
+   "accepted_params": [
+    "base",
+    "code",
+    "denoise",
+    "file",
+    "findings",
+    "fp",
+    "lsp",
+    "lsp_server",
+    "max_complexity",
+    "missed",
+    "mode",
+    "path",
+    "reuse_atoms",
+    "semantic",
+    "stats_only",
+    "timeout",
+    "use_llm"
+   ],
+   "broken": [],
+   "undeclared": [
+    "file",
+    "findings",
+    "fp",
+    "missed",
+    "stats_only",
+    "timeout"
+   ],
+   "judgeable": false,
+   "permission": {},
+   "resource": {},
+   "capabilities": [
+    "codereview.content",
+    "codereview.deep",
+    "codereview.design",
+    "codereview.layout",
+    "codereview.light",
+    "codereview.lsp",
+    "codereview.review",
+    "codereview.self_eval",
+    "codereview.semantic"
+   ]
+  },
+  {
+   "atom": "code-runloop",
+   "domain": "code",
+   "version": "0.3.0",
+   "open_source": true,
+   "entry": "main.py",
+   "path": "agents/code/code-runloop",
+   "provides": [
+    "code.runloop",
+    "code.patch"
+   ],
+   "depends_on": [],
+   "declared_inputs": [
+    "task",
+    "path",
+    "output_dir",
+    "verify",
+    "language",
+    "max_iterations",
+    "fake_model",
+    "edits",
+    "write_root"
+   ],
+   "declared_outputs": [
+    "files",
+    "summary",
+    "verify_passed",
+    "verify_cmd",
+    "turns_used",
+    "tool_log",
+    "trace",
+    "engine",
+    "last_model_text",
+    "applied",
+    "changed"
+   ],
+   "accepted_params": [
+    "edits",
+    "fake_model",
+    "language",
+    "max_iterations",
+    "model_config",
+    "output_dir",
+    "path",
+    "task",
+    "timeout",
+    "verify",
+    "write_root"
+   ],
+   "broken": [],
+   "undeclared": [
+    "model_config",
+    "timeout"
+   ],
+   "judgeable": true,
+   "permission": {
+    "needs": [
+     "read",
+     "write",
+     "exec",
+     "net"
+    ],
+    "network": true
+   },
+   "resource": {
+    "model_calls": 1,
+    "timeout_sec": 600,
+    "memory_mb": 512
+   },
+   "capabilities": [
+    "code.patch",
+    "code.runloop"
+   ]
+  },
+  {
+   "atom": "code-skill",
+   "domain": "skill",
+   "version": "0.1.0",
+   "open_source": true,
+   "entry": "main.py",
+   "path": "agents/skill/code-skill",
+   "provides": [
+    "skill.list",
+    "skill.load",
+    "skill.export",
+    "skill.sediment"
+   ],
+   "depends_on": [
+    "memory.recall"
+   ],
+   "declared_inputs": [
+    "paths",
+    "name",
+    "content",
+    "task",
+    "action",
+    "bucket",
+    "memdir",
+    "frontmatter"
+   ],
+   "declared_outputs": [
+    "skills",
+    "skill",
+    "exported",
+    "added",
+    "path"
+   ],
+   "accepted_params": [
+    "action",
+    "bucket",
+    "content",
+    "description",
+    "dest_dir",
+    "frontmatter",
+    "memdir",
+    "name",
+    "path",
+    "paths",
+    "task"
+   ],
+   "broken": [],
+   "undeclared": [
+    "description",
+    "dest_dir",
+    "path"
+   ],
+   "judgeable": true,
+   "permission": {},
+   "resource": {},
+   "capabilities": [
+    "skill.export",
+    "skill.list",
+    "skill.load",
+    "skill.sediment"
+   ]
+  },
+  {
+   "atom": "code-test",
+   "domain": "test",
+   "version": "0.3.0",
+   "open_source": true,
+   "entry": "main.py",
+   "path": "agents/test/code-test",
+   "provides": [
+    "test.gen",
+    "test.run",
+    "test.tdd",
+    "test.snapshot",
+    "test.affected",
+    "test.select",
+    "test.coverage_analysis",
+    "test.project"
+   ],
+   "depends_on": [],
+   "declared_inputs": [
+    "code",
+    "path",
+    "target_dir",
+    "task",
+    "project_root",
+    "test_map",
+    "human_review",
+    "timeout",
+    "exclude"
+   ],
+   "declared_outputs": [
+    "test_files",
+    "smoke",
+    "coverage",
+    "unit",
+    "boundary",
+    "mutation",
+    "stability",
+    "red_green",
+    "coverage_analysis",
+    "human_review",
+    "smoke_failed",
+    "summary",
+    "skipped"
+   ],
+   "accepted_params": [
+    "args_by_func",
+    "changed_files",
+    "code",
+    "do_boundary",
+    "do_mutation",
+    "do_stability",
+    "exclude",
+    "funcs",
+    "human_review",
+    "max_iter",
+    "path",
+    "project_root",
+    "run",
+    "snapshot_dir",
+    "target_dir",
+    "task",
+    "test_map",
+    "timeout",
+    "transitive"
+   ],
+   "broken": [],
+   "undeclared": [
+    "args_by_func",
+    "changed_files",
+    "do_boundary",
+    "do_mutation",
+    "do_stability",
+    "funcs",
+    "max_iter",
+    "run",
+    "snapshot_dir",
+    "transitive"
+   ],
+   "judgeable": true,
+   "permission": {
+    "needs": [
+     "read",
+     "write",
+     "exec"
+    ],
+    "network": false
+   },
+   "resource": {
+    "model_calls": 0,
+    "timeout_sec": 600,
+    "memory_mb": 1024
+   },
+   "capabilities": [
+    "test.affected",
+    "test.coverage_analysis",
+    "test.gen",
+    "test.project",
+    "test.run",
+    "test.select",
+    "test.snapshot",
+    "test.tdd"
+   ]
+  },
+  {
+   "atom": "command-approvals",
+   "domain": "approval",
+   "version": "0.2.0",
+   "open_source": true,
+   "entry": "main.py",
+   "path": "agents/approval/command-approvals",
+   "provides": [
+    "approval.check",
+    "approval.classify",
+    "approval.resolve",
+    "approval.policy",
+    "approval.orchestrate"
+   ],
+   "depends_on": [],
+   "declared_inputs": [
+    "resource",
+    "resource_type",
+    "policy",
+    "decision",
+    "user_choice",
+    "runner",
+    "cache_path",
+    "max_escalations"
+   ],
+   "declared_outputs": [
+    "decision",
+    "reason",
+    "rule",
+    "tier",
+    "verdict",
+    "granted",
+    "matched_keywords",
+    "pending",
+    "executed",
+    "profile",
+    "attempts",
+    "cached"
+   ],
+   "accepted_params": [
+    "cache_path",
+    "custom",
+    "decision",
+    "max_escalations",
+    "policy",
+    "resource",
+    "resource_type",
+    "runner",
+    "user_choice"
+   ],
+   "broken": [],
+   "undeclared": [
+    "custom"
+   ],
+   "judgeable": true,
+   "permission": {
+    "needs": [
+     "read",
+     "write"
+    ],
+    "network": false
+   },
+   "resource": {
+    "model_calls": 0,
+    "timeout_sec": 120,
+    "memory_mb": 512
+   },
+   "capabilities": [
+    "approval.check",
+    "approval.classify",
+    "approval.orchestrate",
+    "approval.policy",
+    "approval.resolve"
+   ]
+  },
+  {
+   "atom": "complexity-gate",
+   "domain": "model",
+   "version": "0.1.0",
+   "open_source": true,
+   "entry": "main.py",
+   "path": "agents/model/complexity-gate",
+   "provides": [
+    "model.assess_complexity"
+   ],
+   "depends_on": [],
+   "declared_inputs": [
+    "text"
+   ],
+   "declared_outputs": [
+    "echo"
+   ],
+   "accepted_params": [
+    "hints",
+    "rules",
+    "task",
+    "text"
+   ],
+   "broken": [],
+   "undeclared": [
+    "hints",
+    "rules",
+    "task"
+   ],
+   "judgeable": true,
+   "permission": {
+    "needs": [],
+    "network": false
+   },
+   "resource": {
+    "model_calls": 0,
+    "timeout_sec": 120,
+    "memory_mb": 512
+   },
+   "capabilities": [
+    "model.assess_complexity"
+   ]
+  },
+  {
+   "atom": "context-compact",
+   "domain": "context",
+   "version": "0.5.0",
+   "open_source": true,
+   "entry": "main.py",
+   "path": "agents/context/context-compact",
+   "provides": [
+    "context.estimate",
+    "context.compact",
+    "context.budget",
+    "context.offload",
+    "context.disclose",
+    "context.compaction_cost",
+    "context.edit",
+    "context.store",
+    "context.reveal"
+   ],
+   "depends_on": [],
+   "declared_inputs": [
+    "data",
+    "text",
+    "steps",
+    "max_tokens",
+    "keep",
+    "cap",
+    "content",
+    "label",
+    "keep_head",
+    "keep_tail",
+    "store_dir",
+    "registry_desc",
+    "task",
+    "top_k",
+    "before",
+    "after"
+   ],
+   "declared_outputs": [
+    "tokens",
+    "compact",
+    "_compact",
+    "used_tokens",
+    "budget",
+    "overshoot",
+    "compacted",
+    "dropped",
+    "dropped_capabilities",
+    "action",
+    "enforced",
+    "inlined",
+    "offloaded_path",
+    "original_tokens",
+    "inlined_tokens",
+    "loaded",
+    "deferred_count",
+    "verdict",
+    "recoverable",
+    "lost",
+    "lost_tokens",
+    "reacquisition_hops"
+   ],
+   "accepted_params": [
+    "after",
+    "before",
+    "cap",
+    "content",
+    "data",
+    "edits",
+    "handle",
+    "items",
+    "keep",
+    "keep_head",
+    "keep_tail",
+    "label",
+    "limit",
+    "max_tokens",
+    "offset",
+    "registry_desc",
+    "steps",
+    "store_dir",
+    "task",
+    "text",
+    "top_k"
+   ],
+   "broken": [],
+   "undeclared": [
+    "edits",
+    "handle",
+    "items",
+    "limit",
+    "offset"
+   ],
+   "judgeable": true,
+   "permission": {
+    "needs": [
+     "read",
+     "write"
+    ],
+    "network": false
+   },
+   "resource": {
+    "model_calls": 0,
+    "timeout_sec": 120,
+    "memory_mb": 512
+   },
+   "capabilities": [
+    "context.budget",
+    "context.compact",
+    "context.compaction_cost",
+    "context.disclose",
+    "context.edit",
+    "context.estimate",
+    "context.offload",
+    "context.reveal",
+    "context.store"
+   ]
+  },
+  {
+   "atom": "deadcode",
+   "domain": "impact",
+   "version": "0.1.0",
+   "open_source": true,
+   "entry": "main.py",
+   "path": "agents/impact/deadcode",
+   "provides": [
+    "deadcode.scan",
+    "deadcode.stats"
+   ],
+   "depends_on": [],
+   "declared_inputs": [
+    "path",
+    "threshold"
+   ],
+   "declared_outputs": [
+    "total",
+    "live",
+    "dead_count",
+    "ratio",
+    "roots",
+    "dead",
+    "dead_by_file"
+   ],
+   "accepted_params": [
+    "path",
+    "threshold"
+   ],
+   "broken": [],
+   "undeclared": [],
+   "judgeable": false,
+   "permission": {},
+   "resource": {},
+   "capabilities": [
+    "deadcode.scan",
+    "deadcode.stats"
+   ]
+  },
+  {
+   "atom": "dep-impact",
+   "domain": "impact",
+   "version": "0.1.0",
+   "open_source": true,
+   "entry": "main.py",
+   "path": "agents/impact/dep-impact",
+   "provides": [
+    "impact.analyze",
+    "impact.circular",
+    "impact.coupling"
+   ],
+   "depends_on": [],
+   "declared_inputs": [
+    "path",
+    "symbol",
+    "impact",
+    "transitive"
+   ],
+   "declared_outputs": [
+    "files",
+    "entities",
+    "edges",
+    "coupling",
+    "circular_imports",
+    "impact"
+   ],
+   "accepted_params": [
+    "impact",
+    "path",
+    "symbol",
+    "transitive"
+   ],
+   "broken": [],
+   "undeclared": [],
+   "judgeable": true,
+   "permission": {},
+   "resource": {},
+   "capabilities": [
+    "impact.analyze",
+    "impact.circular",
+    "impact.coupling"
+   ]
+  },
+  {
+   "atom": "dep-scan",
+   "domain": "depscan",
+   "version": "0.2.0",
+   "open_source": true,
+   "entry": "main.py",
+   "path": "agents/depscan/dep-scan",
+   "provides": [
+    "depscan.scan",
+    "depscan.sca",
+    "depscan.taint",
+    "depscan.osv",
+    "depscan.chainbreak"
+   ],
+   "depends_on": [],
+   "declared_inputs": [
+    "target",
+    "osv_query",
+    "allow_remote",
+    "repos"
+   ],
+   "declared_outputs": [
+    "deps",
+    "vulns",
+    "sca",
+    "taint",
+    "findings",
+    "total_findings",
+    "summary",
+    "broken",
+    "checks",
+    "by_tier"
+   ],
+   "accepted_params": [
+    "allow_remote",
+    "osv_query",
+    "repos",
+    "target"
+   ],
+   "broken": [],
+   "undeclared": [],
+   "judgeable": true,
+   "permission": {},
+   "resource": {},
+   "capabilities": [
+    "depscan.chainbreak",
+    "depscan.osv",
+    "depscan.sca",
+    "depscan.scan",
+    "depscan.taint"
+   ]
+  },
+  {
+   "atom": "doc-freshness",
+   "domain": "docs",
+   "version": "0.2.0",
+   "open_source": true,
+   "entry": "main.py",
+   "path": "agents/docs/doc-freshness",
+   "provides": [
+    "doc.anchor",
+    "doc.stale",
+    "doc.draft"
+   ],
+   "depends_on": [],
+   "declared_inputs": [
+    "path",
+    "root"
+   ],
+   "declared_outputs": [
+    "file",
+    "anchors",
+    "ok_count",
+    "stale",
+    "unresolved",
+    "total_anchors",
+    "stale_count",
+    "unresolved_count",
+    "draft_count",
+    "guarded_count",
+    "managed_zones",
+    "drafts",
+    "guarded"
+   ],
+   "accepted_params": [
+    "out",
+    "path",
+    "root"
+   ],
+   "broken": [],
+   "undeclared": [
+    "out"
+   ],
+   "judgeable": false,
+   "permission": {
+    "needs": [
+     "read",
+     "write"
+    ],
+    "network": false
+   },
+   "resource": {
+    "model_calls": 0,
+    "timeout_sec": 120,
+    "memory_mb": 1024
+   },
+   "capabilities": [
+    "doc.anchor",
+    "doc.draft",
+    "doc.stale"
+   ]
+  },
+  {
+   "atom": "domain-review",
+   "domain": "domain",
+   "version": "0.1.0",
+   "open_source": true,
+   "entry": "main.py",
+   "path": "agents/domain/domain-review",
+   "provides": [
+    "domain.imports",
+    "domain.valve"
+   ],
+   "depends_on": [],
+   "declared_inputs": [
+    "repos",
+    "target",
+    "rules",
+    "data"
+   ],
+   "declared_outputs": [
+    "ok",
+    "broken",
+    "topology",
+    "violations",
+    "rules",
+    "verdict"
+   ],
+   "accepted_params": [
+    "data",
+    "repos",
+    "rules",
+    "target"
+   ],
+   "broken": [],
+   "undeclared": [],
+   "judgeable": true,
+   "permission": {},
+   "resource": {},
+   "capabilities": [
+    "domain.imports",
+    "domain.valve"
+   ]
+  },
+  {
+   "atom": "event-log",
+   "domain": "memory",
+   "version": "0.1.0",
+   "open_source": true,
+   "entry": "main.py",
+   "path": "agents/memory/event-log",
+   "provides": [
+    "event.append",
+    "event.checkpoint",
+    "event.replay",
+    "event.timeline"
+   ],
+   "depends_on": [],
+   "declared_inputs": [
+    "session_key",
+    "kind",
+    "payload",
+    "outcome",
+    "state",
+    "from_seq",
+    "to_seq",
+    "store_dir"
+   ],
+   "declared_outputs": [
+    "seq",
+    "events",
+    "timeline",
+    "restored_state",
+    "up_to_seq",
+    "state_digest"
+   ],
+   "accepted_params": [
+    "from_seq",
+    "kind",
+    "outcome",
+    "payload",
+    "session_key",
+    "state",
+    "store_dir",
+    "to_seq"
+   ],
+   "broken": [],
+   "undeclared": [],
+   "judgeable": true,
+   "permission": {
+    "needs": [
+     "read",
+     "write"
+    ],
+    "network": false
+   },
+   "resource": {
+    "model_calls": 0,
+    "timeout_sec": 120,
+    "memory_mb": 512
+   },
+   "capabilities": [
+    "event.append",
+    "event.checkpoint",
+    "event.replay",
+    "event.timeline"
+   ]
+  },
+  {
+   "atom": "git-ops",
+   "domain": "tools",
+   "version": "0.1.0",
+   "open_source": true,
+   "entry": "main.py",
+   "path": "agents/tools/git-ops",
+   "provides": [
+    "git.status",
+    "git.diff",
+    "git.log",
+    "git.commit",
+    "git.branch"
+   ],
+   "depends_on": [],
+   "declared_inputs": [
+    "path",
+    "action",
+    "name",
+    "message",
+    "n",
+    "staged",
+    "base"
+   ],
+   "declared_outputs": [
+    "branch",
+    "clean",
+    "changed",
+    "diff",
+    "files",
+    "stat",
+    "commits",
+    "sha",
+    "committed",
+    "branches",
+    "current",
+    "created",
+    "switched"
+   ],
+   "accepted_params": [
+    "action",
+    "base",
+    "message",
+    "n",
+    "name",
+    "path",
+    "paths",
+    "staged"
+   ],
+   "broken": [],
+   "undeclared": [
+    "paths"
+   ],
+   "judgeable": false,
+   "permission": {
+    "needs": [
+     "exec"
+    ],
+    "network": false
+   },
+   "resource": {
+    "model_calls": 0,
+    "timeout_sec": 600,
+    "memory_mb": 512
+   },
+   "capabilities": [
+    "git.branch",
+    "git.commit",
+    "git.diff",
+    "git.log",
+    "git.status"
+   ]
+  },
+  {
+   "atom": "guard",
+   "domain": "guard",
+   "version": "0.2.0",
+   "open_source": true,
+   "entry": "main.py",
+   "path": "agents/guard/guard",
+   "provides": [
+    "guard.pre",
+    "guard.post",
+    "guard.pipeline",
+    "guard.check",
+    "guard.exit_intercept",
+    "guard.selfcheck",
+    "guard.loop_guard"
+   ],
+   "depends_on": [],
+   "declared_inputs": [
+    "path",
+    "code",
+    "paths",
+    "govern",
+    "task",
+    "artifacts",
+    "checklist",
+    "session_key",
+    "file_path",
+    "bump",
+    "threshold",
+    "store_dir",
+    "since"
+   ],
+   "declared_outputs": [
+    "issues",
+    "secrets",
+    "verdict",
+    "files",
+    "summary",
+    "total",
+    "passed",
+    "failed",
+    "next_prompt",
+    "items",
+    "stalled",
+    "count",
+    "hint",
+    "evidence"
+   ],
+   "accepted_params": [
+    "artifacts",
+    "bump",
+    "checklist",
+    "code",
+    "file_path",
+    "govern",
+    "path",
+    "paths",
+    "session_key",
+    "since",
+    "spec",
+    "store_dir",
+    "task",
+    "threshold"
+   ],
+   "broken": [],
+   "undeclared": [
+    "spec"
+   ],
+   "judgeable": true,
+   "permission": {
+    "needs": [
+     "read",
+     "write",
+     "exec",
+     "net"
+    ],
+    "network": true
+   },
+   "resource": {
+    "model_calls": 1,
+    "timeout_sec": 600,
+    "memory_mb": 1024
+   },
+   "capabilities": [
+    "guard.check",
+    "guard.exit_intercept",
+    "guard.loop_guard",
+    "guard.pipeline",
+    "guard.post",
+    "guard.pre",
+    "guard.selfcheck"
+   ]
+  },
+  {
+   "atom": "llm-router",
+   "domain": "llm",
+   "version": "0.2.0",
+   "open_source": true,
+   "entry": "main.py",
+   "path": "agents/llm/llm-router",
+   "provides": [
+    "llm.generate",
+    "llm.review",
+    "llm.list_models",
+    "llm.registry"
+   ],
+   "depends_on": [],
+   "declared_inputs": [
+    "messages",
+    "temp",
+    "max_tokens",
+    "local_only",
+    "config_path",
+    "provider",
+    "model",
+    "api_key"
+   ],
+   "declared_outputs": [
+    "content",
+    "model",
+    "provider",
+    "type",
+    "models",
+    "registry"
+   ],
+   "accepted_params": [
+    "api_key",
+    "config_path",
+    "local_only",
+    "max_tokens",
+    "messages",
+    "model",
+    "provider",
+    "temp"
+   ],
+   "broken": [],
+   "undeclared": [],
+   "judgeable": true,
+   "permission": {},
+   "resource": {},
+   "capabilities": [
+    "llm.generate",
+    "llm.list_models",
+    "llm.registry",
+    "llm.review"
+   ]
+  },
+  {
+   "atom": "localized",
+   "domain": "locality",
+   "version": "0.1.0",
+   "open_source": true,
+   "entry": "main.py",
+   "path": "agents/locality/localized",
+   "provides": [
+    "local.audit",
+    "local.chain",
+    "local.route"
+   ],
+   "depends_on": [],
+   "declared_inputs": [
+    "target",
+    "code",
+    "local_only",
+    "candidates",
+    "config_path",
+    "timeout"
+   ],
+   "declared_outputs": [
+    "ok",
+    "signals",
+    "route",
+    "local_up",
+    "verdict",
+    "fallback"
+   ],
+   "accepted_params": [
+    "candidates",
+    "code",
+    "config_path",
+    "local_only",
+    "target",
+    "timeout"
+   ],
+   "broken": [],
+   "undeclared": [],
+   "judgeable": true,
+   "permission": {},
+   "resource": {},
+   "capabilities": [
+    "local.audit",
+    "local.chain",
+    "local.route"
+   ]
+  },
+  {
+   "atom": "mcp-client",
+   "domain": "mcp",
+   "version": "0.2.0",
+   "open_source": true,
+   "entry": "main.py",
+   "path": "agents/mcp/mcp-client",
+   "provides": [
+    "mcp.list",
+    "mcp.tools",
+    "mcp.call",
+    "mcp.connect",
+    "mcp.guard"
+   ],
+   "depends_on": [],
+   "declared_inputs": [
+    "server",
+    "endpoint",
+    "command",
+    "tools",
+    "timeout",
+    "local_only",
+    "allow_remote",
+    "allow_tools",
+    "action",
+    "text",
+    "description",
+    "name",
+    "tool",
+    "source"
+   ],
+   "declared_outputs": [
+    "servers",
+    "tools",
+    "result",
+    "server",
+    "guard",
+    "findings",
+    "text"
+   ],
+   "accepted_params": [
+    "action",
+    "allow_remote",
+    "allow_tools",
+    "arguments",
+    "command",
+    "description",
+    "endpoint",
+    "local_only",
+    "name",
+    "server",
+    "servers",
+    "source",
+    "text",
+    "timeout",
+    "tool",
+    "tools"
+   ],
+   "broken": [],
+   "undeclared": [
+    "arguments",
+    "servers"
+   ],
+   "judgeable": false,
+   "permission": {
+    "needs": [
+     "read",
+     "exec",
+     "net"
+    ],
+    "network": true
+   },
+   "resource": {
+    "model_calls": 1,
+    "timeout_sec": 600,
+    "memory_mb": 512
+   },
+   "capabilities": [
+    "mcp.call",
+    "mcp.connect",
+    "mcp.guard",
+    "mcp.list",
+    "mcp.tools"
+   ]
+  },
+  {
+   "atom": "method-impact",
+   "domain": "impact",
+   "version": "0.1.0",
+   "open_source": true,
+   "entry": "main.py",
+   "path": "agents/impact/method-impact",
+   "provides": [
+    "impact.method",
+    "impact.kind"
+   ],
+   "depends_on": [],
+   "declared_inputs": [
+    "path",
+    "symbol",
+    "transitive",
+    "max_depth",
+    "caller",
+    "to"
+   ],
+   "declared_outputs": [
+    "symbol",
+    "impact",
+    "paths",
+    "kind",
+    "entities",
+    "edges"
+   ],
+   "accepted_params": [
+    "caller",
+    "max_depth",
+    "path",
+    "symbol",
+    "to",
+    "transitive"
+   ],
+   "broken": [],
+   "undeclared": [],
+   "judgeable": false,
+   "permission": {},
+   "resource": {},
+   "capabilities": [
+    "impact.kind",
+    "impact.method"
+   ]
+  },
+  {
+   "atom": "minimalist-style",
+   "domain": "codereview",
+   "version": "0.1.0",
+   "open_source": true,
+   "entry": "main.py",
+   "path": "agents/codereview/minimalist-style",
+   "provides": [
+    "minimal.style",
+    "minimal.deps",
+    "minimal.independent"
+   ],
+   "depends_on": [],
+   "declared_inputs": [
+    "path",
+    "code",
+    "strict"
+   ],
+   "declared_outputs": [
+    "ok",
+    "score",
+    "issues",
+    "third_party",
+    "signals",
+    "verdict"
+   ],
+   "accepted_params": [
+    "code",
+    "path",
+    "strict"
+   ],
+   "broken": [],
+   "undeclared": [],
+   "judgeable": true,
+   "permission": {},
+   "resource": {},
+   "capabilities": [
+    "minimal.deps",
+    "minimal.independent",
+    "minimal.style"
+   ]
+  },
+  {
+   "atom": "model-fallback",
+   "domain": "model",
+   "version": "0.2.0",
+   "open_source": true,
+   "entry": "main.py",
+   "path": "agents/model/model-fallback",
+   "provides": [
+    "model.chain",
+    "model.route",
+    "model.candidates",
+    "model.rule_match",
+    "model.cache_lookup",
+    "model.cache_put",
+    "model.cascade"
+   ],
+   "depends_on": [
+    "llm.list_models"
+   ],
+   "declared_inputs": [
+    "messages",
+    "call_model",
+    "purpose",
+    "preference",
+    "local_only",
+    "candidates",
+    "text",
+    "rules",
+    "ttl_sec",
+    "store_dir",
+    "intent"
+   ],
+   "declared_outputs": [
+    "ok",
+    "verdict",
+    "provider",
+    "type",
+    "result",
+    "fell_back",
+    "candidates",
+    "errors",
+    "layer",
+    "shortcut",
+    "matched",
+    "handler",
+    "confidence",
+    "hit",
+    "key",
+    "size"
+   ],
+   "accepted_params": [
+    "call_model",
+    "candidates",
+    "intent",
+    "local_only",
+    "messages",
+    "preference",
+    "purpose",
+    "rules",
+    "store_dir",
+    "text",
+    "ttl_sec"
+   ],
+   "broken": [],
+   "undeclared": [],
+   "judgeable": true,
+   "permission": {
+    "needs": [
+     "read",
+     "write"
+    ],
+    "network": false
+   },
+   "resource": {
+    "model_calls": 0,
+    "timeout_sec": 120,
+    "memory_mb": 512
+   },
+   "capabilities": [
+    "model.cache_lookup",
+    "model.cache_put",
+    "model.candidates",
+    "model.cascade",
+    "model.chain",
+    "model.route",
+    "model.rule_match"
+   ]
+  },
+  {
+   "atom": "ontology-review",
+   "domain": "ontology",
+   "version": "0.1.0",
+   "open_source": true,
+   "entry": "main.py",
+   "path": "agents/ontology/ontology-review",
+   "provides": [
+    "ontology.chain",
+    "ontology.quality"
+   ],
+   "depends_on": [],
+   "declared_inputs": [
+    "web_dir",
+    "kit_dir",
+    "data_dir",
+    "target"
+   ],
+   "declared_outputs": [
+    "ok",
+    "links",
+    "issues",
+    "quality",
+    "verdict"
+   ],
+   "accepted_params": [
+    "data_dir",
+    "kit_dir",
+    "target",
+    "web_dir"
+   ],
+   "broken": [],
+   "undeclared": [],
+   "judgeable": true,
+   "permission": {},
+   "resource": {},
+   "capabilities": [
+    "ontology.chain",
+    "ontology.quality"
+   ]
+  },
+  {
+   "atom": "process-sandbox",
+   "domain": "sandbox",
+   "version": "0.3.0",
+   "open_source": true,
+   "entry": "main.py",
+   "path": "agents/sandbox/process-sandbox",
+   "provides": [
+    "sandbox.poc",
+    "sandbox.exec",
+    "sandbox.validate",
+    "sandbox.interpreter",
+    "sandbox.guard"
+   ],
+   "depends_on": [],
+   "declared_inputs": [
+    "code",
+    "cmd",
+    "timeout",
+    "max_output",
+    "base_dir",
+    "path",
+    "base",
+    "profile",
+    "approval",
+    "scope"
+   ],
+   "declared_outputs": [
+    "ran",
+    "verdict",
+    "rc",
+    "wall_s",
+    "evidence",
+    "out_tail",
+    "err_tail",
+    "timed_out",
+    "overflow",
+    "rejected",
+    "safe",
+    "path",
+    "decision",
+    "refused",
+    "pending"
+   ],
+   "accepted_params": [
+    "approval",
+    "base",
+    "base_dir",
+    "cmd",
+    "code",
+    "cwd",
+    "env_clean",
+    "max_output",
+    "path",
+    "profile",
+    "py",
+    "scope",
+    "timeout"
+   ],
+   "broken": [],
+   "undeclared": [
+    "cwd",
+    "env_clean",
+    "py"
+   ],
+   "judgeable": true,
+   "permission": {
+    "needs": [
+     "read",
+     "write",
+     "exec",
+     "net"
+    ],
+    "network": true
+   },
+   "resource": {
+    "model_calls": 1,
+    "timeout_sec": 600,
+    "memory_mb": 1024
+   },
+   "capabilities": [
+    "sandbox.exec",
+    "sandbox.guard",
+    "sandbox.interpreter",
+    "sandbox.poc",
+    "sandbox.validate"
+   ]
+  },
+  {
+   "atom": "secret-vault",
+   "domain": "secrets",
+   "version": "0.1.0",
+   "open_source": true,
+   "entry": "main.py",
+   "path": "agents/secrets/secret-vault",
+   "provides": [
+    "secrets.encrypt",
+    "secrets.decrypt",
+    "secrets.store",
+    "secrets.load",
+    "secrets.mask",
+    "secrets.vault"
+   ],
+   "depends_on": [],
+   "declared_inputs": [
+    "plaintext",
+    "value",
+    "passphrase",
+    "name",
+    "vault_dir",
+    "bundle",
+    "keep"
+   ],
+   "declared_outputs": [
+    "salt",
+    "iv",
+    "ciphertext",
+    "tag",
+    "decrypted",
+    "stored",
+    "name",
+    "masked",
+    "names"
+   ],
+   "accepted_params": [
+    "bundle",
+    "keep",
+    "name",
+    "passphrase",
+    "plaintext",
+    "value",
+    "vault_dir"
+   ],
+   "broken": [],
+   "undeclared": [],
+   "judgeable": true,
+   "permission": {
+    "needs": [
+     "read",
+     "write"
+    ],
+    "network": false
+   },
+   "resource": {
+    "model_calls": 0,
+    "timeout_sec": 120,
+    "memory_mb": 512
+   },
+   "capabilities": [
+    "secrets.decrypt",
+    "secrets.encrypt",
+    "secrets.load",
+    "secrets.mask",
+    "secrets.store",
+    "secrets.vault"
+   ]
+  },
+  {
+   "atom": "security-scan",
+   "domain": "security",
+   "version": "0.1.0",
+   "open_source": true,
+   "entry": "main.py",
+   "path": "agents/security/security-scan",
+   "provides": [
+    "security.scan",
+    "security.secret",
+    "security.govern",
+    "security.dim",
+    "security.project"
+   ],
+   "depends_on": [],
+   "declared_inputs": [
+    "path",
+    "code",
+    "dimension"
+   ],
+   "declared_outputs": [
+    "issues",
+    "by_dimension",
+    "by_tier",
+    "secrets",
+    "total",
+    "summary",
+    "files"
+   ],
+   "accepted_params": [
+    "code",
+    "dimension",
+    "issues",
+    "path"
+   ],
+   "broken": [],
+   "undeclared": [
+    "issues"
+   ],
+   "judgeable": true,
+   "permission": {},
+   "resource": {},
+   "capabilities": [
+    "security.dim",
+    "security.govern",
+    "security.project",
+    "security.scan",
+    "security.secret"
+   ]
+  },
+  {
+   "atom": "session",
+   "domain": "session",
+   "version": "0.1.0",
+   "open_source": true,
+   "entry": "main.py",
+   "path": "agents/session/session",
+   "provides": [
+    "session.start",
+    "session.step",
+    "session.list",
+    "session.get",
+    "session.resume",
+    "session.status"
+   ],
+   "depends_on": [],
+   "declared_inputs": [
+    "sid",
+    "task",
+    "step_capability",
+    "inputs",
+    "output",
+    "status",
+    "session_dir"
+   ],
+   "declared_outputs": [
+    "sid",
+    "created",
+    "updated",
+    "steps",
+    "status",
+    "step",
+    "next",
+    "sessions",
+    "summary"
+   ],
+   "accepted_params": [
+    "inputs",
+    "output",
+    "session_dir",
+    "sid",
+    "status",
+    "step_capability",
+    "task"
+   ],
+   "broken": [],
+   "undeclared": [],
+   "judgeable": true,
+   "permission": {
+    "needs": [
+     "read",
+     "write"
+    ],
+    "network": false
+   },
+   "resource": {
+    "model_calls": 0,
+    "timeout_sec": 120,
+    "memory_mb": 512
+   },
+   "capabilities": [
+    "session.get",
+    "session.list",
+    "session.resume",
+    "session.start",
+    "session.status",
+    "session.step"
+   ]
+  },
+  {
+   "atom": "task-state",
+   "domain": "taskstate",
+   "version": "0.2.0",
+   "open_source": true,
+   "entry": "main.py",
+   "path": "agents/taskstate/task-state",
+   "provides": [
+    "taskstate.track"
+   ],
+   "depends_on": [],
+   "declared_inputs": [
+    "task",
+    "action",
+    "tid",
+    "state",
+    "progress",
+    "evidence",
+    "gate",
+    "status_file",
+    "done_evidence"
+   ],
+   "declared_outputs": [
+    "status",
+    "task_id",
+    "file",
+    "progress",
+    "state"
+   ],
+   "accepted_params": [
+    "action",
+    "done_evidence",
+    "evidence",
+    "gate",
+    "progress",
+    "state",
+    "status_file",
+    "task",
+    "tid"
+   ],
+   "broken": [],
+   "undeclared": [],
+   "judgeable": true,
+   "permission": {
+    "needs": [
+     "read",
+     "write",
+     "exec"
+    ],
+    "network": false
+   },
+   "resource": {
+    "model_calls": 0,
+    "timeout_sec": 600,
+    "memory_mb": 512
+   },
+   "capabilities": [
+    "taskstate.track"
+   ]
+  }
+ ]
+}
