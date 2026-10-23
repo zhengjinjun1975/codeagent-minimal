@@ -1,0 +1,278 @@
+<!DOCTYPE html>
+<html lang="zh-CN"><head><meta charset="utf-8"><title>CodeAgent 原子完整性图</title>
+<style>
+ body{margin:0;background:#f6f8fb;color:#0f172a;font-family:-apple-system,Segoe UI,Microsoft YaHei,sans-serif}
+ .wrap{max-width:1380px;margin:0 auto;padding:22px 24px 40px}
+ h1{font-size:20px;margin:0 0 5px}
+ .sub{font-size:12.5px;color:#64748b;margin:0 0 16px;line-height:1.75}
+ .kpis{display:flex;gap:12px;flex-wrap:wrap;margin:0 0 16px}
+ .kpi{flex:1;min-width:158px;background:#fff;border:1px solid #e5eaf1;border-radius:12px;padding:12px 15px}
+ .kpi span{font-size:11.5px;color:#64748b}
+ .kpi b{display:block;font-size:22px;line-height:1.3;margin-top:3px}
+ .card{background:#fff;border:1px solid #e5eaf1;border-radius:14px;padding:8px 10px;box-shadow:0 1px 2px rgba(15,23,42,.03)}
+ table{border-collapse:collapse;width:100%;font-size:13px}
+ td,th{padding:7px 9px;border-bottom:1px solid #eef2f7;text-align:left;vertical-align:top}
+ th{color:#64748b;font-weight:600;font-size:11.5px;white-space:nowrap}
+ .num{font-variant-numeric:tabular-nums;text-align:right}
+ .ok{color:#15803d;font-weight:700}
+ .warn{color:#b45309;font-weight:600}
+ .hit{color:#b91c1c;font-weight:700}
+ .zero{color:#16a34a;font-weight:600}
+ .dom{white-space:nowrap;color:#475569;font-weight:600}
+ .bar{display:inline-block;width:78px;height:6px;border-radius:99px;background:#eef2f7;vertical-align:middle}
+ .bar i{display:block;height:6px;border-radius:99px}
+ .note{font-size:12px;color:#64748b;line-height:1.8;margin:10px 0 4px}
+ code{background:#f1f5f9;padding:1px 5px;border-radius:4px;font-size:11.5px}
+ .chip{display:inline-block;background:#f1f5f9;border-radius:5px;padding:2px 7px 2px 6px;
+       margin:0 6px 4px 0;font-size:11.5px;color:#334155;font-family:ui-monospace,Consolas,monospace}
+ .chip i{font-style:normal;color:#94a3b8;font-size:9.5px;margin-left:3px;vertical-align:super}
+ h3{margin:4px 0 10px;font-size:14px}
+ .tri{display:flex;gap:12px;margin-top:16px;flex-wrap:wrap}
+ .t{flex:1;min-width:280px;background:#fff;border:1px solid #e5eaf1;border-left:3px solid #15803d;
+    border-radius:10px;padding:11px 14px}
+ .t b{font-size:12.5px;color:#334155;display:block}
+ .t .ok{font-size:19px;font-weight:700;color:#15803d;line-height:1.5}
+ .t i{font-style:normal;display:block;font-size:11.5px;color:#94a3b8;line-height:1.6}
+</style></head><body><div class="wrap">
+<h1>CodeAgent 原子完整性图</h1>
+<p class="sub">41 个原子全部在位、165 条能力全部挂载。这张图先回答<b>完整性</b>，再回答<b>接线到哪一步</b>。
+<b>待接线不等于残缺</b>：它们是完整可调、只是还没有编排路径走到的原子；虚线外环才是真欠账 ——
+依赖声明了、代码没走。</p>
+
+<div class="kpis">
+  <div class="kpi"><span>原子在位</span><b class="ok">41/41</b></div>
+  <div class="kpi"><span>能力挂载（声明/已注册）</span><b class="ok">165/165</b></div>
+  <div class="kpi"><span>已接线</span><b>17<span style="font-size:12px;color:#94a3b8"> / 41</span></b></div>
+  <div class="kpi"><span>待接线</span><b class="warn">24</b></div>
+  <div class="kpi"><span>依赖未兑现</span><b class="warn">5</b></div>
+  <div class="kpi"><span>原子↔原子调用边</span><b style="color:#b91c1c">0</b></div>
+</div>
+
+<div class="card"><svg viewBox="0 0 1340 944" width="100%" xmlns="http://www.w3.org/2000/svg" font-family="-apple-system,Segoe UI,Microsoft YaHei,sans-serif">
+<rect width="1340" height="944" fill="#ffffff"/>
+<path d="M 685.0 163.0 A 521.0 311.0 0 0 0 1060.4 258.3" fill="none" stroke="#c2410c" stroke-opacity="0.18" stroke-width="13" stroke-linecap="butt"/>
+<text x="865" y="245" fill="#c2410c" font-size="12.5" font-weight="700" text-anchor="middle" opacity="0.95">安全治理</text>
+<text x="865" y="259" fill="#94a3b8" font-size="10" text-anchor="middle">6/6 在位 · 0 已接线</text>
+<path d="M 1112.3 296.1 A 521.0 311.0 0 0 0 905.4 755.8" fill="none" stroke="#1d4ed8" stroke-opacity="0.18" stroke-width="13" stroke-linecap="butt"/>
+<text x="1128" y="539" fill="#1d4ed8" font-size="12.5" font-weight="700" text-anchor="middle" opacity="0.95">质量验证</text>
+<text x="1128" y="553" fill="#94a3b8" font-size="10" text-anchor="middle">13/13 在位 · 5 已接线</text>
+<path d="M 828.8 772.9 A 521.0 311.0 0 0 0 179.1 548.3" fill="none" stroke="#0f766e" stroke-opacity="0.18" stroke-width="13" stroke-linecap="butt"/>
+<text x="455" y="689" fill="#0f766e" font-size="12.5" font-weight="700" text-anchor="middle" opacity="0.95">生产编排</text>
+<text x="455" y="703" fill="#94a3b8" font-size="10" text-anchor="middle">12/12 在位 · 8 已接线</text>
+<path d="M 165.8 500.2 A 521.0 311.0 0 0 0 293.4 268.9" fill="none" stroke="#7c3aed" stroke-opacity="0.18" stroke-width="13" stroke-linecap="butt"/>
+<text x="249" y="396" fill="#7c3aed" font-size="12.5" font-weight="700" text-anchor="middle" opacity="0.95">记忆上下文</text>
+<text x="249" y="410" fill="#94a3b8" font-size="10" text-anchor="middle">6/6 在位 · 2 已接线</text>
+<path d="M 352.0 234.8 A 521.0 311.0 0 0 0 603.5 166.8" fill="none" stroke="#b45309" stroke-opacity="0.18" stroke-width="13" stroke-linecap="butt"/>
+<text x="496" y="247" fill="#b45309" font-size="12.5" font-weight="700" text-anchor="middle" opacity="0.95">交付运行</text>
+<text x="496" y="261" fill="#94a3b8" font-size="10" text-anchor="middle">4/4 在位 · 2 已接线</text>
+<line x1="685" y1="474" x2="721.5" y2="139.8" stroke="#c2410c" stroke-opacity="0.16" stroke-width="1" stroke-dasharray="2 5"/>
+<line x1="685" y1="474" x2="1225.5" y2="516.9" stroke="#1d4ed8" stroke-opacity="0.16" stroke-width="1" stroke-dasharray="2 5"/>
+<line x1="685" y1="474" x2="1211.3" y2="560.9" stroke="#1d4ed8" stroke-opacity="0.16" stroke-width="1" stroke-dasharray="2 5"/>
+<line x1="685" y1="474" x2="1187.7" y2="603.4" stroke="#1d4ed8" stroke-opacity="0.16" stroke-width="1" stroke-dasharray="2 5"/>
+<line x1="685" y1="474" x2="228.1" y2="656.6" stroke="#0f766e" stroke-opacity="0.16" stroke-width="1" stroke-dasharray="2 5"/>
+<line x1="685" y1="474" x2="192.5" y2="617.4" stroke="#0f766e" stroke-opacity="0.16" stroke-width="1" stroke-dasharray="2 5"/>
+<line x1="685" y1="474" x2="1185.3" y2="341.1" stroke="#1d4ed8" stroke-opacity="0.34" stroke-width="2.7"/>
+<line x1="685" y1="474" x2="1009.6" y2="743.1" stroke="#1d4ed8" stroke-opacity="0.16" stroke-width="1" stroke-dasharray="2 5"/>
+<line x1="685" y1="474" x2="157.1" y2="390.8" stroke="#7c3aed" stroke-opacity="0.16" stroke-width="1" stroke-dasharray="2 5"/>
+<line x1="685" y1="474" x2="365.5" y2="202.6" stroke="#b45309" stroke-opacity="0.34" stroke-width="1.6"/>
+<line x1="685" y1="474" x2="1230.0" y2="472.1" stroke="#1d4ed8" stroke-opacity="0.34" stroke-width="1.6"/>
+<line x1="685" y1="474" x2="800.0" y2="801.5" stroke="#0f766e" stroke-opacity="0.34" stroke-width="2.7"/>
+<line x1="685" y1="474" x2="179.9" y2="348.2" stroke="#7c3aed" stroke-opacity="0.16" stroke-width="1" stroke-dasharray="2 5"/>
+<line x1="685" y1="474" x2="1114.0" y2="680.6" stroke="#1d4ed8" stroke-opacity="0.16" stroke-width="1" stroke-dasharray="2 5"/>
+<line x1="685" y1="474" x2="727.8" y2="808.0" stroke="#0f766e" stroke-opacity="0.34" stroke-width="2.7"/>
+<line x1="685" y1="474" x2="1151.9" y2="301.2" stroke="#1d4ed8" stroke-opacity="0.34" stroke-width="2.1"/>
+<line x1="685" y1="474" x2="793.9" y2="145.8" stroke="#c2410c" stroke-opacity="0.16" stroke-width="1" stroke-dasharray="2 5"/>
+<line x1="685" y1="474" x2="1155.1" y2="643.5" stroke="#1d4ed8" stroke-opacity="0.16" stroke-width="1" stroke-dasharray="2 5"/>
+<line x1="685" y1="474" x2="1224.7" y2="427.3" stroke="#1d4ed8" stroke-opacity="0.34" stroke-width="1.6"/>
+<line x1="685" y1="474" x2="1065.2" y2="714.0" stroke="#1d4ed8" stroke-opacity="0.16" stroke-width="1" stroke-dasharray="2 5"/>
+<line x1="685" y1="474" x2="380.9" y2="752.0" stroke="#0f766e" stroke-opacity="0.34" stroke-width="2.7"/>
+<line x1="685" y1="474" x2="864.3" y2="157.6" stroke="#c2410c" stroke-opacity="0.16" stroke-width="1" stroke-dasharray="2 5"/>
+<line x1="685" y1="474" x2="427.4" y2="178.8" stroke="#b45309" stroke-opacity="0.34" stroke-width="2.1"/>
+<line x1="685" y1="474" x2="140.1" y2="479.8" stroke="#7c3aed" stroke-opacity="0.34" stroke-width="2.1"/>
+<line x1="685" y1="474" x2="211.8" y2="307.8" stroke="#7c3aed" stroke-opacity="0.16" stroke-width="1" stroke-dasharray="2 5"/>
+<line x1="685" y1="474" x2="165.7" y2="575.7" stroke="#0f766e" stroke-opacity="0.16" stroke-width="1" stroke-dasharray="2 5"/>
+<line x1="685" y1="474" x2="323.2" y2="724.5" stroke="#0f766e" stroke-opacity="0.34" stroke-width="2.1"/>
+<line x1="685" y1="474" x2="948.1" y2="767.4" stroke="#1d4ed8" stroke-opacity="0.16" stroke-width="1" stroke-dasharray="2 5"/>
+<line x1="685" y1="474" x2="654.7" y2="808.5" stroke="#0f766e" stroke-opacity="0.34" stroke-width="1.6"/>
+<line x1="685" y1="474" x2="582.3" y2="803.0" stroke="#0f766e" stroke-opacity="0.34" stroke-width="1.6"/>
+<line x1="685" y1="474" x2="511.6" y2="791.6" stroke="#0f766e" stroke-opacity="0.34" stroke-width="2.1"/>
+<line x1="685" y1="474" x2="931.5" y2="175.2" stroke="#c2410c" stroke-opacity="0.16" stroke-width="1" stroke-dasharray="2 5"/>
+<line x1="685" y1="474" x2="994.3" y2="198.2" stroke="#c2410c" stroke-opacity="0.16" stroke-width="1" stroke-dasharray="2 5"/>
+<line x1="685" y1="474" x2="1051.5" y2="226.1" stroke="#c2410c" stroke-opacity="0.16" stroke-width="1" stroke-dasharray="2 5"/>
+<line x1="685" y1="474" x2="252.2" y2="270.4" stroke="#7c3aed" stroke-opacity="0.16" stroke-width="1" stroke-dasharray="2 5"/>
+<line x1="685" y1="474" x2="444.1" y2="774.5" stroke="#0f766e" stroke-opacity="0.34" stroke-width="2.7"/>
+<line x1="685" y1="474" x2="271.9" y2="692.5" stroke="#0f766e" stroke-opacity="0.16" stroke-width="1" stroke-dasharray="2 5"/>
+<line x1="685" y1="474" x2="143.7" y2="434.9" stroke="#7c3aed" stroke-opacity="0.34" stroke-width="1.6"/>
+<line x1="685" y1="474" x2="1209.7" y2="383.4" stroke="#1d4ed8" stroke-opacity="0.34" stroke-width="1.6"/>
+<line x1="685" y1="474" x2="563.9" y2="147.4" stroke="#b45309" stroke-opacity="0.16" stroke-width="1" stroke-dasharray="2 5"/>
+<line x1="685" y1="474" x2="493.9" y2="160.3" stroke="#b45309" stroke-opacity="0.16" stroke-width="1" stroke-dasharray="2 5"/>
+<circle cx="685" cy="474" r="58" fill="#0f172a"/>
+<text x="685" y="462" fill="#fff" font-size="20" font-weight="700" text-anchor="middle">41/41</text>
+<text x="685" y="481" fill="#cbd5e1" font-size="11" text-anchor="middle">原子在位</text>
+<text x="685" y="498" fill="#94a3b8" font-size="9.5" text-anchor="middle">165/165 能力已挂载</text>
+<circle cx="721.5" cy="139.8" r="8.3" fill="#c2410c" fill-opacity="0.07" stroke="#c2410c" stroke-opacity="0.78" stroke-width="1.5"/>
+<circle cx="721.5" cy="139.8" r="1.9" fill="#c2410c" fill-opacity="0.6"/>
+<text x="723" y="126" fill="#7c8b9d" font-size="9.6" font-weight="400" text-anchor="start">command-approvals<title>command-approvals · v0.2.0 · 5 能力（挂载 5）· 待接线，无入口</title></text>
+<circle cx="1225.5" cy="516.9" r="7.8" fill="#1d4ed8" fill-opacity="0.07" stroke="#1d4ed8" stroke-opacity="0.78" stroke-width="1.5"/>
+<circle cx="1225.5" cy="516.9" r="1.9" fill="#1d4ed8" fill-opacity="0.6"/>
+<text x="1242" y="522" fill="#7c8b9d" font-size="9.6" font-weight="400" text-anchor="start">arch-review<title>arch-review · v0.1.0 · 4 能力（挂载 4）· 待接线，无入口</title></text>
+<circle cx="1211.3" cy="560.9" r="7.2" fill="#1d4ed8" fill-opacity="0.07" stroke="#1d4ed8" stroke-opacity="0.78" stroke-width="1.5"/>
+<circle cx="1211.3" cy="560.9" r="1.9" fill="#1d4ed8" fill-opacity="0.6"/>
+<text x="1227" y="568" fill="#7c8b9d" font-size="9.6" font-weight="400" text-anchor="start">atomicity-audit<title>atomicity-audit · v0.1.0 · 3 能力（挂载 3）· 待接线，无入口</title></text>
+<circle cx="1187.7" cy="603.4" r="7.8" fill="#1d4ed8" fill-opacity="0.07" stroke="#1d4ed8" stroke-opacity="0.78" stroke-width="1.5"/>
+<circle cx="1187.7" cy="603.4" r="1.9" fill="#1d4ed8" fill-opacity="0.6"/>
+<text x="1203" y="613" fill="#7c8b9d" font-size="9.6" font-weight="400" text-anchor="start">bug-deep<title>bug-deep · v0.1.0 · 4 能力（挂载 4）· 待接线，无入口</title></text>
+<circle cx="228.1" cy="656.6" r="6.7" fill="#0f766e" fill-opacity="0.07" stroke="#0f766e" stroke-opacity="0.78" stroke-width="1.5"/>
+<circle cx="228.1" cy="656.6" r="1.9" fill="#0f766e" fill-opacity="0.6"/>
+<text x="215" y="668" fill="#7c8b9d" font-size="9.6" font-weight="400" text-anchor="end">code-implement<title>code-implement · v0.2.0 · 2 能力（挂载 2）· 待接线，无入口</title></text>
+<circle cx="192.5" cy="617.4" r="6.7" fill="#0f766e" fill-opacity="0.07" stroke="#0f766e" stroke-opacity="0.78" stroke-width="1.5"/>
+<circle cx="192.5" cy="617.4" r="1.9" fill="#0f766e" fill-opacity="0.6"/>
+<text x="178" y="627" fill="#7c8b9d" font-size="9.6" font-weight="400" text-anchor="end">code-runloop<title>code-runloop · v0.3.0 · 2 能力（挂载 2）· 待接线，无入口</title></text>
+<circle cx="1185.3" cy="341.1" r="10.6" fill="#1d4ed8" fill-opacity="0.95" stroke="#fff" stroke-width="1.8"/>
+<circle cx="1185.3" cy="341.1" r="14.6" fill="none" stroke="#b45309" stroke-opacity="0.75" stroke-width="1" stroke-dasharray="2 2.5"/>
+<text x="1203" y="337" fill="#334155" font-size="9.6" font-weight="600" text-anchor="start">code-review<title>code-review · v0.2.1 · 9 能力（挂载 9）· 已接线，被调 3 次 · depends_on impact.analyze 未兑现</title></text>
+<circle cx="1009.6" cy="743.1" r="7.2" fill="#1d4ed8" fill-opacity="0.07" stroke="#1d4ed8" stroke-opacity="0.78" stroke-width="1.5"/>
+<circle cx="1009.6" cy="743.1" r="1.9" fill="#1d4ed8" fill-opacity="0.6"/>
+<text x="1019" y="759" fill="#7c8b9d" font-size="9.6" font-weight="400" text-anchor="start">minimalist-style<title>minimalist-style · v0.1.0 · 3 能力（挂载 3）· 待接线，无入口</title></text>
+<circle cx="157.1" cy="390.8" r="10.6" fill="#7c3aed" fill-opacity="0.07" stroke="#7c3aed" stroke-opacity="0.78" stroke-width="1.5"/>
+<circle cx="157.1" cy="390.8" r="1.9" fill="#7c3aed" fill-opacity="0.6"/>
+<text x="138" y="389" fill="#7c8b9d" font-size="9.6" font-weight="400" text-anchor="end">context-compact<title>context-compact · v0.5.0 · 9 能力（挂载 9）· 待接线，无入口</title></text>
+<circle cx="365.5" cy="202.6" r="6.7" fill="#b45309" fill-opacity="0.95" stroke="#fff" stroke-width="1.8"/>
+<text x="356" y="193" fill="#334155" font-size="9.6" font-weight="600" text-anchor="end">code-deliver<title>code-deliver · v0.1.0 · 2 能力（挂载 2）· 已接线，被调 1 次</title></text>
+<circle cx="1230.0" cy="472.1" r="8.3" fill="#1d4ed8" fill-opacity="0.95" stroke="#fff" stroke-width="1.8"/>
+<text x="1247" y="475" fill="#334155" font-size="9.6" font-weight="600" text-anchor="start">dep-scan<title>dep-scan · v0.2.0 · 5 能力（挂载 5）· 已接线，被调 1 次</title></text>
+<circle cx="800.0" cy="801.5" r="10.0" fill="#0f766e" fill-opacity="0.95" stroke="#fff" stroke-width="1.8"/>
+<text x="804" y="823" fill="#334155" font-size="9.6" font-weight="600" text-anchor="start">code-dispatch<title>code-dispatch · v0.4.0 · 8 能力（挂载 8）· 已接线，被调 3 次</title></text>
+<circle cx="179.9" cy="348.2" r="7.2" fill="#7c3aed" fill-opacity="0.07" stroke="#7c3aed" stroke-opacity="0.78" stroke-width="1.5"/>
+<circle cx="179.9" cy="348.2" r="1.9" fill="#7c3aed" fill-opacity="0.6"/>
+<text x="165" y="345" fill="#7c8b9d" font-size="9.6" font-weight="400" text-anchor="end">doc-freshness<title>doc-freshness · v0.2.0 · 3 能力（挂载 3）· 待接线，无入口</title></text>
+<circle cx="1114.0" cy="680.6" r="6.7" fill="#1d4ed8" fill-opacity="0.07" stroke="#1d4ed8" stroke-opacity="0.78" stroke-width="1.5"/>
+<circle cx="1114.0" cy="680.6" r="1.9" fill="#1d4ed8" fill-opacity="0.6"/>
+<text x="1126" y="694" fill="#7c8b9d" font-size="9.6" font-weight="400" text-anchor="start">domain-review<title>domain-review · v0.1.0 · 2 能力（挂载 2）· 待接线，无入口</title></text>
+<circle cx="727.8" cy="808.0" r="7.8" fill="#0f766e" fill-opacity="0.95" stroke="#fff" stroke-width="1.8"/>
+<circle cx="727.8" cy="808.0" r="11.8" fill="none" stroke="#b45309" stroke-opacity="0.75" stroke-width="1" stroke-dasharray="2 2.5"/>
+<text x="729" y="828" fill="#334155" font-size="9.6" font-weight="600" text-anchor="start">code-evolve<title>code-evolve · v0.1.0 · 4 能力（挂载 4）· 已接线，被调 3 次 · depends_on memory.recall 未兑现</title></text>
+<circle cx="1151.9" cy="301.2" r="7.8" fill="#1d4ed8" fill-opacity="0.95" stroke="#fff" stroke-width="1.8"/>
+<text x="1166" y="296" fill="#334155" font-size="9.6" font-weight="600" text-anchor="start">code-fuzz<title>code-fuzz · v0.2.0 · 4 能力（挂载 4）· 已接线，被调 2 次</title></text>
+<circle cx="793.9" cy="145.8" r="9.4" fill="#c2410c" fill-opacity="0.07" stroke="#c2410c" stroke-opacity="0.78" stroke-width="1.5"/>
+<circle cx="793.9" cy="145.8" r="1.9" fill="#c2410c" fill-opacity="0.6"/>
+<text x="798" y="131" fill="#7c8b9d" font-size="9.6" font-weight="400" text-anchor="start">guard<title>guard · v0.2.0 · 7 能力（挂载 7）· 待接线，无入口</title></text>
+<circle cx="1155.1" cy="643.5" r="6.7" fill="#1d4ed8" fill-opacity="0.07" stroke="#1d4ed8" stroke-opacity="0.78" stroke-width="1.5"/>
+<circle cx="1155.1" cy="643.5" r="1.9" fill="#1d4ed8" fill-opacity="0.6"/>
+<text x="1169" y="655" fill="#7c8b9d" font-size="9.6" font-weight="400" text-anchor="start">deadcode<title>deadcode · v0.1.0 · 2 能力（挂载 2）· 待接线，无入口</title></text>
+<circle cx="1224.7" cy="427.3" r="7.2" fill="#1d4ed8" fill-opacity="0.95" stroke="#fff" stroke-width="1.8"/>
+<text x="1241" y="428" fill="#334155" font-size="9.6" font-weight="600" text-anchor="start">dep-impact<title>dep-impact · v0.1.0 · 3 能力（挂载 3）· 已接线，被调 1 次</title></text>
+<circle cx="1065.2" cy="714.0" r="6.7" fill="#1d4ed8" fill-opacity="0.07" stroke="#1d4ed8" stroke-opacity="0.78" stroke-width="1.5"/>
+<circle cx="1065.2" cy="714.0" r="1.9" fill="#1d4ed8" fill-opacity="0.6"/>
+<text x="1076" y="728" fill="#7c8b9d" font-size="9.6" font-weight="400" text-anchor="start">method-impact<title>method-impact · v0.1.0 · 2 能力（挂载 2）· 待接线，无入口</title></text>
+<circle cx="380.9" cy="752.0" r="7.8" fill="#0f766e" fill-opacity="0.95" stroke="#fff" stroke-width="1.8"/>
+<text x="372" y="769" fill="#334155" font-size="9.6" font-weight="600" text-anchor="end">llm-router<title>llm-router · v0.2.0 · 4 能力（挂载 4）· 已接线，被调 3 次</title></text>
+<circle cx="864.3" cy="157.6" r="7.2" fill="#c2410c" fill-opacity="0.07" stroke="#c2410c" stroke-opacity="0.78" stroke-width="1.5"/>
+<circle cx="864.3" cy="157.6" r="1.9" fill="#c2410c" fill-opacity="0.6"/>
+<text x="870" y="146" fill="#7c8b9d" font-size="9.6" font-weight="400" text-anchor="start">localized<title>localized · v0.1.0 · 3 能力（挂载 3）· 待接线，无入口</title></text>
+<circle cx="427.4" cy="178.8" r="8.3" fill="#b45309" fill-opacity="0.95" stroke="#fff" stroke-width="1.8"/>
+<text x="419" y="167" fill="#334155" font-size="9.6" font-weight="600" text-anchor="end">mcp-client<title>mcp-client · v0.2.0 · 5 能力（挂载 5）· 已接线，被调 2 次</title></text>
+<circle cx="140.1" cy="479.8" r="7.2" fill="#7c3aed" fill-opacity="0.95" stroke="#fff" stroke-width="1.8"/>
+<text x="124" y="483" fill="#334155" font-size="9.6" font-weight="600" text-anchor="end">code-memory<title>code-memory · v0.1.1 · 3 能力（挂载 3）· 已接线，被调 2 次</title></text>
+<circle cx="211.8" cy="307.8" r="7.8" fill="#7c3aed" fill-opacity="0.07" stroke="#7c3aed" stroke-opacity="0.78" stroke-width="1.5"/>
+<circle cx="211.8" cy="307.8" r="1.9" fill="#7c3aed" fill-opacity="0.6"/>
+<text x="197" y="303" fill="#7c8b9d" font-size="9.6" font-weight="400" text-anchor="end">event-log<title>event-log · v0.1.0 · 4 能力（挂载 4）· 待接线，无入口</title></text>
+<circle cx="165.7" cy="575.7" r="6.1" fill="#0f766e" fill-opacity="0.07" stroke="#0f766e" stroke-opacity="0.78" stroke-width="1.5"/>
+<circle cx="165.7" cy="575.7" r="1.9" fill="#0f766e" fill-opacity="0.6"/>
+<text x="151" y="583" fill="#7c8b9d" font-size="9.6" font-weight="400" text-anchor="end">complexity-gate<title>complexity-gate · v0.1.0 · 1 能力（挂载 1）· 待接线，无入口</title></text>
+<circle cx="323.2" cy="724.5" r="9.4" fill="#0f766e" fill-opacity="0.95" stroke="#fff" stroke-width="1.8"/>
+<circle cx="323.2" cy="724.5" r="13.4" fill="none" stroke="#b45309" stroke-opacity="0.75" stroke-width="1" stroke-dasharray="2 2.5"/>
+<text x="311" y="742" fill="#334155" font-size="9.6" font-weight="600" text-anchor="end">model-fallback<title>model-fallback · v0.2.0 · 7 能力（挂载 7）· 已接线，被调 2 次 · depends_on llm.list_models 未兑现</title></text>
+<circle cx="948.1" cy="767.4" r="6.7" fill="#1d4ed8" fill-opacity="0.07" stroke="#1d4ed8" stroke-opacity="0.78" stroke-width="1.5"/>
+<circle cx="948.1" cy="767.4" r="1.9" fill="#1d4ed8" fill-opacity="0.6"/>
+<text x="956" y="784" fill="#7c8b9d" font-size="9.6" font-weight="400" text-anchor="start">ontology-review<title>ontology-review · v0.1.0 · 2 能力（挂载 2）· 待接线，无入口</title></text>
+<circle cx="654.7" cy="808.5" r="6.7" fill="#0f766e" fill-opacity="0.95" stroke="#fff" stroke-width="1.8"/>
+<circle cx="654.7" cy="808.5" r="10.7" fill="none" stroke="#b45309" stroke-opacity="0.75" stroke-width="1" stroke-dasharray="2 2.5"/>
+<text x="654" y="827" fill="#334155" font-size="9.6" font-weight="600" text-anchor="start">code-plan<title>code-plan · v0.1.0 · 2 能力（挂载 2）· 已接线，被调 1 次 · depends_on taskstate.track 未兑现</title></text>
+<circle cx="582.3" cy="803.0" r="7.2" fill="#0f766e" fill-opacity="0.95" stroke="#fff" stroke-width="1.8"/>
+<text x="579" y="822" fill="#334155" font-size="9.6" font-weight="600" text-anchor="end">code-project<title>code-project · v0.1.0 · 3 能力（挂载 3）· 已接线，被调 1 次</title></text>
+<circle cx="511.6" cy="791.6" r="7.2" fill="#0f766e" fill-opacity="0.95" stroke="#fff" stroke-width="1.8"/>
+<text x="506" y="810" fill="#334155" font-size="9.6" font-weight="600" text-anchor="end">code-reuse<title>code-reuse · v0.1.0 · 3 能力（挂载 3）· 已接线，被调 2 次</title></text>
+<circle cx="931.5" cy="175.2" r="8.3" fill="#c2410c" fill-opacity="0.07" stroke="#c2410c" stroke-opacity="0.78" stroke-width="1.5"/>
+<circle cx="931.5" cy="175.2" r="1.9" fill="#c2410c" fill-opacity="0.6"/>
+<text x="939" y="163" fill="#7c8b9d" font-size="9.6" font-weight="400" text-anchor="start">process-sandbox<title>process-sandbox · v0.3.0 · 5 能力（挂载 5）· 待接线，无入口</title></text>
+<circle cx="994.3" cy="198.2" r="8.9" fill="#c2410c" fill-opacity="0.07" stroke="#c2410c" stroke-opacity="0.78" stroke-width="1.5"/>
+<circle cx="994.3" cy="198.2" r="1.9" fill="#c2410c" fill-opacity="0.6"/>
+<text x="1004" y="187" fill="#7c8b9d" font-size="9.6" font-weight="400" text-anchor="start">secret-vault<title>secret-vault · v0.1.0 · 6 能力（挂载 6）· 待接线，无入口</title></text>
+<circle cx="1051.5" cy="226.1" r="8.3" fill="#c2410c" fill-opacity="0.07" stroke="#c2410c" stroke-opacity="0.78" stroke-width="1.5"/>
+<circle cx="1051.5" cy="226.1" r="1.9" fill="#c2410c" fill-opacity="0.6"/>
+<text x="1063" y="216" fill="#7c8b9d" font-size="9.6" font-weight="400" text-anchor="start">security-scan<title>security-scan · v0.1.0 · 5 能力（挂载 5）· 待接线，无入口</title></text>
+<circle cx="252.2" cy="270.4" r="8.9" fill="#7c3aed" fill-opacity="0.07" stroke="#7c3aed" stroke-opacity="0.78" stroke-width="1.5"/>
+<circle cx="252.2" cy="270.4" r="1.9" fill="#7c3aed" fill-opacity="0.6"/>
+<text x="238" y="263" fill="#7c8b9d" font-size="9.6" font-weight="400" text-anchor="end">session<title>session · v0.1.0 · 6 能力（挂载 6）· 待接线，无入口</title></text>
+<circle cx="444.1" cy="774.5" r="7.8" fill="#0f766e" fill-opacity="0.95" stroke="#fff" stroke-width="1.8"/>
+<circle cx="444.1" cy="774.5" r="11.8" fill="none" stroke="#b45309" stroke-opacity="0.75" stroke-width="1" stroke-dasharray="2 2.5"/>
+<text x="437" y="793" fill="#334155" font-size="9.6" font-weight="600" text-anchor="end">code-skill<title>code-skill · v0.1.0 · 4 能力（挂载 4）· 已接线，被调 3 次 · depends_on memory.recall 未兑现</title></text>
+<circle cx="271.9" cy="692.5" r="7.2" fill="#0f766e" fill-opacity="0.07" stroke="#0f766e" stroke-opacity="0.78" stroke-width="1.5"/>
+<circle cx="271.9" cy="692.5" r="1.9" fill="#0f766e" fill-opacity="0.6"/>
+<text x="260" y="706" fill="#7c8b9d" font-size="9.6" font-weight="400" text-anchor="end">cli-providers<title>cli-providers · v0.1.0 · 3 能力（挂载 3）· 待接线，无入口</title></text>
+<circle cx="143.7" cy="434.9" r="6.1" fill="#7c3aed" fill-opacity="0.95" stroke="#fff" stroke-width="1.8"/>
+<text x="129" y="436" fill="#334155" font-size="9.6" font-weight="600" text-anchor="end">task-state<title>task-state · v0.2.0 · 1 能力（挂载 1）· 已接线，被调 1 次</title></text>
+<circle cx="1209.7" cy="383.4" r="10.0" fill="#1d4ed8" fill-opacity="0.95" stroke="#fff" stroke-width="1.8"/>
+<text x="1228" y="381" fill="#334155" font-size="9.6" font-weight="600" text-anchor="start">code-test<title>code-test · v0.3.0 · 8 能力（挂载 8）· 已接线，被调 1 次</title></text>
+<circle cx="563.9" cy="147.4" r="8.3" fill="#b45309" fill-opacity="0.07" stroke="#b45309" stroke-opacity="0.78" stroke-width="1.5"/>
+<circle cx="563.9" cy="147.4" r="1.9" fill="#b45309" fill-opacity="0.6"/>
+<text x="560" y="134" fill="#7c8b9d" font-size="9.6" font-weight="400" text-anchor="end">git-ops<title>git-ops · v0.1.0 · 5 能力（挂载 5）· 待接线，无入口</title></text>
+<circle cx="493.9" cy="160.3" r="6.7" fill="#b45309" fill-opacity="0.07" stroke="#b45309" stroke-opacity="0.78" stroke-width="1.5"/>
+<circle cx="493.9" cy="160.3" r="1.9" fill="#b45309" fill-opacity="0.6"/>
+<text x="488" y="149" fill="#7c8b9d" font-size="9.6" font-weight="400" text-anchor="end">browser-smoke<title>browser-smoke · v0.1.0 · 2 能力（挂载 2）· 待接线，无入口</title></text>
+<circle cx="70" cy="898" r="7" fill="#1d4ed8"/><text x="86" y="902" fill="#475569" font-size="11.5">已接线 17</text>
+<circle cx="206" cy="898" r="7" fill="#1d4ed8" fill-opacity="0.07" stroke="#1d4ed8" stroke-opacity="0.78" stroke-width="1.5"/><circle cx="206" cy="898" r="1.9" fill="#1d4ed8" fill-opacity="0.6"/><text x="222" y="902" fill="#475569" font-size="11.5">待接线 24</text>
+<circle cx="360" cy="898" r="7" fill="#1d4ed8" fill-opacity="0.9"/><circle cx="360" cy="898" r="10.5" fill="none" stroke="#b45309" stroke-opacity="0.75" stroke-width="1" stroke-dasharray="2 2.5"/><text x="376" y="902" fill="#475569" font-size="11.5">依赖未兑现 5</text>
+<circle cx="640" cy="898" r="4.5" fill="#c2410c"/>
+<text x="650" y="902" fill="#64748b" font-size="11">安全治理 6</text>
+<circle cx="770" cy="898" r="4.5" fill="#1d4ed8"/>
+<text x="780" y="902" fill="#64748b" font-size="11">质量验证 13</text>
+<circle cx="900" cy="898" r="4.5" fill="#0f766e"/>
+<text x="910" y="902" fill="#64748b" font-size="11">生产编排 12</text>
+<circle cx="1030" cy="898" r="4.5" fill="#7c3aed"/>
+<text x="1040" y="902" fill="#64748b" font-size="11">记忆上下文 6</text>
+<circle cx="1160" cy="898" r="4.5" fill="#b45309"/>
+<text x="1170" y="902" fill="#64748b" font-size="11">交付运行 4</text>
+<text x="685" y="926" fill="#94a3b8" font-size="10.5" text-anchor="middle">圆点大小 = 该原子声明的能力数　实线 = 真实调用（线宽=次数）　点线 = 插槽就绪、路径未走　原子↔原子调用边 0 条（星型）</text>
+</svg></div>
+
+<div class="tri">
+  <div class="t"><b>① 登记在册</b><span class="ok">41/41</span>
+    <i>registry.json 里声明了、路径可解析，一个不缺</i></div>
+  <div class="t"><b>② 能力全挂载</b><span class="ok">165/165</span>
+    <i>每个原子 registered 与 provides 逐条相等，无缺挂（41/41 原子成立）</i></div>
+  <div class="t"><b>③ 入口可调用</b><span class="ok">41/41</span>
+    <i>main.py 的 register 调用全部解析成功，无空壳原子</i></div>
+</div>
+
+<div style="display:flex;gap:16px;margin-top:16px;flex-wrap:wrap">
+  <div class="card" style="flex:1;min-width:520px;padding:14px 16px">
+    <h3>分域完整性</h3>
+    <table><thead><tr><th>域</th><th class="num">在位</th><th class="num">能力</th>
+      <th class="num">已接线</th><th class="num">待接线</th><th class="num">依赖未兑现</th><th>接线率</th></tr></thead>
+      <tbody><tr><td><b style='color:#c2410c'>安全治理</b></td><td class='num ok'>6/6</td><td class='num'>31</td><td class='num'>0</td><td class='num warn'>6</td><td class='num warn'>0</td><td><span class='bar'><i style='width:0%;background:#c2410c'></i></span></td></tr><tr><td><b style='color:#1d4ed8'>质量验证</b></td><td class='num ok'>13/13</td><td class='num'>51</td><td class='num'>5</td><td class='num warn'>8</td><td class='num warn'>1</td><td><span class='bar'><i style='width:38%;background:#1d4ed8'></i></span></td></tr><tr><td><b style='color:#0f766e'>生产编排</b></td><td class='num ok'>12/12</td><td class='num'>43</td><td class='num'>8</td><td class='num warn'>4</td><td class='num warn'>4</td><td><span class='bar'><i style='width:67%;background:#0f766e'></i></span></td></tr><tr><td><b style='color:#7c3aed'>记忆上下文</b></td><td class='num ok'>6/6</td><td class='num'>26</td><td class='num'>2</td><td class='num warn'>4</td><td class='num warn'>0</td><td><span class='bar'><i style='width:33%;background:#7c3aed'></i></span></td></tr><tr><td><b style='color:#b45309'>交付运行</b></td><td class='num ok'>4/4</td><td class='num'>14</td><td class='num'>2</td><td class='num warn'>2</td><td class='num warn'>0</td><td><span class='bar'><i style='width:50%;background:#b45309'></i></span></td></tr></tbody></table>
+    <p class="note">「在位」列恒为 满员/应到 —— 原子一个不缺。差别只在最右的接线率：那是编排覆盖度，不是原子完整度。</p>
+  </div>
+  <div class="card" style="flex:1;min-width:460px;padding:14px 16px">
+    <h3>体检命中</h3>
+    <table><thead><tr><th>规则</th><th>含义</th><th>命中</th></tr></thead><tbody><tr><td><code>G2_ORPHAN_CAPABILITY</code></td><td>能力未接线（完整存在，路径未走）</td><td class='hit'>138</td></tr><tr><td><code>G6_NAMING_DRIFT</code></td><td>能力前缀未随 domain</td><td class='hit'>25</td></tr><tr><td><code>G3_DEP_NOT_EXERCISED</code></td><td>depends_on 声明了但没真调</td><td class='hit'>5</td></tr></tbody></table>
+    <p class="note">G2 的 138 条 = 完整挂载、零调用，
+    记的是<b>编排覆盖度的账</b>，不是原子质量的账。</p>
+  </div>
+</div>
+
+<div class="card" style="margin-top:16px;padding:14px 16px">
+  <h3>待接线原子（24 个，按域 · 后面数字是能力数）</h3>
+  <table><tbody><tr><td class='dom'>安全治理</td><td><span class='chip'>command-approvals<i>5</i></span><span class='chip'>guard<i>7</i></span><span class='chip'>localized<i>3</i></span><span class='chip'>process-sandbox<i>5</i></span><span class='chip'>secret-vault<i>6</i></span><span class='chip'>security-scan<i>5</i></span></td></tr><tr><td class='dom'>质量验证</td><td><span class='chip'>arch-review<i>4</i></span><span class='chip'>atomicity-audit<i>3</i></span><span class='chip'>bug-deep<i>4</i></span><span class='chip'>deadcode<i>2</i></span><span class='chip'>domain-review<i>2</i></span><span class='chip'>method-impact<i>2</i></span><span class='chip'>minimalist-style<i>3</i></span><span class='chip'>ontology-review<i>2</i></span></td></tr><tr><td class='dom'>生产编排</td><td><span class='chip'>cli-providers<i>3</i></span><span class='chip'>code-implement<i>2</i></span><span class='chip'>code-runloop<i>2</i></span><span class='chip'>complexity-gate<i>1</i></span></td></tr><tr><td class='dom'>记忆上下文</td><td><span class='chip'>context-compact<i>9</i></span><span class='chip'>doc-freshness<i>3</i></span><span class='chip'>event-log<i>4</i></span><span class='chip'>session<i>6</i></span></td></tr><tr><td class='dom'>交付运行</td><td><span class='chip'>browser-smoke<i>2</i></span><span class='chip'>git-ops<i>5</i></span></td></tr></tbody></table>
+  <p class="note">这 24 个原子 registry 已声明、能力已挂载（挂载数与声明数逐条相等）、<code>AgentRuntime</code> 可直接调用。
+  它们缺的不是实现，是一条从编排层过来的路径，或一句明确的 <code>dormant</code> 标注 ——
+  一旦标了 dormant，「完整性」就从 41 个模糊的圆点变成 17 条有主的路径 + 24 个显式待办的插槽。</p>
+</div>
+
+<div class="card" style="margin-top:16px;padding:14px 16px">
+  <p class="note" style="margin:0">数据源三层：<code>registry.json</code>（声明）+
+  <code>agents/*/*/main.py</code> 的 AST（实现与签名）+ 全仓 <code>run_capability</code> 调用点（调用）。
+  由 <code>build_graph.py</code> 生成，本文件零外部依赖，可离线重算。</p>
+</div>
+</div></body></html>

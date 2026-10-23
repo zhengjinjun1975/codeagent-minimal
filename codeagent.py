@@ -167,16 +167,147 @@ class CodeAgent:
 
 
 # ── CLI ─────────────────────────────────────
+def _graph_query(args):
+    """原子能力图谱查询：图从代码现算（registry + 各原子 main.py + 全仓调用点 + 组合模板），
+    不读任何缓存文件 —— 缓存会让人查到一张昨天的图。
+
+    三个入口：
+      graph                    总览（原子/能力/组合/规则命中）
+      graph --cap code.implement  反查：这条能力在哪个原子、谁在调、被哪些组合用到
+      graph --chain 改缺陷        看一条组合的全部步骤与签名核对
+    """
+    import atoms_graph_core as g
+
+    root = os.path.dirname(os.path.abspath(__file__))
+    graph = g.build_graph(root)
+    m = graph["metrics"]
+
+    if args.cap:
+        info = graph["capability_index"].get(args.cap)
+        if not info:
+            near = [c for c in graph["capability_index"] if args.cap.split(".")[0] in c][:8]
+            return {"ok": False, "error": "能力不存在：%s" % args.cap, "near": near}
+        node = next((n for n in graph["nodes"] if n["id"] == info["atom"]), {})
+        impl = None
+        for n in graph["nodes"]:
+            if n["id"] == info["atom"]:
+                impl = n
+                break
+        return {"ok": True, "capability": args.cap, "atom": info["atom"],
+                "domain": (impl or {}).get("domain"),
+                "wired": bool(info["sites"] or info["chains"]),
+                "call_sites": info["sites"], "used_by_chains": info["chains"],
+                "dependents": sorted({e["from"] for e in graph["edges"]
+                                      if e.get("capability") == args.cap})}
+
+    if args.chain:
+        q = args.chain.lower()
+        hits = [c for c in graph["chains"]
+                if q in str(c["name"]).lower() or q in c["chain_id"].lower()]
+        return {"ok": bool(hits), "matched": len(hits),
+                "chains": [{"id": c["chain_id"], "name": c["name"], "file": c["file"],
+                            "steps": [{"order": s.get("order"), "capability": s.get("capability"),
+                                       "atom": s.get("atom"), "resolved": s.get("resolved"),
+                                       "inputs": s.get("inputs")} for s in c["steps"]]}
+                           for c in hits] or [{"id": c["chain_id"], "name": c["name"]}
+                                              for c in graph["chains"]]}
+
+    return {"ok": True, "summary": m,
+            "chains": [{"id": c["chain_id"], "name": c["name"], "steps": len(c["steps"]),
+                        "dynamic": c["dynamic"],
+                        "seq": [s.get("capability") for s in c["steps"]]} for c in graph["chains"]],
+            "findings_by_rule": m["rules_fired"]}
+
+
+def _pg_cap(res):
+    """反查一条能力：它在哪、谁在调、被哪些组合用到。"""
+    print("能力 %s" % res["capability"])
+    print("  所在原子：%s（domain=%s）" % (res["atom"], res.get("domain")))
+    print("  判定：%s" % ("已接线" if res["wired"] else "未接线（不在任何调用点、也不在任何组合里）"))
+    print("  调用点 %d 处：%s" % (len(res["call_sites"]), "、".join(res["call_sites"]) or "无"))
+    if res["used_by_chains"]:
+        print("  被组合用到：")
+        for c in res["used_by_chains"]:
+            print("    - %s 第%d步" % (c["name"], c["order"]))
+    else:
+        print("  被组合用到：无")
+    print("  依赖它的原子：%s" % ("、".join(res["dependents"]) or "（无，直接由编排层调）"))
+
+
+def _pg_chain(res):
+    """看一条组合的每一步：能力 → 原子 → 静态入参 → 是否解析得到。"""
+    if not res.get("chains"):
+        print("❌ 没有匹配的组合")
+        return
+    for c in res["chains"]:
+        if not c.get("steps"):
+            print("  %s  %s" % (c["name"], c["id"]))
+            continue
+        print("组合 %s" % c["name"])
+        print("  定义：%s ｜ ID：%s" % (c["file"], c["id"]))
+        for st in c["steps"]:
+            ins = st.get("inputs") or {}
+            ins_s = " ".join("%s=%s" % (k, v) for k, v in sorted(ins.items())) or "—"
+            print("  %d. %-20s %-16s %s  %s"
+                  % (st["order"], st["capability"], st["atom"] or "未解析",
+                     "✅" if st["resolved"] else "❌", ins_s))
+        print("")
+    if res.get("matched") == 0:
+        print("（以上是全部组合，供按名字挑）")
+
+
+def _pg_summary(res):
+    """总览：家底 + 组合序列。"""
+    m = res["summary"]
+    print("原子能力图谱（从代码现算，不读缓存）")
+    print("  原子 %d ｜ 能力 %d（挂载 %d/%d）｜ 有调用路径 %d/%d"
+          % (m["atoms"], m["capabilities"], m["capabilities_mounted"], m["capabilities"],
+             m["atoms_wired"], m["atoms"]))
+    print("  能力覆盖 %.1f%%（%d/%d，其中 %d 条只经组合可达）"
+          % (m["capability_coverage"] * 100, m["capabilities_reached"], m["capabilities"],
+             m["capabilities_chain_only"]))
+    print("  调用点 %d（可静态解析 %d）｜组合 %d 条 %d 步"
+          % (m["call_sites_raw"], m["call_sites"], m["chains"], m["chain_steps"]))
+    if m["rules_fired"]:
+        print("  规则命中：" + "、".join("%s %d" % (k, v) for k, v in sorted(m["rules_fired"].items())))
+    print("\n组合：")
+    for c in res["chains"]:
+        print("  %-14s %d 步  %s%s" % (c["name"][:14], c["steps"],
+                                        " → ".join(c.get("seq") or []) or "?",
+                                        "（动态，静态抽不出）" if c["dynamic"] else ""))
+    print("\n用法：graph --cap <能力名> 反查影响面 ｜ graph --chain <名字> 看某条组合的每一步")
+
+
+def _print_graph(res, args):
+    """graph 子命令的人读输出。三种查询各走一个小函数。"""
+    if not res.get("ok"):
+        print("❌ " + str(res.get("error")))
+        if res.get("near"):
+            print("   相近的能力：" + "、".join(res["near"]))
+        return
+    if args.cap:
+        _pg_cap(res)
+    elif args.chain is not None or res.get("matched") is not None:
+        _pg_chain(res)
+    else:
+        _pg_summary(res)
+
+
 def _add_json(p):
     p.add_argument("--json", action="store_true", help="输出 JSON")
 
 
+# 宪法例外: 子命令分发器，一分支一子命令；拆成字典分发会把 20 个子命令的参数解析散到别处，更难查
 def _cli():
     ap = argparse.ArgumentParser(description="CodeAgent 统一入口（融合后的新 CodeAgent 大整体）")
     sub = ap.add_subparsers(dest="cmd")
 
     # 统一子命令（每个子命令自带 --json，避免顶层 flag 与子命令/存量位置参数冲突）
     p = sub.add_parser("status", help="运行时全貌"); _add_json(p)
+    p = sub.add_parser("graph", help="原子能力图谱：能力/组合可追踪查询")
+    p.add_argument("--cap", default=None, help="反查某条能力：所在原子、调用点、被哪些组合用到")
+    p.add_argument("--chain", default=None, help="按名字前缀查组合的步骤（不给则列全部组合）")
+    _add_json(p)
     p = sub.add_parser("models", help="多模型注册表"); _add_json(p)
     p = sub.add_parser("review", help="审查文件")
     p.add_argument("path"); p.add_argument("--mode", default="code"); _add_json(p)
@@ -243,7 +374,7 @@ def _cli():
     # ── 首参探测：是子命令则走统一子命令，否则走存量兼容（compat）──
     _SUBCMDS = {"status", "models", "review", "test", "evolve", "evolve-loop", "chain",
                 "reuse", "impact", "mcp", "skill", "plan", "llm", "memory", "dispatch",
-                "project", "deliver", "dep-scan", "fuzz", "reg-guard", "guard"}
+                "project", "deliver", "dep-scan", "fuzz", "reg-guard", "guard", "graph"}
     argv = [a for a in sys.argv[1:] if not a.startswith("-")]
     is_sub = bool(argv and argv[0] in _SUBCMDS)
 
@@ -283,6 +414,12 @@ def _cli():
         _emit({"status": ca.atoms()}, args.json)
     elif args.cmd == "models":
         _emit({"models": ca.rt.list_models()}, args.json)
+    elif args.cmd == "graph":
+        res = _graph_query(args)
+        if args.json:
+            _emit({"graph": res}, True)
+        else:
+            _print_graph(res, args)
     elif args.cmd == "review":
         _emit({"review": ca.review(args.path, mode=args.mode)}, args.json)
     elif args.cmd == "test":

@@ -32,7 +32,9 @@ def _registry_caps():
     return {a: v.get('provides', []) for a, v in (reg.get('agents') or {}).items()}
 
 
-COUNT_RE = re.compile(r'(\d+)\s*个?\s*原子|(\d+)\s*个?\s*核心(?=\s*(?:原子|\+))')
+# 前面不许紧贴字母/数字：否则 "C5 原子内跨原子调用" 会被当成"5 个原子"误报。
+COUNT_RE = re.compile(r'(?<![A-Za-z0-9_])(\d+)\s*个?\s*原子'
+                      r'|(?<![A-Za-z0-9_])(\d+)\s*个?\s*核心(?=\s*(?:原子|\+))')
 
 
 def scan_atom_counts(text, n):
@@ -102,6 +104,10 @@ def _scan_surfaces(n):
             full = os.path.join(dirpath, fn)
             rel = os.path.relpath(full, ROOT).replace('\\', '/')
             if rel.lower().startswith('changelog'):
+                continue
+            # 文件名带日期的是**快照**：它记录的是那一天的原子数，本来就该与今天不同。
+            # 拿它跟今天的 registry 比对，等于要求历史文档篡改历史。
+            if re.search(r'\d{4}-\d{2}-\d{2}', fn):
                 continue
             with open(full, encoding='utf-8', errors='replace') as f:
                 for ln, frag in scan_atom_counts(f.read(), n):

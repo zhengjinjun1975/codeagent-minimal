@@ -10,7 +10,11 @@ jobs:
   test:
     runs-on: ubuntu-latest
     steps:
+      # 必须拿全历史：宪法门与原子图谱门都要 diff 基线 ref。浅克隆取不到 base 时，
+      # 两个门都会明确打印"判不了"并 exit 0 —— 门就变成了摆设，比没有门更糟。
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
       - uses: actions/setup-python@v5
         with:
           python-version: '3.11'
@@ -28,3 +32,9 @@ jobs:
         env:
           CONSTITUTION_BASE: ${{ github.event.pull_request.base.sha || github.event.before }}
         run: python scripts/constitution_gate_changed.py
+      - name: 原子图谱门（编排契约：能力/组合/依赖对得上才对）
+        env:
+          ATOMS_GRAPH_BASE: ${{ github.event.pull_request.base.sha || github.event.before }}
+        run: python scripts/verify_atoms_graph.py
+      - name: 图谱生成物同步（禁止手改图与表）
+        run: python scripts/verify_atoms_graph.py --check-drift

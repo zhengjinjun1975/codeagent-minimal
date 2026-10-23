@@ -1,0 +1,1103 @@
+{
+ "schema": "atoms-graph-baseline-v1",
+ "_note": "只登记 P2/P3 存量；P0/P1 一律必须当场修，不进台账。每条必须有 reason 与 expires，过期即红，条目失效要删。",
+ "expires": "2027-01-31",
+ "entries": [
+  {
+   "key": "G2_UNWIRED_CAPABILITY|arch-review · archreview.boundary",
+   "rule": "G2_UNWIRED_CAPABILITY",
+   "subject": "arch-review · archreview.boundary",
+   "severity": "P2",
+   "reason": "存量：能力已挂载可调用但尚未接入任何编排（2026-10-23 建账，逐批接线或标 dormant）",
+   "expires": "2027-01-31"
+  },
+  {
+   "key": "G2_UNWIRED_CAPABILITY|arch-review · archreview.intent",
+   "rule": "G2_UNWIRED_CAPABILITY",
+   "subject": "arch-review · archreview.intent",
+   "severity": "P2",
+   "reason": "存量：能力已挂载可调用但尚未接入任何编排（2026-10-23 建账，逐批接线或标 dormant）",
+   "expires": "2027-01-31"
+  },
+  {
+   "key": "G2_UNWIRED_CAPABILITY|arch-review · archreview.surface",
+   "rule": "G2_UNWIRED_CAPABILITY",
+   "subject": "arch-review · archreview.surface",
+   "severity": "P2",
+   "reason": "存量：能力已挂载可调用但尚未接入任何编排（2026-10-23 建账，逐批接线或标 dormant）",
+   "expires": "2027-01-31"
+  },
+  {
+   "key": "G2_UNWIRED_CAPABILITY|atomicity-audit · atomicity.breaks",
+   "rule": "G2_UNWIRED_CAPABILITY",
+   "subject": "atomicity-audit · atomicity.breaks",
+   "severity": "P2",
+   "reason": "存量：能力已挂载可调用但尚未接入任何编排（2026-10-23 建账，逐批接线或标 dormant）",
+   "expires": "2027-01-31"
+  },
+  {
+   "key": "G2_UNWIRED_CAPABILITY|atomicity-audit · atomicity.manifest",
+   "rule": "G2_UNWIRED_CAPABILITY",
+   "subject": "atomicity-audit · atomicity.manifest",
+   "severity": "P2",
+   "reason": "存量：能力已挂载可调用但尚未接入任何编排（2026-10-23 建账，逐批接线或标 dormant）",
+   "expires": "2027-01-31"
+  },
+  {
+   "key": "G2_UNWIRED_CAPABILITY|atomicity-audit · atomicity.registry",
+   "rule": "G2_UNWIRED_CAPABILITY",
+   "subject": "atomicity-audit · atomicity.registry",
+   "severity": "P2",
+   "reason": "存量：能力已挂载可调用但尚未接入任何编排（2026-10-23 建账，逐批接线或标 dormant）",
+   "expires": "2027-01-31"
+  },
+  {
+   "key": "G2_UNWIRED_CAPABILITY|browser-smoke · browsersmoke.run",
+   "rule": "G2_UNWIRED_CAPABILITY",
+   "subject": "browser-smoke · browsersmoke.run",
+   "severity": "P2",
+   "reason": "存量：能力已挂载可调用但尚未接入任何编排（2026-10-23 建账，逐批接线或标 dormant）",
+   "expires": "2027-01-31"
+  },
+  {
+   "key": "G2_UNWIRED_CAPABILITY|browser-smoke · ui.smoke",
+   "rule": "G2_UNWIRED_CAPABILITY",
+   "subject": "browser-smoke · ui.smoke",
+   "severity": "P2",
+   "reason": "存量：能力已挂载可调用但尚未接入任何编排（2026-10-23 建账，逐批接线或标 dormant）",
+   "expires": "2027-01-31"
+  },
+  {
+   "key": "G2_UNWIRED_CAPABILITY|bug-deep · bugdeep.adv",
+   "rule": "G2_UNWIRED_CAPABILITY",
+   "subject": "bug-deep · bugdeep.adv",
+   "severity": "P2",
+   "reason": "存量：能力已挂载可调用但尚未接入任何编排（2026-10-23 建账，逐批接线或标 dormant）",
+   "expires": "2027-01-31"
+  },
+  {
+   "key": "G2_UNWIRED_CAPABILITY|bug-deep · bugdeep.model",
+   "rule": "G2_UNWIRED_CAPABILITY",
+   "subject": "bug-deep · bugdeep.model",
+   "severity": "P2",
+   "reason": "存量：能力已挂载可调用但尚未接入任何编排（2026-10-23 建账，逐批接线或标 dormant）",
+   "expires": "2027-01-31"
+  },
+  {
+   "key": "G2_UNWIRED_CAPABILITY|bug-deep · bugdeep.poc",
+   "rule": "G2_UNWIRED_CAPABILITY",
+   "subject": "bug-deep · bugdeep.poc",
+   "severity": "P2",
+   "reason": "存量：能力已挂载可调用但尚未接入任何编排（2026-10-23 建账，逐批接线或标 dormant）",
+   "expires": "2027-01-31"
+  },
+  {
+   "key": "G2_UNWIRED_CAPABILITY|bug-deep · bugdeep.rule",
+   "rule": "G2_UNWIRED_CAPABILITY",
+   "subject": "bug-deep · bugdeep.rule",
+   "severity": "P2",
+   "reason": "存量：能力已挂载可调用但尚未接入任何编排（2026-10-23 建账，逐批接线或标 dormant）",
+   "expires": "2027-01-31"
+  },
+  {
+   "key": "G2_UNWIRED_CAPABILITY|cli-providers · subagent.dispatch",
+   "rule": "G2_UNWIRED_CAPABILITY",
+   "subject": "cli-providers · subagent.dispatch",
+   "severity": "P2",
+   "reason": "存量：能力已挂载可调用但尚未接入任何编排（2026-10-23 建账，逐批接线或标 dormant）",
+   "expires": "2027-01-31"
+  },
+  {
+   "key": "G2_UNWIRED_CAPABILITY|cli-providers · subagent.probe",
+   "rule": "G2_UNWIRED_CAPABILITY",
+   "subject": "cli-providers · subagent.probe",
+   "severity": "P2",
+   "reason": "存量：能力已挂载可调用但尚未接入任何编排（2026-10-23 建账，逐批接线或标 dormant）",
+   "expires": "2027-01-31"
+  },
+  {
+   "key": "G2_UNWIRED_CAPABILITY|cli-providers · subagent.providers",
+   "rule": "G2_UNWIRED_CAPABILITY",
+   "subject": "cli-providers · subagent.providers",
+   "severity": "P2",
+   "reason": "存量：能力已挂载可调用但尚未接入任何编排（2026-10-23 建账，逐批接线或标 dormant）",
+   "expires": "2027-01-31"
+  },
+  {
+   "key": "G2_UNWIRED_CAPABILITY|code-deliver · deliver.package",
+   "rule": "G2_UNWIRED_CAPABILITY",
+   "subject": "code-deliver · deliver.package",
+   "severity": "P2",
+   "reason": "存量：能力已挂载可调用但尚未接入任何编排（2026-10-23 建账，逐批接线或标 dormant）",
+   "expires": "2027-01-31"
+  },
+  {
+   "key": "G2_UNWIRED_CAPABILITY|code-dispatch · dispatch.assert_exit",
+   "rule": "G2_UNWIRED_CAPABILITY",
+   "subject": "code-dispatch · dispatch.assert_exit",
+   "severity": "P2",
+   "reason": "存量：能力已挂载可调用但尚未接入任何编排（2026-10-23 建账，逐批接线或标 dormant）",
+   "expires": "2027-01-31"
+  },
+  {
+   "key": "G2_UNWIRED_CAPABILITY|code-dispatch · dispatch.conflict",
+   "rule": "G2_UNWIRED_CAPABILITY",
+   "subject": "code-dispatch · dispatch.conflict",
+   "severity": "P2",
+   "reason": "存量：能力已挂载可调用但尚未接入任何编排（2026-10-23 建账，逐批接线或标 dormant）",
+   "expires": "2027-01-31"
+  },
+  {
+   "key": "G2_UNWIRED_CAPABILITY|code-dispatch · dispatch.permission",
+   "rule": "G2_UNWIRED_CAPABILITY",
+   "subject": "code-dispatch · dispatch.permission",
+   "severity": "P2",
+   "reason": "存量：能力已挂载可调用但尚未接入任何编排（2026-10-23 建账，逐批接线或标 dormant）",
+   "expires": "2027-01-31"
+  },
+  {
+   "key": "G2_UNWIRED_CAPABILITY|code-dispatch · dispatch.verify",
+   "rule": "G2_UNWIRED_CAPABILITY",
+   "subject": "code-dispatch · dispatch.verify",
+   "severity": "P2",
+   "reason": "存量：能力已挂载可调用但尚未接入任何编排（2026-10-23 建账，逐批接线或标 dormant）",
+   "expires": "2027-01-31"
+  },
+  {
+   "key": "G2_UNWIRED_CAPABILITY|code-dispatch · dispatch.verify_artifact",
+   "rule": "G2_UNWIRED_CAPABILITY",
+   "subject": "code-dispatch · dispatch.verify_artifact",
+   "severity": "P2",
+   "reason": "存量：能力已挂载可调用但尚未接入任何编排（2026-10-23 建账，逐批接线或标 dormant）",
+   "expires": "2027-01-31"
+  },
+  {
+   "key": "G2_UNWIRED_CAPABILITY|code-evolve · evolve.skill",
+   "rule": "G2_UNWIRED_CAPABILITY",
+   "subject": "code-evolve · evolve.skill",
+   "severity": "P2",
+   "reason": "存量：能力已挂载可调用但尚未接入任何编排（2026-10-23 建账，逐批接线或标 dormant）",
+   "expires": "2027-01-31"
+  },
+  {
+   "key": "G2_UNWIRED_CAPABILITY|code-evolve · evolve.tdd",
+   "rule": "G2_UNWIRED_CAPABILITY",
+   "subject": "code-evolve · evolve.tdd",
+   "severity": "P2",
+   "reason": "存量：能力已挂载可调用但尚未接入任何编排（2026-10-23 建账，逐批接线或标 dormant）",
+   "expires": "2027-01-31"
+  },
+  {
+   "key": "G2_UNWIRED_CAPABILITY|code-fuzz · fuzz.project",
+   "rule": "G2_UNWIRED_CAPABILITY",
+   "subject": "code-fuzz · fuzz.project",
+   "severity": "P2",
+   "reason": "存量：能力已挂载可调用但尚未接入任何编排（2026-10-23 建账，逐批接线或标 dormant）",
+   "expires": "2027-01-31"
+  },
+  {
+   "key": "G2_UNWIRED_CAPABILITY|code-fuzz · fuzz.property",
+   "rule": "G2_UNWIRED_CAPABILITY",
+   "subject": "code-fuzz · fuzz.property",
+   "severity": "P2",
+   "reason": "存量：能力已挂载可调用但尚未接入任何编排（2026-10-23 建账，逐批接线或标 dormant）",
+   "expires": "2027-01-31"
+  },
+  {
+   "key": "G2_UNWIRED_CAPABILITY|code-implement · code.write",
+   "rule": "G2_UNWIRED_CAPABILITY",
+   "subject": "code-implement · code.write",
+   "severity": "P2",
+   "reason": "存量：能力已挂载可调用但尚未接入任何编排（2026-10-23 建账，逐批接线或标 dormant）",
+   "expires": "2027-01-31"
+  },
+  {
+   "key": "G2_UNWIRED_CAPABILITY|code-memory · memory.recall",
+   "rule": "G2_UNWIRED_CAPABILITY",
+   "subject": "code-memory · memory.recall",
+   "severity": "P2",
+   "reason": "存量：能力已挂载可调用但尚未接入任何编排（2026-10-23 建账，逐批接线或标 dormant）",
+   "expires": "2027-01-31"
+  },
+  {
+   "key": "G2_UNWIRED_CAPABILITY|code-memory · memory.sediment",
+   "rule": "G2_UNWIRED_CAPABILITY",
+   "subject": "code-memory · memory.sediment",
+   "severity": "P2",
+   "reason": "存量：能力已挂载可调用但尚未接入任何编排（2026-10-23 建账，逐批接线或标 dormant）",
+   "expires": "2027-01-31"
+  },
+  {
+   "key": "G2_UNWIRED_CAPABILITY|code-project · project.analyze",
+   "rule": "G2_UNWIRED_CAPABILITY",
+   "subject": "code-project · project.analyze",
+   "severity": "P2",
+   "reason": "存量：能力已挂载可调用但尚未接入任何编排（2026-10-23 建账，逐批接线或标 dormant）",
+   "expires": "2027-01-31"
+  },
+  {
+   "key": "G2_UNWIRED_CAPABILITY|code-project · project.scan",
+   "rule": "G2_UNWIRED_CAPABILITY",
+   "subject": "code-project · project.scan",
+   "severity": "P2",
+   "reason": "存量：能力已挂载可调用但尚未接入任何编排（2026-10-23 建账，逐批接线或标 dormant）",
+   "expires": "2027-01-31"
+  },
+  {
+   "key": "G2_UNWIRED_CAPABILITY|code-reuse · reuse.atom",
+   "rule": "G2_UNWIRED_CAPABILITY",
+   "subject": "code-reuse · reuse.atom",
+   "severity": "P2",
+   "reason": "存量：能力已挂载可调用但尚未接入任何编排（2026-10-23 建账，逐批接线或标 dormant）",
+   "expires": "2027-01-31"
+  },
+  {
+   "key": "G2_UNWIRED_CAPABILITY|code-reuse · reuse.remote",
+   "rule": "G2_UNWIRED_CAPABILITY",
+   "subject": "code-reuse · reuse.remote",
+   "severity": "P2",
+   "reason": "存量：能力已挂载可调用但尚未接入任何编排（2026-10-23 建账，逐批接线或标 dormant）",
+   "expires": "2027-01-31"
+  },
+  {
+   "key": "G2_UNWIRED_CAPABILITY|code-review · codereview.content",
+   "rule": "G2_UNWIRED_CAPABILITY",
+   "subject": "code-review · codereview.content",
+   "severity": "P2",
+   "reason": "存量：能力已挂载可调用但尚未接入任何编排（2026-10-23 建账，逐批接线或标 dormant）",
+   "expires": "2027-01-31"
+  },
+  {
+   "key": "G2_UNWIRED_CAPABILITY|code-review · codereview.deep",
+   "rule": "G2_UNWIRED_CAPABILITY",
+   "subject": "code-review · codereview.deep",
+   "severity": "P2",
+   "reason": "存量：能力已挂载可调用但尚未接入任何编排（2026-10-23 建账，逐批接线或标 dormant）",
+   "expires": "2027-01-31"
+  },
+  {
+   "key": "G2_UNWIRED_CAPABILITY|code-review · codereview.design",
+   "rule": "G2_UNWIRED_CAPABILITY",
+   "subject": "code-review · codereview.design",
+   "severity": "P2",
+   "reason": "存量：能力已挂载可调用但尚未接入任何编排（2026-10-23 建账，逐批接线或标 dormant）",
+   "expires": "2027-01-31"
+  },
+  {
+   "key": "G2_UNWIRED_CAPABILITY|code-review · codereview.layout",
+   "rule": "G2_UNWIRED_CAPABILITY",
+   "subject": "code-review · codereview.layout",
+   "severity": "P2",
+   "reason": "存量：能力已挂载可调用但尚未接入任何编排（2026-10-23 建账，逐批接线或标 dormant）",
+   "expires": "2027-01-31"
+  },
+  {
+   "key": "G2_UNWIRED_CAPABILITY|code-review · codereview.light",
+   "rule": "G2_UNWIRED_CAPABILITY",
+   "subject": "code-review · codereview.light",
+   "severity": "P2",
+   "reason": "存量：能力已挂载可调用但尚未接入任何编排（2026-10-23 建账，逐批接线或标 dormant）",
+   "expires": "2027-01-31"
+  },
+  {
+   "key": "G2_UNWIRED_CAPABILITY|code-review · codereview.lsp",
+   "rule": "G2_UNWIRED_CAPABILITY",
+   "subject": "code-review · codereview.lsp",
+   "severity": "P2",
+   "reason": "存量：能力已挂载可调用但尚未接入任何编排（2026-10-23 建账，逐批接线或标 dormant）",
+   "expires": "2027-01-31"
+  },
+  {
+   "key": "G2_UNWIRED_CAPABILITY|code-review · codereview.self_eval",
+   "rule": "G2_UNWIRED_CAPABILITY",
+   "subject": "code-review · codereview.self_eval",
+   "severity": "P2",
+   "reason": "存量：能力已挂载可调用但尚未接入任何编排（2026-10-23 建账，逐批接线或标 dormant）",
+   "expires": "2027-01-31"
+  },
+  {
+   "key": "G2_UNWIRED_CAPABILITY|code-review · codereview.semantic",
+   "rule": "G2_UNWIRED_CAPABILITY",
+   "subject": "code-review · codereview.semantic",
+   "severity": "P2",
+   "reason": "存量：能力已挂载可调用但尚未接入任何编排（2026-10-23 建账，逐批接线或标 dormant）",
+   "expires": "2027-01-31"
+  },
+  {
+   "key": "G2_UNWIRED_CAPABILITY|code-runloop · code.patch",
+   "rule": "G2_UNWIRED_CAPABILITY",
+   "subject": "code-runloop · code.patch",
+   "severity": "P2",
+   "reason": "存量：能力已挂载可调用但尚未接入任何编排（2026-10-23 建账，逐批接线或标 dormant）",
+   "expires": "2027-01-31"
+  },
+  {
+   "key": "G2_UNWIRED_CAPABILITY|code-runloop · code.runloop",
+   "rule": "G2_UNWIRED_CAPABILITY",
+   "subject": "code-runloop · code.runloop",
+   "severity": "P2",
+   "reason": "存量：能力已挂载可调用但尚未接入任何编排（2026-10-23 建账，逐批接线或标 dormant）",
+   "expires": "2027-01-31"
+  },
+  {
+   "key": "G2_UNWIRED_CAPABILITY|code-skill · skill.load",
+   "rule": "G2_UNWIRED_CAPABILITY",
+   "subject": "code-skill · skill.load",
+   "severity": "P2",
+   "reason": "存量：能力已挂载可调用但尚未接入任何编排（2026-10-23 建账，逐批接线或标 dormant）",
+   "expires": "2027-01-31"
+  },
+  {
+   "key": "G2_UNWIRED_CAPABILITY|code-test · test.affected",
+   "rule": "G2_UNWIRED_CAPABILITY",
+   "subject": "code-test · test.affected",
+   "severity": "P2",
+   "reason": "存量：能力已挂载可调用但尚未接入任何编排（2026-10-23 建账，逐批接线或标 dormant）",
+   "expires": "2027-01-31"
+  },
+  {
+   "key": "G2_UNWIRED_CAPABILITY|code-test · test.coverage_analysis",
+   "rule": "G2_UNWIRED_CAPABILITY",
+   "subject": "code-test · test.coverage_analysis",
+   "severity": "P2",
+   "reason": "存量：能力已挂载可调用但尚未接入任何编排（2026-10-23 建账，逐批接线或标 dormant）",
+   "expires": "2027-01-31"
+  },
+  {
+   "key": "G2_UNWIRED_CAPABILITY|code-test · test.gen",
+   "rule": "G2_UNWIRED_CAPABILITY",
+   "subject": "code-test · test.gen",
+   "severity": "P2",
+   "reason": "存量：能力已挂载可调用但尚未接入任何编排（2026-10-23 建账，逐批接线或标 dormant）",
+   "expires": "2027-01-31"
+  },
+  {
+   "key": "G2_UNWIRED_CAPABILITY|code-test · test.project",
+   "rule": "G2_UNWIRED_CAPABILITY",
+   "subject": "code-test · test.project",
+   "severity": "P2",
+   "reason": "存量：能力已挂载可调用但尚未接入任何编排（2026-10-23 建账，逐批接线或标 dormant）",
+   "expires": "2027-01-31"
+  },
+  {
+   "key": "G2_UNWIRED_CAPABILITY|code-test · test.snapshot",
+   "rule": "G2_UNWIRED_CAPABILITY",
+   "subject": "code-test · test.snapshot",
+   "severity": "P2",
+   "reason": "存量：能力已挂载可调用但尚未接入任何编排（2026-10-23 建账，逐批接线或标 dormant）",
+   "expires": "2027-01-31"
+  },
+  {
+   "key": "G2_UNWIRED_CAPABILITY|code-test · test.tdd",
+   "rule": "G2_UNWIRED_CAPABILITY",
+   "subject": "code-test · test.tdd",
+   "severity": "P2",
+   "reason": "存量：能力已挂载可调用但尚未接入任何编排（2026-10-23 建账，逐批接线或标 dormant）",
+   "expires": "2027-01-31"
+  },
+  {
+   "key": "G2_UNWIRED_CAPABILITY|command-approvals · approval.check",
+   "rule": "G2_UNWIRED_CAPABILITY",
+   "subject": "command-approvals · approval.check",
+   "severity": "P2",
+   "reason": "存量：能力已挂载可调用但尚未接入任何编排（2026-10-23 建账，逐批接线或标 dormant）",
+   "expires": "2027-01-31"
+  },
+  {
+   "key": "G2_UNWIRED_CAPABILITY|command-approvals · approval.classify",
+   "rule": "G2_UNWIRED_CAPABILITY",
+   "subject": "command-approvals · approval.classify",
+   "severity": "P2",
+   "reason": "存量：能力已挂载可调用但尚未接入任何编排（2026-10-23 建账，逐批接线或标 dormant）",
+   "expires": "2027-01-31"
+  },
+  {
+   "key": "G2_UNWIRED_CAPABILITY|command-approvals · approval.orchestrate",
+   "rule": "G2_UNWIRED_CAPABILITY",
+   "subject": "command-approvals · approval.orchestrate",
+   "severity": "P2",
+   "reason": "存量：能力已挂载可调用但尚未接入任何编排（2026-10-23 建账，逐批接线或标 dormant）",
+   "expires": "2027-01-31"
+  },
+  {
+   "key": "G2_UNWIRED_CAPABILITY|command-approvals · approval.policy",
+   "rule": "G2_UNWIRED_CAPABILITY",
+   "subject": "command-approvals · approval.policy",
+   "severity": "P2",
+   "reason": "存量：能力已挂载可调用但尚未接入任何编排（2026-10-23 建账，逐批接线或标 dormant）",
+   "expires": "2027-01-31"
+  },
+  {
+   "key": "G2_UNWIRED_CAPABILITY|command-approvals · approval.resolve",
+   "rule": "G2_UNWIRED_CAPABILITY",
+   "subject": "command-approvals · approval.resolve",
+   "severity": "P2",
+   "reason": "存量：能力已挂载可调用但尚未接入任何编排（2026-10-23 建账，逐批接线或标 dormant）",
+   "expires": "2027-01-31"
+  },
+  {
+   "key": "G2_UNWIRED_CAPABILITY|complexity-gate · model.assess_complexity",
+   "rule": "G2_UNWIRED_CAPABILITY",
+   "subject": "complexity-gate · model.assess_complexity",
+   "severity": "P2",
+   "reason": "存量：能力已挂载可调用但尚未接入任何编排（2026-10-23 建账，逐批接线或标 dormant）",
+   "expires": "2027-01-31"
+  },
+  {
+   "key": "G2_UNWIRED_CAPABILITY|context-compact · context.budget",
+   "rule": "G2_UNWIRED_CAPABILITY",
+   "subject": "context-compact · context.budget",
+   "severity": "P2",
+   "reason": "存量：能力已挂载可调用但尚未接入任何编排（2026-10-23 建账，逐批接线或标 dormant）",
+   "expires": "2027-01-31"
+  },
+  {
+   "key": "G2_UNWIRED_CAPABILITY|context-compact · context.compact",
+   "rule": "G2_UNWIRED_CAPABILITY",
+   "subject": "context-compact · context.compact",
+   "severity": "P2",
+   "reason": "存量：能力已挂载可调用但尚未接入任何编排（2026-10-23 建账，逐批接线或标 dormant）",
+   "expires": "2027-01-31"
+  },
+  {
+   "key": "G2_UNWIRED_CAPABILITY|context-compact · context.compaction_cost",
+   "rule": "G2_UNWIRED_CAPABILITY",
+   "subject": "context-compact · context.compaction_cost",
+   "severity": "P2",
+   "reason": "存量：能力已挂载可调用但尚未接入任何编排（2026-10-23 建账，逐批接线或标 dormant）",
+   "expires": "2027-01-31"
+  },
+  {
+   "key": "G2_UNWIRED_CAPABILITY|context-compact · context.disclose",
+   "rule": "G2_UNWIRED_CAPABILITY",
+   "subject": "context-compact · context.disclose",
+   "severity": "P2",
+   "reason": "存量：能力已挂载可调用但尚未接入任何编排（2026-10-23 建账，逐批接线或标 dormant）",
+   "expires": "2027-01-31"
+  },
+  {
+   "key": "G2_UNWIRED_CAPABILITY|context-compact · context.edit",
+   "rule": "G2_UNWIRED_CAPABILITY",
+   "subject": "context-compact · context.edit",
+   "severity": "P2",
+   "reason": "存量：能力已挂载可调用但尚未接入任何编排（2026-10-23 建账，逐批接线或标 dormant）",
+   "expires": "2027-01-31"
+  },
+  {
+   "key": "G2_UNWIRED_CAPABILITY|context-compact · context.estimate",
+   "rule": "G2_UNWIRED_CAPABILITY",
+   "subject": "context-compact · context.estimate",
+   "severity": "P2",
+   "reason": "存量：能力已挂载可调用但尚未接入任何编排（2026-10-23 建账，逐批接线或标 dormant）",
+   "expires": "2027-01-31"
+  },
+  {
+   "key": "G2_UNWIRED_CAPABILITY|context-compact · context.offload",
+   "rule": "G2_UNWIRED_CAPABILITY",
+   "subject": "context-compact · context.offload",
+   "severity": "P2",
+   "reason": "存量：能力已挂载可调用但尚未接入任何编排（2026-10-23 建账，逐批接线或标 dormant）",
+   "expires": "2027-01-31"
+  },
+  {
+   "key": "G2_UNWIRED_CAPABILITY|context-compact · context.reveal",
+   "rule": "G2_UNWIRED_CAPABILITY",
+   "subject": "context-compact · context.reveal",
+   "severity": "P2",
+   "reason": "存量：能力已挂载可调用但尚未接入任何编排（2026-10-23 建账，逐批接线或标 dormant）",
+   "expires": "2027-01-31"
+  },
+  {
+   "key": "G2_UNWIRED_CAPABILITY|context-compact · context.store",
+   "rule": "G2_UNWIRED_CAPABILITY",
+   "subject": "context-compact · context.store",
+   "severity": "P2",
+   "reason": "存量：能力已挂载可调用但尚未接入任何编排（2026-10-23 建账，逐批接线或标 dormant）",
+   "expires": "2027-01-31"
+  },
+  {
+   "key": "G2_UNWIRED_CAPABILITY|deadcode · deadcode.stats",
+   "rule": "G2_UNWIRED_CAPABILITY",
+   "subject": "deadcode · deadcode.stats",
+   "severity": "P2",
+   "reason": "存量：能力已挂载可调用但尚未接入任何编排（2026-10-23 建账，逐批接线或标 dormant）",
+   "expires": "2027-01-31"
+  },
+  {
+   "key": "G2_UNWIRED_CAPABILITY|dep-impact · impact.circular",
+   "rule": "G2_UNWIRED_CAPABILITY",
+   "subject": "dep-impact · impact.circular",
+   "severity": "P2",
+   "reason": "存量：能力已挂载可调用但尚未接入任何编排（2026-10-23 建账，逐批接线或标 dormant）",
+   "expires": "2027-01-31"
+  },
+  {
+   "key": "G2_UNWIRED_CAPABILITY|dep-impact · impact.coupling",
+   "rule": "G2_UNWIRED_CAPABILITY",
+   "subject": "dep-impact · impact.coupling",
+   "severity": "P2",
+   "reason": "存量：能力已挂载可调用但尚未接入任何编排（2026-10-23 建账，逐批接线或标 dormant）",
+   "expires": "2027-01-31"
+  },
+  {
+   "key": "G2_UNWIRED_CAPABILITY|dep-scan · depscan.chainbreak",
+   "rule": "G2_UNWIRED_CAPABILITY",
+   "subject": "dep-scan · depscan.chainbreak",
+   "severity": "P2",
+   "reason": "存量：能力已挂载可调用但尚未接入任何编排（2026-10-23 建账，逐批接线或标 dormant）",
+   "expires": "2027-01-31"
+  },
+  {
+   "key": "G2_UNWIRED_CAPABILITY|dep-scan · depscan.osv",
+   "rule": "G2_UNWIRED_CAPABILITY",
+   "subject": "dep-scan · depscan.osv",
+   "severity": "P2",
+   "reason": "存量：能力已挂载可调用但尚未接入任何编排（2026-10-23 建账，逐批接线或标 dormant）",
+   "expires": "2027-01-31"
+  },
+  {
+   "key": "G2_UNWIRED_CAPABILITY|dep-scan · depscan.sca",
+   "rule": "G2_UNWIRED_CAPABILITY",
+   "subject": "dep-scan · depscan.sca",
+   "severity": "P2",
+   "reason": "存量：能力已挂载可调用但尚未接入任何编排（2026-10-23 建账，逐批接线或标 dormant）",
+   "expires": "2027-01-31"
+  },
+  {
+   "key": "G2_UNWIRED_CAPABILITY|dep-scan · depscan.taint",
+   "rule": "G2_UNWIRED_CAPABILITY",
+   "subject": "dep-scan · depscan.taint",
+   "severity": "P2",
+   "reason": "存量：能力已挂载可调用但尚未接入任何编排（2026-10-23 建账，逐批接线或标 dormant）",
+   "expires": "2027-01-31"
+  },
+  {
+   "key": "G2_UNWIRED_CAPABILITY|doc-freshness · doc.anchor",
+   "rule": "G2_UNWIRED_CAPABILITY",
+   "subject": "doc-freshness · doc.anchor",
+   "severity": "P2",
+   "reason": "存量：能力已挂载可调用但尚未接入任何编排（2026-10-23 建账，逐批接线或标 dormant）",
+   "expires": "2027-01-31"
+  },
+  {
+   "key": "G2_UNWIRED_CAPABILITY|doc-freshness · doc.draft",
+   "rule": "G2_UNWIRED_CAPABILITY",
+   "subject": "doc-freshness · doc.draft",
+   "severity": "P2",
+   "reason": "存量：能力已挂载可调用但尚未接入任何编排（2026-10-23 建账，逐批接线或标 dormant）",
+   "expires": "2027-01-31"
+  },
+  {
+   "key": "G2_UNWIRED_CAPABILITY|doc-freshness · doc.stale",
+   "rule": "G2_UNWIRED_CAPABILITY",
+   "subject": "doc-freshness · doc.stale",
+   "severity": "P2",
+   "reason": "存量：能力已挂载可调用但尚未接入任何编排（2026-10-23 建账，逐批接线或标 dormant）",
+   "expires": "2027-01-31"
+  },
+  {
+   "key": "G2_UNWIRED_CAPABILITY|domain-review · domain.imports",
+   "rule": "G2_UNWIRED_CAPABILITY",
+   "subject": "domain-review · domain.imports",
+   "severity": "P2",
+   "reason": "存量：能力已挂载可调用但尚未接入任何编排（2026-10-23 建账，逐批接线或标 dormant）",
+   "expires": "2027-01-31"
+  },
+  {
+   "key": "G2_UNWIRED_CAPABILITY|domain-review · domain.valve",
+   "rule": "G2_UNWIRED_CAPABILITY",
+   "subject": "domain-review · domain.valve",
+   "severity": "P2",
+   "reason": "存量：能力已挂载可调用但尚未接入任何编排（2026-10-23 建账，逐批接线或标 dormant）",
+   "expires": "2027-01-31"
+  },
+  {
+   "key": "G2_UNWIRED_CAPABILITY|event-log · event.append",
+   "rule": "G2_UNWIRED_CAPABILITY",
+   "subject": "event-log · event.append",
+   "severity": "P2",
+   "reason": "存量：能力已挂载可调用但尚未接入任何编排（2026-10-23 建账，逐批接线或标 dormant）",
+   "expires": "2027-01-31"
+  },
+  {
+   "key": "G2_UNWIRED_CAPABILITY|event-log · event.checkpoint",
+   "rule": "G2_UNWIRED_CAPABILITY",
+   "subject": "event-log · event.checkpoint",
+   "severity": "P2",
+   "reason": "存量：能力已挂载可调用但尚未接入任何编排（2026-10-23 建账，逐批接线或标 dormant）",
+   "expires": "2027-01-31"
+  },
+  {
+   "key": "G2_UNWIRED_CAPABILITY|event-log · event.replay",
+   "rule": "G2_UNWIRED_CAPABILITY",
+   "subject": "event-log · event.replay",
+   "severity": "P2",
+   "reason": "存量：能力已挂载可调用但尚未接入任何编排（2026-10-23 建账，逐批接线或标 dormant）",
+   "expires": "2027-01-31"
+  },
+  {
+   "key": "G2_UNWIRED_CAPABILITY|event-log · event.timeline",
+   "rule": "G2_UNWIRED_CAPABILITY",
+   "subject": "event-log · event.timeline",
+   "severity": "P2",
+   "reason": "存量：能力已挂载可调用但尚未接入任何编排（2026-10-23 建账，逐批接线或标 dormant）",
+   "expires": "2027-01-31"
+  },
+  {
+   "key": "G2_UNWIRED_CAPABILITY|git-ops · git.branch",
+   "rule": "G2_UNWIRED_CAPABILITY",
+   "subject": "git-ops · git.branch",
+   "severity": "P2",
+   "reason": "存量：能力已挂载可调用但尚未接入任何编排（2026-10-23 建账，逐批接线或标 dormant）",
+   "expires": "2027-01-31"
+  },
+  {
+   "key": "G2_UNWIRED_CAPABILITY|git-ops · git.commit",
+   "rule": "G2_UNWIRED_CAPABILITY",
+   "subject": "git-ops · git.commit",
+   "severity": "P2",
+   "reason": "存量：能力已挂载可调用但尚未接入任何编排（2026-10-23 建账，逐批接线或标 dormant）",
+   "expires": "2027-01-31"
+  },
+  {
+   "key": "G2_UNWIRED_CAPABILITY|git-ops · git.diff",
+   "rule": "G2_UNWIRED_CAPABILITY",
+   "subject": "git-ops · git.diff",
+   "severity": "P2",
+   "reason": "存量：能力已挂载可调用但尚未接入任何编排（2026-10-23 建账，逐批接线或标 dormant）",
+   "expires": "2027-01-31"
+  },
+  {
+   "key": "G2_UNWIRED_CAPABILITY|git-ops · git.log",
+   "rule": "G2_UNWIRED_CAPABILITY",
+   "subject": "git-ops · git.log",
+   "severity": "P2",
+   "reason": "存量：能力已挂载可调用但尚未接入任何编排（2026-10-23 建账，逐批接线或标 dormant）",
+   "expires": "2027-01-31"
+  },
+  {
+   "key": "G2_UNWIRED_CAPABILITY|git-ops · git.status",
+   "rule": "G2_UNWIRED_CAPABILITY",
+   "subject": "git-ops · git.status",
+   "severity": "P2",
+   "reason": "存量：能力已挂载可调用但尚未接入任何编排（2026-10-23 建账，逐批接线或标 dormant）",
+   "expires": "2027-01-31"
+  },
+  {
+   "key": "G2_UNWIRED_CAPABILITY|guard · guard.check",
+   "rule": "G2_UNWIRED_CAPABILITY",
+   "subject": "guard · guard.check",
+   "severity": "P2",
+   "reason": "存量：能力已挂载可调用但尚未接入任何编排（2026-10-23 建账，逐批接线或标 dormant）",
+   "expires": "2027-01-31"
+  },
+  {
+   "key": "G2_UNWIRED_CAPABILITY|guard · guard.exit_intercept",
+   "rule": "G2_UNWIRED_CAPABILITY",
+   "subject": "guard · guard.exit_intercept",
+   "severity": "P2",
+   "reason": "存量：能力已挂载可调用但尚未接入任何编排（2026-10-23 建账，逐批接线或标 dormant）",
+   "expires": "2027-01-31"
+  },
+  {
+   "key": "G2_UNWIRED_CAPABILITY|guard · guard.loop_guard",
+   "rule": "G2_UNWIRED_CAPABILITY",
+   "subject": "guard · guard.loop_guard",
+   "severity": "P2",
+   "reason": "存量：能力已挂载可调用但尚未接入任何编排（2026-10-23 建账，逐批接线或标 dormant）",
+   "expires": "2027-01-31"
+  },
+  {
+   "key": "G2_UNWIRED_CAPABILITY|guard · guard.pipeline",
+   "rule": "G2_UNWIRED_CAPABILITY",
+   "subject": "guard · guard.pipeline",
+   "severity": "P2",
+   "reason": "存量：能力已挂载可调用但尚未接入任何编排（2026-10-23 建账，逐批接线或标 dormant）",
+   "expires": "2027-01-31"
+  },
+  {
+   "key": "G2_UNWIRED_CAPABILITY|guard · guard.post",
+   "rule": "G2_UNWIRED_CAPABILITY",
+   "subject": "guard · guard.post",
+   "severity": "P2",
+   "reason": "存量：能力已挂载可调用但尚未接入任何编排（2026-10-23 建账，逐批接线或标 dormant）",
+   "expires": "2027-01-31"
+  },
+  {
+   "key": "G2_UNWIRED_CAPABILITY|guard · guard.pre",
+   "rule": "G2_UNWIRED_CAPABILITY",
+   "subject": "guard · guard.pre",
+   "severity": "P2",
+   "reason": "存量：能力已挂载可调用但尚未接入任何编排（2026-10-23 建账，逐批接线或标 dormant）",
+   "expires": "2027-01-31"
+  },
+  {
+   "key": "G2_UNWIRED_CAPABILITY|guard · guard.selfcheck",
+   "rule": "G2_UNWIRED_CAPABILITY",
+   "subject": "guard · guard.selfcheck",
+   "severity": "P2",
+   "reason": "存量：能力已挂载可调用但尚未接入任何编排（2026-10-23 建账，逐批接线或标 dormant）",
+   "expires": "2027-01-31"
+  },
+  {
+   "key": "G2_UNWIRED_CAPABILITY|llm-router · llm.registry",
+   "rule": "G2_UNWIRED_CAPABILITY",
+   "subject": "llm-router · llm.registry",
+   "severity": "P2",
+   "reason": "存量：能力已挂载可调用但尚未接入任何编排（2026-10-23 建账，逐批接线或标 dormant）",
+   "expires": "2027-01-31"
+  },
+  {
+   "key": "G2_UNWIRED_CAPABILITY|localized · local.audit",
+   "rule": "G2_UNWIRED_CAPABILITY",
+   "subject": "localized · local.audit",
+   "severity": "P2",
+   "reason": "存量：能力已挂载可调用但尚未接入任何编排（2026-10-23 建账，逐批接线或标 dormant）",
+   "expires": "2027-01-31"
+  },
+  {
+   "key": "G2_UNWIRED_CAPABILITY|localized · local.chain",
+   "rule": "G2_UNWIRED_CAPABILITY",
+   "subject": "localized · local.chain",
+   "severity": "P2",
+   "reason": "存量：能力已挂载可调用但尚未接入任何编排（2026-10-23 建账，逐批接线或标 dormant）",
+   "expires": "2027-01-31"
+  },
+  {
+   "key": "G2_UNWIRED_CAPABILITY|localized · local.route",
+   "rule": "G2_UNWIRED_CAPABILITY",
+   "subject": "localized · local.route",
+   "severity": "P2",
+   "reason": "存量：能力已挂载可调用但尚未接入任何编排（2026-10-23 建账，逐批接线或标 dormant）",
+   "expires": "2027-01-31"
+  },
+  {
+   "key": "G2_UNWIRED_CAPABILITY|mcp-client · mcp.connect",
+   "rule": "G2_UNWIRED_CAPABILITY",
+   "subject": "mcp-client · mcp.connect",
+   "severity": "P2",
+   "reason": "存量：能力已挂载可调用但尚未接入任何编排（2026-10-23 建账，逐批接线或标 dormant）",
+   "expires": "2027-01-31"
+  },
+  {
+   "key": "G2_UNWIRED_CAPABILITY|mcp-client · mcp.guard",
+   "rule": "G2_UNWIRED_CAPABILITY",
+   "subject": "mcp-client · mcp.guard",
+   "severity": "P2",
+   "reason": "存量：能力已挂载可调用但尚未接入任何编排（2026-10-23 建账，逐批接线或标 dormant）",
+   "expires": "2027-01-31"
+  },
+  {
+   "key": "G2_UNWIRED_CAPABILITY|mcp-client · mcp.list",
+   "rule": "G2_UNWIRED_CAPABILITY",
+   "subject": "mcp-client · mcp.list",
+   "severity": "P2",
+   "reason": "存量：能力已挂载可调用但尚未接入任何编排（2026-10-23 建账，逐批接线或标 dormant）",
+   "expires": "2027-01-31"
+  },
+  {
+   "key": "G2_UNWIRED_CAPABILITY|method-impact · impact.kind",
+   "rule": "G2_UNWIRED_CAPABILITY",
+   "subject": "method-impact · impact.kind",
+   "severity": "P2",
+   "reason": "存量：能力已挂载可调用但尚未接入任何编排（2026-10-23 建账，逐批接线或标 dormant）",
+   "expires": "2027-01-31"
+  },
+  {
+   "key": "G2_UNWIRED_CAPABILITY|method-impact · impact.method",
+   "rule": "G2_UNWIRED_CAPABILITY",
+   "subject": "method-impact · impact.method",
+   "severity": "P2",
+   "reason": "存量：能力已挂载可调用但尚未接入任何编排（2026-10-23 建账，逐批接线或标 dormant）",
+   "expires": "2027-01-31"
+  },
+  {
+   "key": "G2_UNWIRED_CAPABILITY|minimalist-style · minimal.deps",
+   "rule": "G2_UNWIRED_CAPABILITY",
+   "subject": "minimalist-style · minimal.deps",
+   "severity": "P2",
+   "reason": "存量：能力已挂载可调用但尚未接入任何编排（2026-10-23 建账，逐批接线或标 dormant）",
+   "expires": "2027-01-31"
+  },
+  {
+   "key": "G2_UNWIRED_CAPABILITY|minimalist-style · minimal.independent",
+   "rule": "G2_UNWIRED_CAPABILITY",
+   "subject": "minimalist-style · minimal.independent",
+   "severity": "P2",
+   "reason": "存量：能力已挂载可调用但尚未接入任何编排（2026-10-23 建账，逐批接线或标 dormant）",
+   "expires": "2027-01-31"
+  },
+  {
+   "key": "G2_UNWIRED_CAPABILITY|minimalist-style · minimal.style",
+   "rule": "G2_UNWIRED_CAPABILITY",
+   "subject": "minimalist-style · minimal.style",
+   "severity": "P2",
+   "reason": "存量：能力已挂载可调用但尚未接入任何编排（2026-10-23 建账，逐批接线或标 dormant）",
+   "expires": "2027-01-31"
+  },
+  {
+   "key": "G2_UNWIRED_CAPABILITY|model-fallback · model.candidates",
+   "rule": "G2_UNWIRED_CAPABILITY",
+   "subject": "model-fallback · model.candidates",
+   "severity": "P2",
+   "reason": "存量：能力已挂载可调用但尚未接入任何编排（2026-10-23 建账，逐批接线或标 dormant）",
+   "expires": "2027-01-31"
+  },
+  {
+   "key": "G2_UNWIRED_CAPABILITY|model-fallback · model.cascade",
+   "rule": "G2_UNWIRED_CAPABILITY",
+   "subject": "model-fallback · model.cascade",
+   "severity": "P2",
+   "reason": "存量：能力已挂载可调用但尚未接入任何编排（2026-10-23 建账，逐批接线或标 dormant）",
+   "expires": "2027-01-31"
+  },
+  {
+   "key": "G2_UNWIRED_CAPABILITY|model-fallback · model.chain",
+   "rule": "G2_UNWIRED_CAPABILITY",
+   "subject": "model-fallback · model.chain",
+   "severity": "P2",
+   "reason": "存量：能力已挂载可调用但尚未接入任何编排（2026-10-23 建账，逐批接线或标 dormant）",
+   "expires": "2027-01-31"
+  },
+  {
+   "key": "G2_UNWIRED_CAPABILITY|model-fallback · model.route",
+   "rule": "G2_UNWIRED_CAPABILITY",
+   "subject": "model-fallback · model.route",
+   "severity": "P2",
+   "reason": "存量：能力已挂载可调用但尚未接入任何编排（2026-10-23 建账，逐批接线或标 dormant）",
+   "expires": "2027-01-31"
+  },
+  {
+   "key": "G2_UNWIRED_CAPABILITY|model-fallback · model.rule_match",
+   "rule": "G2_UNWIRED_CAPABILITY",
+   "subject": "model-fallback · model.rule_match",
+   "severity": "P2",
+   "reason": "存量：能力已挂载可调用但尚未接入任何编排（2026-10-23 建账，逐批接线或标 dormant）",
+   "expires": "2027-01-31"
+  },
+  {
+   "key": "G2_UNWIRED_CAPABILITY|ontology-review · ontology.chain",
+   "rule": "G2_UNWIRED_CAPABILITY",
+   "subject": "ontology-review · ontology.chain",
+   "severity": "P2",
+   "reason": "存量：能力已挂载可调用但尚未接入任何编排（2026-10-23 建账，逐批接线或标 dormant）",
+   "expires": "2027-01-31"
+  },
+  {
+   "key": "G2_UNWIRED_CAPABILITY|ontology-review · ontology.quality",
+   "rule": "G2_UNWIRED_CAPABILITY",
+   "subject": "ontology-review · ontology.quality",
+   "severity": "P2",
+   "reason": "存量：能力已挂载可调用但尚未接入任何编排（2026-10-23 建账，逐批接线或标 dormant）",
+   "expires": "2027-01-31"
+  },
+  {
+   "key": "G2_UNWIRED_CAPABILITY|process-sandbox · sandbox.exec",
+   "rule": "G2_UNWIRED_CAPABILITY",
+   "subject": "process-sandbox · sandbox.exec",
+   "severity": "P2",
+   "reason": "存量：能力已挂载可调用但尚未接入任何编排（2026-10-23 建账，逐批接线或标 dormant）",
+   "expires": "2027-01-31"
+  },
+  {
+   "key": "G2_UNWIRED_CAPABILITY|process-sandbox · sandbox.guard",
+   "rule": "G2_UNWIRED_CAPABILITY",
+   "subject": "process-sandbox · sandbox.guard",
+   "severity": "P2",
+   "reason": "存量：能力已挂载可调用但尚未接入任何编排（2026-10-23 建账，逐批接线或标 dormant）",
+   "expires": "2027-01-31"
+  },
+  {
+   "key": "G2_UNWIRED_CAPABILITY|process-sandbox · sandbox.interpreter",
+   "rule": "G2_UNWIRED_CAPABILITY",
+   "subject": "process-sandbox · sandbox.interpreter",
+   "severity": "P2",
+   "reason": "存量：能力已挂载可调用但尚未接入任何编排（2026-10-23 建账，逐批接线或标 dormant）",
+   "expires": "2027-01-31"
+  },
+  {
+   "key": "G2_UNWIRED_CAPABILITY|process-sandbox · sandbox.poc",
+   "rule": "G2_UNWIRED_CAPABILITY",
+   "subject": "process-sandbox · sandbox.poc",
+   "severity": "P2",
+   "reason": "存量：能力已挂载可调用但尚未接入任何编排（2026-10-23 建账，逐批接线或标 dormant）",
+   "expires": "2027-01-31"
+  },
+  {
+   "key": "G2_UNWIRED_CAPABILITY|process-sandbox · sandbox.validate",
+   "rule": "G2_UNWIRED_CAPABILITY",
+   "subject": "process-sandbox · sandbox.validate",
+   "severity": "P2",
+   "reason": "存量：能力已挂载可调用但尚未接入任何编排（2026-10-23 建账，逐批接线或标 dormant）",
+   "expires": "2027-01-31"
+  },
+  {
+   "key": "G2_UNWIRED_CAPABILITY|secret-vault · secrets.decrypt",
+   "rule": "G2_UNWIRED_CAPABILITY",
+   "subject": "secret-vault · secrets.decrypt",
+   "severity": "P2",
+   "reason": "存量：能力已挂载可调用但尚未接入任何编排（2026-10-23 建账，逐批接线或标 dormant）",
+   "expires": "2027-01-31"
+  },
+  {
+   "key": "G2_UNWIRED_CAPABILITY|secret-vault · secrets.encrypt",
+   "rule": "G2_UNWIRED_CAPABILITY",
+   "subject": "secret-vault · secrets.encrypt",
+   "severity": "P2",
+   "reason": "存量：能力已挂载可调用但尚未接入任何编排（2026-10-23 建账，逐批接线或标 dormant）",
+   "expires": "2027-01-31"
+  },
+  {
+   "key": "G2_UNWIRED_CAPABILITY|secret-vault · secrets.load",
+   "rule": "G2_UNWIRED_CAPABILITY",
+   "subject": "secret-vault · secrets.load",
+   "severity": "P2",
+   "reason": "存量：能力已挂载可调用但尚未接入任何编排（2026-10-23 建账，逐批接线或标 dormant）",
+   "expires": "2027-01-31"
+  },
+  {
+   "key": "G2_UNWIRED_CAPABILITY|secret-vault · secrets.mask",
+   "rule": "G2_UNWIRED_CAPABILITY",
+   "subject": "secret-vault · secrets.mask",
+   "severity": "P2",
+   "reason": "存量：能力已挂载可调用但尚未接入任何编排（2026-10-23 建账，逐批接线或标 dormant）",
+   "expires": "2027-01-31"
+  },
+  {
+   "key": "G2_UNWIRED_CAPABILITY|secret-vault · secrets.store",
+   "rule": "G2_UNWIRED_CAPABILITY",
+   "subject": "secret-vault · secrets.store",
+   "severity": "P2",
+   "reason": "存量：能力已挂载可调用但尚未接入任何编排（2026-10-23 建账，逐批接线或标 dormant）",
+   "expires": "2027-01-31"
+  },
+  {
+   "key": "G2_UNWIRED_CAPABILITY|secret-vault · secrets.vault",
+   "rule": "G2_UNWIRED_CAPABILITY",
+   "subject": "secret-vault · secrets.vault",
+   "severity": "P2",
+   "reason": "存量：能力已挂载可调用但尚未接入任何编排（2026-10-23 建账，逐批接线或标 dormant）",
+   "expires": "2027-01-31"
+  },
+  {
+   "key": "G2_UNWIRED_CAPABILITY|security-scan · security.dim",
+   "rule": "G2_UNWIRED_CAPABILITY",
+   "subject": "security-scan · security.dim",
+   "severity": "P2",
+   "reason": "存量：能力已挂载可调用但尚未接入任何编排（2026-10-23 建账，逐批接线或标 dormant）",
+   "expires": "2027-01-31"
+  },
+  {
+   "key": "G2_UNWIRED_CAPABILITY|security-scan · security.govern",
+   "rule": "G2_UNWIRED_CAPABILITY",
+   "subject": "security-scan · security.govern",
+   "severity": "P2",
+   "reason": "存量：能力已挂载可调用但尚未接入任何编排（2026-10-23 建账，逐批接线或标 dormant）",
+   "expires": "2027-01-31"
+  },
+  {
+   "key": "G2_UNWIRED_CAPABILITY|security-scan · security.scan",
+   "rule": "G2_UNWIRED_CAPABILITY",
+   "subject": "security-scan · security.scan",
+   "severity": "P2",
+   "reason": "存量：能力已挂载可调用但尚未接入任何编排（2026-10-23 建账，逐批接线或标 dormant）",
+   "expires": "2027-01-31"
+  },
+  {
+   "key": "G2_UNWIRED_CAPABILITY|security-scan · security.secret",
+   "rule": "G2_UNWIRED_CAPABILITY",
+   "subject": "security-scan · security.secret",
+   "severity": "P2",
+   "reason": "存量：能力已挂载可调用但尚未接入任何编排（2026-10-23 建账，逐批接线或标 dormant）",
+   "expires": "2027-01-31"
+  },
+  {
+   "key": "G2_UNWIRED_CAPABILITY|session · session.get",
+   "rule": "G2_UNWIRED_CAPABILITY",
+   "subject": "session · session.get",
+   "severity": "P2",
+   "reason": "存量：能力已挂载可调用但尚未接入任何编排（2026-10-23 建账，逐批接线或标 dormant）",
+   "expires": "2027-01-31"
+  },
+  {
+   "key": "G2_UNWIRED_CAPABILITY|session · session.list",
+   "rule": "G2_UNWIRED_CAPABILITY",
+   "subject": "session · session.list",
+   "severity": "P2",
+   "reason": "存量：能力已挂载可调用但尚未接入任何编排（2026-10-23 建账，逐批接线或标 dormant）",
+   "expires": "2027-01-31"
+  },
+  {
+   "key": "G2_UNWIRED_CAPABILITY|session · session.resume",
+   "rule": "G2_UNWIRED_CAPABILITY",
+   "subject": "session · session.resume",
+   "severity": "P2",
+   "reason": "存量：能力已挂载可调用但尚未接入任何编排（2026-10-23 建账，逐批接线或标 dormant）",
+   "expires": "2027-01-31"
+  },
+  {
+   "key": "G2_UNWIRED_CAPABILITY|session · session.start",
+   "rule": "G2_UNWIRED_CAPABILITY",
+   "subject": "session · session.start",
+   "severity": "P2",
+   "reason": "存量：能力已挂载可调用但尚未接入任何编排（2026-10-23 建账，逐批接线或标 dormant）",
+   "expires": "2027-01-31"
+  },
+  {
+   "key": "G2_UNWIRED_CAPABILITY|session · session.status",
+   "rule": "G2_UNWIRED_CAPABILITY",
+   "subject": "session · session.status",
+   "severity": "P2",
+   "reason": "存量：能力已挂载可调用但尚未接入任何编排（2026-10-23 建账，逐批接线或标 dormant）",
+   "expires": "2027-01-31"
+  },
+  {
+   "key": "G2_UNWIRED_CAPABILITY|session · session.step",
+   "rule": "G2_UNWIRED_CAPABILITY",
+   "subject": "session · session.step",
+   "severity": "P2",
+   "reason": "存量：能力已挂载可调用但尚未接入任何编排（2026-10-23 建账，逐批接线或标 dormant）",
+   "expires": "2027-01-31"
+  },
+  {
+   "key": "G3_DEP_NOT_EXERCISED|code-evolve → memory.recall",
+   "rule": "G3_DEP_NOT_EXERCISED",
+   "subject": "code-evolve → memory.recall",
+   "severity": "P2",
+   "reason": "存量：能力已挂载可调用但尚未接入任何编排（2026-10-23 建账，逐批接线或标 dormant）",
+   "expires": "2027-01-31"
+  },
+  {
+   "key": "G3_DEP_NOT_EXERCISED|code-plan → taskstate.track",
+   "rule": "G3_DEP_NOT_EXERCISED",
+   "subject": "code-plan → taskstate.track",
+   "severity": "P2",
+   "reason": "存量：能力已挂载可调用但尚未接入任何编排（2026-10-23 建账，逐批接线或标 dormant）",
+   "expires": "2027-01-31"
+  },
+  {
+   "key": "G3_DEP_NOT_EXERCISED|code-review → impact.analyze",
+   "rule": "G3_DEP_NOT_EXERCISED",
+   "subject": "code-review → impact.analyze",
+   "severity": "P2",
+   "reason": "存量：能力已挂载可调用但尚未接入任何编排（2026-10-23 建账，逐批接线或标 dormant）",
+   "expires": "2027-01-31"
+  },
+  {
+   "key": "G3_DEP_NOT_EXERCISED|code-skill → memory.recall",
+   "rule": "G3_DEP_NOT_EXERCISED",
+   "subject": "code-skill → memory.recall",
+   "severity": "P2",
+   "reason": "存量：能力已挂载可调用但尚未接入任何编排（2026-10-23 建账，逐批接线或标 dormant）",
+   "expires": "2027-01-31"
+  },
+  {
+   "key": "G3_DEP_NOT_EXERCISED|model-fallback → llm.list_models",
+   "rule": "G3_DEP_NOT_EXERCISED",
+   "subject": "model-fallback → llm.list_models",
+   "severity": "P2",
+   "reason": "存量：能力已挂载可调用但尚未接入任何编排（2026-10-23 建账，逐批接线或标 dormant）",
+   "expires": "2027-01-31"
+  }
+ ]
+}
