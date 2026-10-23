@@ -13,10 +13,19 @@
   ],
   "depends_on": [],
   "inputs": [
-    "text"
+    "task",
+    "provider",
+    "cwd",
+    "timeout",
+    "name"
   ],
   "outputs": [
-    "echo"
+    "providers",
+    "count",
+    "usable",
+    "ok",
+    "degraded",
+    "provider"
   ],
   "path": "agents/subagent/cli-providers",
   "permission": {

@@ -8,6 +8,6 @@
   "entry": "main.py",
   "provides": ["reuse.local", "reuse.atom", "reuse.remote"],
   "depends_on": [],
-  "inputs": ["content", "path", "top_k", "task"],
+  "inputs": ["content", "path", "top_k"],
   "outputs": ["suggestions", "atoms", "count"]
 }

@@ -115,7 +115,7 @@
 ### codeagent.py.chain（代码内）
 
 - 组合 ID：`code:codeagent.py#chain`
-- 定义位置：`codeagent.py`:154
+- 定义位置：`codeagent.py`:159
 - **静态抽不出步骤**：组合由运行时给出（参数透传），不是代码里的组合定义
 
 ## 三、能力 → 组合 反查（改动影响面）

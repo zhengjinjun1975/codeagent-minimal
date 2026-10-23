@@ -15,6 +15,7 @@
 import ast
 import sys
 import os
+import inspect
 import time
 import contextlib
 import io
@@ -91,9 +92,15 @@ def smoke(path):
     return {"ok": True, "functions": funcs, "details": f"模块导入成功，发现 {len(funcs)} 个顶层函数"}
 
 
-def run_unit(target_dir):
+def run_unit(target_dir, timeout=120):
     """单元测试：自动发现 test 文件并运行。
-    有 pytest 则调用（subprocess），否则标准库逐个跑 test_ 函数。"""
+    有 pytest 则调用（subprocess），否则标准库逐个跑 test_ 函数。
+
+    timeout 是**预算**，超时是一种结果而不是异常：以前 TimeoutExpired 直接往上冒，
+    最后被包成 `degraded: TimeoutExpired: Command '[...'`，用户看到的只是半条命令行。
+    现在如实说「这次没在预算内跑完」，并把预算与规模一起交出去 —— 让人知道该调大预算
+    还是该缩小范围。
+    """
     tests = []
     for root, _, files in os.walk(target_dir):
         for f in files:
@@ -110,7 +117,16 @@ def run_unit(target_dir):
     try:
         import pytest
         import subprocess
-        r = subprocess.run([sys.executable, "-m", "pytest", "-q"] + tests, capture_output=True, text=True, timeout=120)
+        try:
+            r = subprocess.run([sys.executable, "-m", "pytest", "-q"] + tests,
+                               capture_output=True, text=True, timeout=timeout)
+        except subprocess.TimeoutExpired:
+            return {"ok": False, "runner": "pytest", "timeout": True, "budget": timeout,
+                    "test_count": len(tests),
+                    "details": "单元测试在 %ds 预算内没跑完（收集到 %d 个测试文件）："
+                               "这不是「测试失败」，是「这次没测完」——"
+                               "调大 --timeout，或用更小的 --dir 缩小范围"
+                               % (timeout, len(tests))}
         tail = r.stdout.strip().splitlines()[-1] if r.stdout.strip() else ""
         # "no tests ran" / exit 5 = 无测试用例，算跳过不算失败
         if "no tests ran" in r.stdout or r.returncode == 5:
@@ -699,6 +715,31 @@ def _cov_ok():
     return _cov_ok_flag
 
 
+def _count_nodes(fn):
+    """数一个函数体内的可执行语句数与分支结构数，近似覆盖按这两项算比例。"""
+    ex = sum(1 for n in ast.walk(fn)
+             if isinstance(n, (ast.Assign, ast.Expr, ast.Return, ast.Call, ast.AugAssign)))
+    br = sum(1 for n in ast.walk(fn)
+             if isinstance(n, (ast.If, ast.While, ast.For, ast.BoolOp, ast.IfExp)))
+    return ex, br
+
+
+def _probe_callable(f):
+    """用边界输入试着调一次；调得动就算这个函数被覆盖到。单条失败换下个输入继续试。"""
+    for probe in (None, 0, -1, "", [], {}):
+        try:
+            nreq = len([p for p in inspect.signature(f).parameters.values()
+                        if p.default is inspect.Parameter.empty])
+            if nreq == 0:
+                _quiet_call(f)
+            else:
+                _quiet_call(f, *([probe] * min(nreq, 3)))
+            return True
+        except Exception:  # fail-open: _coverage_approx 里出错就跳过该条继续扫
+            continue
+    return False
+
+
 def _coverage_approx(path, timeout=8):
     """无 coverage 库时的近似：函数内可执行语句被顶格调用覆盖的比例作为行覆盖，
     分支结构存在率作为分支覆盖。"""
@@ -711,11 +752,9 @@ def _coverage_approx(path, timeout=8):
     total_exec = 0
     total_branch = 0
     for fn in funcs:
-        for n in ast.walk(fn):
-            if isinstance(n, (ast.Assign, ast.Expr, ast.Return, ast.Call, ast.AugAssign)):
-                total_exec += 1
-            if isinstance(n, (ast.If, ast.While, ast.For, ast.BoolOp, ast.IfExp)):
-                total_branch += 1
+        ex, br = _count_nodes(fn)
+        total_exec += ex
+        total_branch += br
     # 顶格调用函数 → 主路径覆盖
     mod = _load_module(path)
     if mod is None:
@@ -724,32 +763,11 @@ def _coverage_approx(path, timeout=8):
     branch_covered = 0
     for fn in funcs:
         f = getattr(mod, fn.name, None)
-        if not callable(f):
+        if not callable(f) or not _probe_callable(f):
             continue
-        # 尝试用边界输入调用以覆盖更多分支
-        covered_any = False
-        for probe in (None, 0, -1, "", [], {}):
-            try:
-                import inspect as _in
-                nreq = len([p for p in _in.signature(f).parameters.values()
-                            if p.default is _in.Parameter.empty])
-                if nreq == 0:
-                    _quiet_call(f)
-                else:
-                    args = [probe] * min(nreq, 3)
-                    _quiet_call(f, *args)
-                covered_any = True
-                # 简单估算：该函数内部 exec 行算覆盖（无法精确到行，取比例）
-                break
-            except Exception:  # fail-open: _coverage_approx 里出错就跳过该条继续扫
-                continue
-        if covered_any:
-            fn_exec = sum(1 for n in ast.walk(fn)
-                          if isinstance(n, (ast.Assign, ast.Expr, ast.Return, ast.Call, ast.AugAssign)))
-            exec_covered += fn_exec
-            fn_br = sum(1 for n in ast.walk(fn)
-                        if isinstance(n, (ast.If, ast.While, ast.For, ast.BoolOp, ast.IfExp)))
-            branch_covered += fn_br
+        ex, br = _count_nodes(fn)
+        exec_covered += ex
+        branch_covered += br
     line_pct = round(exec_covered / total_exec * 100, 1) if total_exec else 100.0
     branch_pct = round(branch_covered / total_branch * 100, 1) if total_branch else 100.0
     return line_pct, branch_pct
@@ -786,12 +804,13 @@ def stability(path, n=20, timeout=3):
     return {"ok": all(not r["crash"] and not r["slow"] for r in results), "results": results}
 
 
-def run_all(path, target_dir, do_mutation=True, do_stability=True, do_boundary=True, n=20, max_mutants=20):
-    """完整测试闭环。"""
+def run_all(path, target_dir, do_mutation=True, do_stability=True, do_boundary=True,
+            n=20, max_mutants=20, unit_timeout=120):
+    """完整测试闭环。unit_timeout 是单元测试那一段的预算（见 run_unit）。"""
     report = {"target": path, "harness": "test_harness v1.0"}
     report["smoke"] = smoke(path)
     report["coverage"] = coverage(path)
-    report["unit"] = run_unit(target_dir)
+    report["unit"] = run_unit(target_dir, timeout=unit_timeout)
     if do_boundary:
         report["boundary"] = boundary(path)
     if do_mutation and report["unit"].get("test_count", 0) > 0:

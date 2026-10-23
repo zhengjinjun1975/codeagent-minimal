@@ -113,8 +113,12 @@ class ModelFallbackAgent(AtomicAgent):
         self.register("model.cache_put", self._cache_put)
         self.register("model.cascade", self._cascade)
 
-    def _route(self, purpose="generic", preference="local_first", local_only=False):
-        return route(purpose=purpose, preference=preference, local_only=local_only)
+    def _route(self, purpose="generic", preference="local_first", local_only=False,
+               candidates=None):
+        """candidates 是自定义候选清单（覆盖内置 DEFAULT_CANDIDATES）。
+        底层 route() 早就吃这个参数，能力层一直没露出来 —— manifest 声明了却传不进来。"""
+        return route(purpose=purpose, preference=preference, local_only=local_only,
+                     candidates=candidates)
 
     def _candidates(self, purpose="generic", preference="local_first", local_only=False):
         return route(purpose=purpose, preference=preference, local_only=local_only)

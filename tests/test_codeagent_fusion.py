@@ -133,7 +133,7 @@ REAL_MULTI = {
 
 def test_chain_single_file_5of5_green():
     ca = CodeAgent()
-    r = ca.chain("实现加法与乘法函数 add/mul", code=REAL_SINGLE)
+    r = ca.chain("实现加法与乘法函数 add/mul", ctx={"code": REAL_SINGLE})
     assert r["ok"], r.get("error")
     d = r["data"]
     assert d["verdict"] == "全部通过", d["verdict"]
@@ -149,7 +149,7 @@ def test_chain_single_file_5of5_green():
 
 def test_chain_multi_file_5of5_green():
     ca = CodeAgent()
-    r = ca.chain("多文件: add/mul/area", code=REAL_MULTI)
+    r = ca.chain("多文件: add/mul/area", ctx={"code": REAL_MULTI})
     assert r["ok"], r.get("error")
     d = r["data"]
     assert d["verdict"] == "全部通过", d["verdict"]

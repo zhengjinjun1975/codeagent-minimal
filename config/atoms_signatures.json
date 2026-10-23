@@ -1383,6 +1383,7 @@
   "model.route": {
    "atom": "model-fallback",
    "params": [
+    "candidates",
     "local_only",
     "preference",
     "purpose"
@@ -1906,7 +1907,8 @@
     "do_stability",
     "human_review",
     "path",
-    "target_dir"
+    "target_dir",
+    "timeout"
    ],
    "required": [
     "path"
@@ -1972,5 +1974,5 @@
   }
  },
  "_note": "本文件由 `scripts/verify_atoms_graph.py --update-signatures` 生成，禁手写。它是签名基线：删参数/加必填/改名会触发 G17，改完必须重新生成并写明理由。",
- "reason": "二期首次建立签名基线（166 条能力），此后删参数/加必填/改名会触发 G17"
+ "reason": "model.route 露出 candidates 参数：底层 route() 早就支持自定义候选清单，能力层此前不透传，manifest 声明了却传不进来（契约对账发现）"
 }

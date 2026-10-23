@@ -27,7 +27,8 @@ class CodeReuseAgent(AtomicAgent):
     description = "代码复用检索: review.py 检索仓库内 atoms/ 可插拔复用库(随用户自放,默认空)"
     provides = ["reuse.local", "reuse.atom", "reuse.remote"]
     depends_on = []
-    inputs = ["content", "path", "top_k", "task"]
+    # 2026-10-23 契约对账：去掉 task —— 三个能力没有一个接受它，声明了就是空头承诺。
+    inputs = ["content", "path", "top_k"]
     outputs = ["suggestions", "atoms", "count"]
 
     def _register_defaults(self):

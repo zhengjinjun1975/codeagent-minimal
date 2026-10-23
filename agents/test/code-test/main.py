@@ -31,6 +31,39 @@ import reg_guard as rg     # 复用核心：回归快照/增量测试选择，�
 import project_verify as pv  # 同目录核心模块：项目级验收（吃目录、逐文件 smoke）
 
 
+def _red_green(report):
+    """红绿推导：smoke(模块导入) 且 unit(测试) 且 boundary 全绿 = 绿；任一红 = 红。
+
+    🔴 smoke 失败时 unit/boundary 会被跳过并默认 ok=True，只算 unit+bnd 就会报「全绿」，
+       而目标模块根本 import 不进来（2026-09-22 在真项目上实测出来的假绿）。
+    返回 (smoke_ok, {red, green})，smoke_ok 单独回传供 summary 说明失败原因。
+    """
+    smoke_ok = (report.get("smoke") or {}).get("ok", True)
+    unit_ok = report["unit"].get("ok", True)
+    bnd_ok = report["boundary"].get("ok", True) if "boundary" in report else True
+    all_ok = bool(smoke_ok and unit_ok and bnd_ok)
+    return smoke_ok, {"red": not all_ok, "green": all_ok}
+
+
+def _verdict_summary(report, smoke_ok):
+    """一句话说清结论。超预算 ≠ 用例失败，混成「存在失败项」会让人去查不存在的失败用例。"""
+    if not smoke_ok:
+        return "红（模块导入失败，unit/boundary 已跳过——不算通过）"
+    if report["unit"].get("timeout"):
+        return "未测完（单元测试超预算，预算 %ss，收集 %s 个测试文件）" % (
+            report["unit"].get("budget"), report["unit"].get("test_count"))
+    return "全绿" if report["red_green"]["green"] else "红（存在失败项，见边界/单元）"
+
+
+def _analyze_coverage(report, path):
+    """覆盖度分析：报告哪些函数/分支未测，提示补测。分析失败不拖垮整体结论。"""
+    try:
+        report["coverage_analysis"] = th.coverage_analysis(path)
+    except Exception as e:
+        report["coverage_analysis"] = {"ok": False, "error": str(e)}
+    return report
+
+
 class CodeTestAgent(AtomicAgent):
     name = "code-test"
     version = "0.3.0"
@@ -154,7 +187,7 @@ class CodeTestAgent(AtomicAgent):
 
     # ── test.run：复用 test_harness.run_all ────────────────
     def _run(self, path, target_dir=".", do_mutation=False, do_stability=False,
-             do_boundary=True, human_review=True):
+             do_boundary=True, human_review=True, timeout=120):
         """对目标文件跑完整测试闭环。返回 {ok, data:{...}}（数据含 red_green 推导）。
         P1-4 人类在环：AI 生成的测试/结论默认标注需人工复核（渐进式，不自动放行）；
         P1-5 覆盖度分析并入报告，指出未测函数/分支提示补测。"""
@@ -162,23 +195,10 @@ class CodeTestAgent(AtomicAgent):
             raise FileNotFoundError(f"目标不存在: {path}")
         report = th.run_all(path, target_dir,
                             do_mutation=do_mutation, do_stability=do_stability,
-                            do_boundary=do_boundary, n=10, max_mutants=10)
-        # 红绿推导：smoke(模块导入) 且 unit(测试) 且 boundary 全绿 = 绿；任一红 = 红
-        # 🔴 smoke 失败时 unit/boundary 会被跳过并默认 ok=True，旧口径只算 unit+bnd 就会报"全绿"，
-        #    而目标模块根本 import 不进来（2026-09-22 在真项目上实测出来的假绿）。
-        smoke_ok = (report.get("smoke") or {}).get("ok", True)
-        unit_ok = report["unit"].get("ok", True)
-        bnd_ok = report["boundary"].get("ok", True) if "boundary" in report else True
-        all_ok = bool(smoke_ok and unit_ok and bnd_ok)
-        report["red_green"] = {
-            "red": not all_ok,
-            "green": all_ok,
-        }
-        # P1-5 覆盖度分析：报告哪些函数/分支未测，提示补测
-        try:
-            report["coverage_analysis"] = th.coverage_analysis(path)
-        except Exception as e:
-            report["coverage_analysis"] = {"ok": False, "error": str(e)}
+                            do_boundary=do_boundary, n=10, max_mutants=10,
+                            unit_timeout=timeout)
+        smoke_ok, report["red_green"] = _red_green(report)
+        report = _analyze_coverage(report, path)
         # P1-4 人类在环：渐进式，AI 结论不自动放行
         if human_review:
             report["human_review"] = {
@@ -187,10 +207,7 @@ class CodeTestAgent(AtomicAgent):
                 "progressive": True,
                 "auto_pass": False,
             }
-        if not smoke_ok:
-            report["summary"] = "红（模块导入失败，unit/boundary 已跳过——不算通过）"
-        else:
-            report["summary"] = ("全绿" if report["red_green"]["green"] else "红（存在失败项，见边界/单元）")
+        report["summary"] = _verdict_summary(report, smoke_ok)
         return report
 
     # ── test.tdd：红→绿→回归 反馈闭环 ────────────────────

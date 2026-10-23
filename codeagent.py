@@ -20,7 +20,7 @@ API 用法：
     from codeagent import CodeAgent
     ca = CodeAgent()
     ca.review("path/to/file.py")          # 或 ca.run("codereview.review", path=...)
-    ca.chain("实现加法函数", code={...})  # 组装链
+    ca.chain("实现加法函数", ctx={"code": {...}})  # 组装链
     ca.evolve_loop("任务", outcome={...}) # 大自进化
 """
 
@@ -55,8 +55,8 @@ class CodeAgent:
         return self.rt.run_capability("codereview.review", path=path, code=code,
                                       mode=mode, use_llm=False, reuse_atoms=True)
 
-    def test(self, path=None, code=None, target_dir=None, do_mutation=False):
-        kw = {"target_dir": target_dir or "."}
+    def test(self, path=None, code=None, target_dir=None, do_mutation=False, timeout=120):
+        kw = {"target_dir": target_dir or ".", "timeout": timeout}
         if path:
             kw["path"] = path
         if code:
@@ -134,26 +134,32 @@ class CodeAgent:
         return self.rt.review_with_guard(target, mode=mode)
 
     # ── 组装链（完整大链，含 MCP/多模型/SKILL 协同）──
-    def chain(self, task, code=None, spec=None, language="python", chain=None,
-              auto=False, template=None):
+    def chain(self, task, ctx=None, chain=None, auto=False):
         """运行组装链。
 
         组合**只有一个源**：`chain_templates.json`。这里不再留写死的默认链
         （旧版有一条 5 步硬编码链，和模板表里那套用不同原子，同一个意图两种结果）。
-          chain=None, auto=False  → 走模板表里 default:true 的那条（默认「全流程/综合任务」）
-          chain=None, auto=True   → 让运行时按任务关键词选链（选不中才退模型兜底）
-          template="改缺陷/修回归" → 指定模板表里的某条
-          chain=[...]             → 直接给能力序列（调用方自带）
-        可选参数：code/spec 直接给 gen；language 传给 think/gen。
+          chain=None, auto=False    → 走模板表里 default:true 的那条（默认「全流程/综合任务」）
+          chain=None, auto=True     → 让运行时按任务关键词选链（选不中才退模型兜底）
+          chain="改缺陷/修回归"      → 指定模板表里的某条（字符串即模板名）
+          chain=[...]               → 直接给能力序列（调用方自带）
+        ctx 是给 gen/think 的物料字典，可放 code / spec / language，都可选。
         """
-        if chain is None and not auto:
-            chain, err = self.rt.default_chain(template)
+        ctx = ctx or {}
+        if isinstance(chain, str):
+            chain, err = self.rt.default_chain(chain)
+            if chain is None:
+                return _fail("取不到组合：%s（模板表见 agents/dispatch/code-dispatch/"
+                             "chain_templates.json）" % err)
+        elif chain is None and not auto:
+            chain, err = self.rt.default_chain(None)
             if chain is None:
                 return _fail("取不到组合：%s（模板表见 agents/dispatch/code-dispatch/"
                              "chain_templates.json）" % err)
         return self.rt.run_chain(chain, task=task,
-                                 seed={"task": task, "code": code, "spec": spec,
-                                       "language": language})
+                                 seed={"task": task, "code": ctx.get("code"),
+                                       "spec": ctx.get("spec"),
+                                       "language": ctx.get("language", "python")})
 
     # ── 大自进化闭环 ─────────────────────────
     def evolve_loop(self, task, outcome, review_path=None, snapshot=None):
@@ -333,7 +339,10 @@ def _cli():
     p = sub.add_parser("review", help="审查文件")
     p.add_argument("path"); p.add_argument("--mode", default="code"); _add_json(p)
     p = sub.add_parser("test", help="测试文件")
-    p.add_argument("path"); p.add_argument("--no-mutation", action="store_true"); _add_json(p)
+    p.add_argument("path"); p.add_argument("--no-mutation", action="store_true")
+    p.add_argument("--timeout", type=int, default=120,
+                   help="单元测试那一段的预算（秒）；超时如实报「没测完」而不是崩")
+    _add_json(p)
     p = sub.add_parser("evolve", help="自进化 refine")
     p.add_argument("--task", required=True); p.add_argument("--outcome", required=True); _add_json(p)
     p = sub.add_parser("evolve-loop", help="大自进化闭环")
@@ -402,6 +411,14 @@ def _cli():
                 "project", "deliver", "dep-scan", "fuzz", "reg-guard", "guard", "graph"}
     argv = [a for a in sys.argv[1:] if not a.startswith("-")]
     is_sub = bool(argv and argv[0] in _SUBCMDS)
+    raw = sys.argv[1:]
+
+    # 顶层 `--help` / `-h`：首参不是子命令时，必须给总览而不是报参数错。
+    # 之前漏了这一条，`codeagent.py --help` 被 compat（add_help=False）当成未知参数，
+    # 打印 "unrecognized arguments: --help" 并以 2 退出 —— 第一次用的人根本看不到有哪些命令。
+    if not is_sub and any(a in ("-h", "--help") for a in raw):
+        ap.print_help()
+        return 0
 
     ca = CodeAgent()
     out = {}
@@ -428,6 +445,15 @@ def _cli():
         if cargs.budget:
             out["dispatch"] = ca.dispatch(task=cargs.task or target or "task", files_needed=1)
         if not out:
+            # 给了位置参数却没有任何动作开关：八成是把子命令名字敲错了
+            # （`codeagent stattus`）。以前这里打印帮助并以 0 退出，
+            # 脚本里 `codeagent stattus && deploy` 会被当成成功 —— 静默放行比报错危险得多。
+            if target:
+                near = [c for c in sorted(_SUBCMDS) if c.startswith(target[:2])] or sorted(_SUBCMDS)
+                sys.stderr.write("未识别的子命令：%r\n" % target)
+                sys.stderr.write("相近的有：%s\n" % "、".join(near[:8]))
+                sys.stderr.write("看全部命令：codeagent.py --help\n")
+                return 2
             ap.print_help()
             return 0
         _emit(out, cargs.json)
@@ -449,7 +475,8 @@ def _cli():
         _emit({"review": ca.review(args.path, mode=args.mode)}, args.json)
     elif args.cmd == "test":
         _emit({"test": ca.test(path=args.path, target_dir=os.path.dirname(args.path) or ".",
-                               do_mutation=not args.no_mutation)}, args.json)
+                               do_mutation=not args.no_mutation,
+                               timeout=args.timeout)}, args.json)
     elif args.cmd == "evolve":
         _emit({"evolve": ca.refine(args.task, json.loads(args.outcome))}, args.json)
     elif args.cmd == "evolve-loop":
@@ -457,8 +484,8 @@ def _cli():
                                              review_path=args.review_path)}, args.json)
     elif args.cmd == "chain":
         code = json.loads(args.code) if args.code else None
-        _emit({"chain": ca.chain(args.task, code=code, language=args.language,
-                                 auto=args.auto, template=args.template)}, args.json)
+        _emit({"chain": ca.chain(args.task, ctx={"code": code, "language": args.language},
+                                 auto=args.auto, chain=args.template)}, args.json)
     elif args.cmd == "reuse":
         _emit({"reuse": ca.reuse(content=args.content, path=args.path)}, args.json)
     elif args.cmd == "impact":
@@ -496,6 +523,11 @@ def _cli():
         _emit({"fuzz": ca.fuzz(args.path, funcname=args.funcname,
                                iterations=args.iterations)}, args.json)
     elif args.cmd == "reg-guard":
+        # snapshot 必须给文件：能力 test.snapshot 的 path 是必填，CLI 这层不先拦，
+        # 就得让用户先看到一条 CAP_CONTRACT 才知道自己少传了参数（实测如此）。
+        if args.action == "snapshot" and not args.path:
+            sys.stderr.write("reg-guard --action snapshot 需要 --path <被快照的文件>\n")
+            return 2
         _emit({"reg_guard": ca.reg_guard(action=args.action, path=args.path,
                                          funcs=[args.func] if args.func else None)}, args.json)
     elif args.cmd == "guard":
@@ -506,25 +538,62 @@ def _cli():
     return 0
 
 
+def _digest_bit(k, v):
+    """一个字段的人读片段；看不懂的返回空串。"""
+    if isinstance(v, bool):
+        return "%s=%s" % (k, v)
+    if isinstance(v, (int, float)):
+        return "%s=%s" % (k, v)
+    if isinstance(v, str):
+        s = v.strip().replace("\n", " ")
+        return "%s=%.40s" % (k, s) if s else ""
+    if isinstance(v, (list, dict)) and v:
+        return "%s:%d 项" % (k, len(v))
+    return ""
+
+
+def _digest(d, limit=3):
+    """信封里没有 summary/verdict 时，从 data 里挑几个能看懂的量出来。
+
+    以前这种情况直接打印空串，用户看到的是「✅ [plan] 」「✅ [impact] 」——
+    成功了，但不知道成了什么。九个命令都是这个样子，等于白跑一趟。
+    """
+    if not isinstance(d, dict) or not d:
+        return ""
+    bits = []
+    for k, v in d.items():
+        if len(bits) >= limit:
+            break
+        if k == "count" and len(d) > 1:
+            continue          # count 只是别的字段的长度，单独出现才有意义
+        bit = _digest_bit(k, v)
+        if bit:
+            bits.append(bit)
+    return "，".join(bits) or ("键：" + "、".join(list(d)[:6]))
+
+
+def _one_line(k, v):
+    """一条结果的单行展示。"""
+    if not (isinstance(v, dict) and "ok" in v):
+        info = ""
+        if isinstance(v, dict):
+            info = str(v.get("verdict", v.get("summary", ""))) or _digest(v)
+        return "✅ [%s] %s" % (k, info)
+    if not v.get("ok"):
+        return "❌ [%s] %s" % (k, v.get("error") or _digest(v.get("data")))
+    data = v.get("data")
+    summ = ""
+    if isinstance(data, dict):
+        summ = str(data.get("summary", data.get("verdict", "")))
+    return "✅ [%s] %s" % (k, summ or _digest(data))
+
+
 def _emit(out, as_json):
     if as_json:
         print(json.dumps(out, ensure_ascii=False, indent=2, default=str))
-    else:
-        for k, v in out.items():
-            if isinstance(v, dict) and "ok" in v:
-                ok = v.get("ok")
-                mark = "✅" if ok else "❌"
-                summ = ""
-                if ok and isinstance(v.get("data"), dict):
-                    summ = str(v["data"].get("summary", v["data"].get("verdict", "")))
-                print(f"{mark} [{k}] {summ} {('degraded:'+str(v.get('error')) if not ok else '')}")
-            else:
-                # 非信封 dict（如 status/models）直接展示摘要
-                mark = "✅"
-                info = ""
-                if isinstance(v, dict):
-                    info = str(v.get("count", v.get("verdict", v.get("summary", ""))))
-                print(f"{mark} [{k}] {info}")
+        return
+    for k, v in out.items():
+        print(_one_line(k, v))
 
 
 if __name__ == "__main__":

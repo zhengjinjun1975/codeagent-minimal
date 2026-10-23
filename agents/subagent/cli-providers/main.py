@@ -48,8 +48,10 @@ class CliProvidersAgent(AtomicAgent):
     description = "外部 CLI 子代理 provider 链：探测可用性 + 降级链 + 统一派活信封"
     provides = ["subagent.providers", "subagent.dispatch", "subagent.probe"]
     depends_on = []
-    inputs = ["text"]
-    outputs = ["echo"]
+    # 2026-10-23 契约对账：原值 ["text"] / ["echo"] 是从模板抄来的残留，
+    # 与三个能力的真实签名一处都对不上（dispatch 吃 task/provider/cwd/timeout，probe 吃 name）。
+    inputs = ["task", "provider", "cwd", "timeout", "name"]
+    outputs = ["providers", "count", "usable", "ok", "degraded", "provider"]
 
     def _register_defaults(self):
         self.register("subagent.providers", self._providers)
