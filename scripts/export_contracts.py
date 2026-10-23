@@ -172,24 +172,39 @@ def _md_table(rows):
     return lines
 
 
+def _brief(items):
+    """把列表拼成反引号顿号串；空就给「（无）」，别留个空冒号让人猜。"""
+    return "、".join("`%s`" % i for i in items) or "（无）"
+
+
+def _atom_head(r):
+    """原子身份与声明面：哪个域、什么版本、提供哪些能力、依赖谁。"""
+    return [
+        "- 域：%s ｜ 版本：%s ｜ 开源：%s ｜ 入口：`%s`" % (
+            r["domain"], r["version"], "是" if r["open_source"] else "否", r["entry"]),
+        "- 能力（%d）：%s" % (len(r["capabilities"]), _brief(r["capabilities"])),
+        "- 依赖：%s" % _brief(r["depends_on"]),
+        "- 声明输入：%s" % _brief(r["declared_inputs"]),
+        "- 声明输出：%s" % _brief(r["declared_outputs"]),
+        "- 实现接受：%s" % _brief(r["accepted_params"]),
+    ]
+
+
+def _atom_verdict(r):
+    """对账结论：判不了就明说判不了，断链和漏记分开写。"""
+    if not r["judgeable"]:
+        return ["- 对账：**判不了**（吃 `**kwargs` 或签名不透明）"]
+    if r["broken"]:
+        return ["- 断链：%s" % _brief(r["broken"])]
+    return []
+
+
 def _atom_block(r):
     lines = ["", "### %s" % r["atom"], ""]
-    lines.append("- 域：%s ｜ 版本：%s ｜ 开源：%s ｜ 入口：`%s`" % (
-        r["domain"], r["version"], "是" if r["open_source"] else "否", r["entry"]))
-    lines.append("- 能力（%d）：%s" % (
-        len(r["capabilities"]), "、".join("`%s`" % c for c in r["capabilities"]) or "（无）"))
-    if r["depends_on"]:
-        lines.append("- 依赖：%s" % "、".join("`%s`" % d for d in r["depends_on"]))
-    lines.append("- 声明输入：%s" % ("、".join("`%s`" % i for i in r["declared_inputs"]) or "（无）"))
-    lines.append("- 声明输出：%s" % ("、".join("`%s`" % o for o in r["declared_outputs"]) or "（无）"))
-    lines.append("- 实现接受：%s" % ("、".join("`%s`" % p for p in r["accepted_params"]) or "（无）"))
-    if not r["judgeable"]:
-        lines.append("- 对账：**判不了**（吃 `**kwargs` 或签名不透明）")
-    elif r["broken"]:
-        lines.append("- 断链：%s" % "、".join("`%s`" % b for b in r["broken"]))
+    lines.extend(_atom_head(r))
+    lines.extend(_atom_verdict(r))
     if r["undeclared"]:
-        lines.append("- 漏记（清单没写、实现接受）：%s"
-                     % "、".join("`%s`" % u for u in r["undeclared"]))
+        lines.append("- 漏记（清单没写、实现接受）：%s" % _brief(r["undeclared"]))
     perm = r["permission"]
     if perm:
         lines.append("- 权限：%s%s" % (

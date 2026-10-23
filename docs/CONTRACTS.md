@@ -81,6 +81,7 @@
 
 - 域：archreview ｜ 版本：0.1.0 ｜ 开源：是 ｜ 入口：`main.py`
 - 能力（4）：`archreview.boundary`、`archreview.intent`、`archreview.layers`、`archreview.surface`
+- 依赖：（无）
 - 声明输入：`path`
 - 声明输出：`layers`、`by_layer`、`violations`、`boundaries`、`inventory`、`missing`、`summary`
 - 实现接受：`path`
@@ -89,6 +90,7 @@
 
 - 域：atomic ｜ 版本：0.1.0 ｜ 开源：是 ｜ 入口：`main.py`
 - 能力（3）：`atomicity.breaks`、`atomicity.manifest`、`atomicity.registry`
+- 依赖：（无）
 - 声明输入：`agents_dir`、`registry_path`
 - 声明输出：`ok`、`issues`、`agents`、`registry_mismatch`、`breaks`、`verdict`
 - 实现接受：`agents_dir`、`registry_path`
@@ -97,6 +99,7 @@
 
 - 域：web ｜ 版本：0.1.0 ｜ 开源：是 ｜ 入口：`main.py`
 - 能力（2）：`browsersmoke.run`、`ui.smoke`
+- 依赖：（无）
 - 声明输入：`url`、`login`、`routes`、`chrome_path`、`port`、`headless`、`wait_sec`、`min_body`
 - 声明输出：`results`、`summary`、`ok`
 - 实现接受：`chrome_path`、`headless`、`login`、`min_body`、`port`、`routes`、`url`、`wait_sec`
@@ -105,6 +108,7 @@
 
 - 域：bugdeep ｜ 版本：0.1.0 ｜ 开源：是 ｜ 入口：`main.py`
 - 能力（4）：`bugdeep.adv`、`bugdeep.model`、`bugdeep.poc`、`bugdeep.rule`
+- 依赖：（无）
 - 声明输入：`path`、`code`、`sink`、`title`、`rules_file`
 - 声明输出：`attack_surface`、`findings`、`confirmed`、`evidence`、`rule`、`summary`
 - 实现接受：`code`、`path`、`rules_file`、`run`、`sink`、`timeout`、`title`、`verify`
@@ -114,6 +118,7 @@
 
 - 域：subagent ｜ 版本：0.1.0 ｜ 开源：是 ｜ 入口：`main.py`
 - 能力（3）：`subagent.dispatch`、`subagent.probe`、`subagent.providers`
+- 依赖：（无）
 - 声明输入：`task`、`provider`、`cwd`、`timeout`、`name`
 - 声明输出：`providers`、`count`、`usable`、`ok`、`degraded`、`provider`
 - 实现接受：`cwd`、`name`、`provider`、`task`、`timeout`
@@ -123,6 +128,7 @@
 
 - 域：deliver ｜ 版本：0.1.0 ｜ 开源：是 ｜ 入口：`main.py`
 - 能力（2）：`deliver.package`、`deliver.report`
+- 依赖：（无）
 - 声明输入：`chain`、`outputs`、`evidence`
 - 声明输出：`report`、`artifacts`、`verdict`
 - 实现接受：`artifacts`、`chain`、`evidence`、`outputs`
@@ -132,6 +138,7 @@
 
 - 域：dispatch ｜ 版本：0.4.0 ｜ 开源：是 ｜ 入口：`main.py`
 - 能力（9）：`dispatch.assert_exit`、`dispatch.budget`、`dispatch.chain_default`、`dispatch.chain_select`、`dispatch.conflict`、`dispatch.permission`、`dispatch.template`、`dispatch.verify`、`dispatch.verify_artifact`
+- 依赖：（无）
 - 声明输入：`background`、`goal`、`constraint`、`redline`、`deliverable`、`task`、`files_needed`、`language`、`claims`、`workdir`、`rerun_cmd`、`tasks`、`workspace`、`policy`、`action`、`resource`、`resource_type`、`target`、`expect`、`mode`、`script_path`、`templates_path`、`name`
 - 声明输出：`template`、`budget`、`items`、`summary`、`conflicts`、`safe`、`recommendation`、`decision`、`policy`、`passed`、`checks`、`exit_code`、`stdout_tail`、`ok`、`matched`、`source`、`chain`、`template_name`、`score`、`hits`、`dropped`、`reason`、`default`
 - 实现接受：`action`、`available`、`background`、`budget`、`claims`、`constraint`、`decision`、`deliverable`、`expect`、`files_needed`、`goal`、`language`、`mode`、`name`、`policy`、`redline`、`rerun_cmd`、`resource`、`resource_type`、`rules`、`script_path`、`state_file`、`target`、`task`、`tasks`、`templates_path`、`workdir`、`workspace`
@@ -152,6 +159,7 @@
 
 - 域：fuzz ｜ 版本：0.2.0 ｜ 开源：是 ｜ 入口：`main.py`
 - 能力（4）：`fuzz.gen`、`fuzz.project`、`fuzz.property`、`fuzz.run`
+- 依赖：（无）
 - 声明输入：`path`、`funcname`、`iterations`、`timeout`、`seed`、`max_cases`、`properties`、`max_funcs`
 - 声明输出：`func`、`cases`、`coverage_hint`、`runs`、`crashed`、`unhandled`、`failures`、`ok`、`details`
 - 实现接受：`funcname`、`iterations`、`max_cases`、`max_funcs`、`path`、`properties`、`seed`、`timeout`
@@ -160,6 +168,7 @@
 
 - 域：code ｜ 版本：0.2.0 ｜ 开源：是 ｜ 入口：`main.py`
 - 能力（2）：`code.implement`、`code.write`
+- 依赖：（无）
 - 声明输入：`task`、`language`、`path`、`output_dir`、`domain`、`loop`、`max_iter`
 - 声明输出：`files`、`score`、`summary`、`issues`、`versions`、`written`、`write_error`、`engine`
 - 实现接受：`domain`、`language`、`loop`、`max_iter`、`output_dir`、`path`、`task`
@@ -168,6 +177,7 @@
 
 - 域：memory ｜ 版本：0.1.1 ｜ 开源：是 ｜ 入口：`main.py`
 - 能力（3）：`memory.recall`、`memory.save`、`memory.sediment`
+- 依赖：（无）
 - 声明输入：`findings`、`task`、`memdir`、`top_k`
 - 声明输出：`added`、`lessons`、`prompt`、`skills`
 - 实现接受：`action`、`bucket`、`conf`、`findings`、`memdir`、`task`、`top_k`
@@ -187,6 +197,7 @@
 
 - 域：project ｜ 版本：0.1.0 ｜ 开源：是 ｜ 入口：`main.py`
 - 能力（3）：`project.analyze`、`project.load`、`project.scan`
+- 依赖：（无）
 - 声明输入：`path`、`file_pattern`、`max_complexity`、`impact`
 - 声明输出：`files`、`snapshot`、`issues`、`summary`
 - 实现接受：`file_pattern`、`impact`、`max_complexity`、`path`
@@ -195,6 +206,7 @@
 
 - 域：reuse ｜ 版本：0.1.0 ｜ 开源：是 ｜ 入口：`main.py`
 - 能力（3）：`reuse.atom`、`reuse.local`、`reuse.remote`
+- 依赖：（无）
 - 声明输入：`content`、`path`、`top_k`
 - 声明输出：`suggestions`、`atoms`、`count`
 - 实现接受：`content`、`path`、`top_k`
@@ -214,6 +226,7 @@
 
 - 域：code ｜ 版本：0.3.0 ｜ 开源：是 ｜ 入口：`main.py`
 - 能力（2）：`code.patch`、`code.runloop`
+- 依赖：（无）
 - 声明输入：`task`、`path`、`output_dir`、`verify`、`language`、`max_iterations`、`fake_model`、`edits`、`write_root`
 - 声明输出：`files`、`summary`、`verify_passed`、`verify_cmd`、`turns_used`、`tool_log`、`trace`、`engine`、`last_model_text`、`applied`、`changed`
 - 实现接受：`edits`、`fake_model`、`language`、`max_iterations`、`model_config`、`output_dir`、`path`、`task`、`timeout`、`verify`、`write_root`
@@ -234,6 +247,7 @@
 
 - 域：test ｜ 版本：0.3.0 ｜ 开源：是 ｜ 入口：`main.py`
 - 能力（8）：`test.affected`、`test.coverage_analysis`、`test.gen`、`test.project`、`test.run`、`test.select`、`test.snapshot`、`test.tdd`
+- 依赖：（无）
 - 声明输入：`code`、`path`、`target_dir`、`task`、`project_root`、`test_map`、`human_review`、`timeout`、`exclude`
 - 声明输出：`test_files`、`smoke`、`coverage`、`unit`、`boundary`、`mutation`、`stability`、`red_green`、`coverage_analysis`、`human_review`、`smoke_failed`、`summary`、`skipped`
 - 实现接受：`args_by_func`、`changed_files`、`code`、`do_boundary`、`do_mutation`、`do_stability`、`exclude`、`funcs`、`human_review`、`max_iter`、`path`、`project_root`、`run`、`snapshot_dir`、`target_dir`、`task`、`test_map`、`timeout`、`transitive`
@@ -244,6 +258,7 @@
 
 - 域：approval ｜ 版本：0.2.0 ｜ 开源：是 ｜ 入口：`main.py`
 - 能力（5）：`approval.check`、`approval.classify`、`approval.orchestrate`、`approval.policy`、`approval.resolve`
+- 依赖：（无）
 - 声明输入：`resource`、`resource_type`、`policy`、`decision`、`user_choice`、`runner`、`cache_path`、`max_escalations`
 - 声明输出：`decision`、`reason`、`rule`、`tier`、`verdict`、`granted`、`matched_keywords`、`pending`、`executed`、`profile`、`attempts`、`cached`
 - 实现接受：`cache_path`、`custom`、`decision`、`max_escalations`、`policy`、`resource`、`resource_type`、`runner`、`user_choice`
@@ -254,6 +269,7 @@
 
 - 域：model ｜ 版本：0.1.0 ｜ 开源：是 ｜ 入口：`main.py`
 - 能力（1）：`model.assess_complexity`
+- 依赖：（无）
 - 声明输入：`text`
 - 声明输出：`echo`
 - 实现接受：`hints`、`rules`、`task`、`text`
@@ -264,6 +280,7 @@
 
 - 域：context ｜ 版本：0.5.0 ｜ 开源：是 ｜ 入口：`main.py`
 - 能力（9）：`context.budget`、`context.compact`、`context.compaction_cost`、`context.disclose`、`context.edit`、`context.estimate`、`context.offload`、`context.reveal`、`context.store`
+- 依赖：（无）
 - 声明输入：`data`、`text`、`steps`、`max_tokens`、`keep`、`cap`、`content`、`label`、`keep_head`、`keep_tail`、`store_dir`、`registry_desc`、`task`、`top_k`、`before`、`after`
 - 声明输出：`tokens`、`compact`、`_compact`、`used_tokens`、`budget`、`overshoot`、`compacted`、`dropped`、`dropped_capabilities`、`action`、`enforced`、`inlined`、`offloaded_path`、`original_tokens`、`inlined_tokens`、`loaded`、`deferred_count`、`verdict`、`recoverable`、`lost`、`lost_tokens`、`reacquisition_hops`
 - 实现接受：`after`、`before`、`cap`、`content`、`data`、`edits`、`handle`、`items`、`keep`、`keep_head`、`keep_tail`、`label`、`limit`、`max_tokens`、`offset`、`registry_desc`、`steps`、`store_dir`、`task`、`text`、`top_k`
@@ -274,6 +291,7 @@
 
 - 域：impact ｜ 版本：0.1.0 ｜ 开源：是 ｜ 入口：`main.py`
 - 能力（2）：`deadcode.scan`、`deadcode.stats`
+- 依赖：（无）
 - 声明输入：`path`、`threshold`
 - 声明输出：`total`、`live`、`dead_count`、`ratio`、`roots`、`dead`、`dead_by_file`
 - 实现接受：`path`、`threshold`
@@ -283,6 +301,7 @@
 
 - 域：impact ｜ 版本：0.1.0 ｜ 开源：是 ｜ 入口：`main.py`
 - 能力（3）：`impact.analyze`、`impact.circular`、`impact.coupling`
+- 依赖：（无）
 - 声明输入：`path`、`symbol`、`impact`、`transitive`
 - 声明输出：`files`、`entities`、`edges`、`coupling`、`circular_imports`、`impact`
 - 实现接受：`impact`、`path`、`symbol`、`transitive`
@@ -291,6 +310,7 @@
 
 - 域：depscan ｜ 版本：0.2.0 ｜ 开源：是 ｜ 入口：`main.py`
 - 能力（5）：`depscan.chainbreak`、`depscan.osv`、`depscan.sca`、`depscan.scan`、`depscan.taint`
+- 依赖：（无）
 - 声明输入：`target`、`osv_query`、`allow_remote`、`repos`
 - 声明输出：`deps`、`vulns`、`sca`、`taint`、`findings`、`total_findings`、`summary`、`broken`、`checks`、`by_tier`
 - 实现接受：`allow_remote`、`osv_query`、`repos`、`target`
@@ -299,6 +319,7 @@
 
 - 域：docs ｜ 版本：0.2.0 ｜ 开源：是 ｜ 入口：`main.py`
 - 能力（3）：`doc.anchor`、`doc.draft`、`doc.stale`
+- 依赖：（无）
 - 声明输入：`path`、`root`
 - 声明输出：`file`、`anchors`、`ok_count`、`stale`、`unresolved`、`total_anchors`、`stale_count`、`unresolved_count`、`draft_count`、`guarded_count`、`managed_zones`、`drafts`、`guarded`
 - 实现接受：`out`、`path`、`root`
@@ -310,6 +331,7 @@
 
 - 域：domain ｜ 版本：0.1.0 ｜ 开源：是 ｜ 入口：`main.py`
 - 能力（2）：`domain.imports`、`domain.valve`
+- 依赖：（无）
 - 声明输入：`repos`、`target`、`rules`、`data`
 - 声明输出：`ok`、`broken`、`topology`、`violations`、`rules`、`verdict`
 - 实现接受：`data`、`repos`、`rules`、`target`
@@ -318,6 +340,7 @@
 
 - 域：memory ｜ 版本：0.1.0 ｜ 开源：是 ｜ 入口：`main.py`
 - 能力（4）：`event.append`、`event.checkpoint`、`event.replay`、`event.timeline`
+- 依赖：（无）
 - 声明输入：`session_key`、`kind`、`payload`、`outcome`、`state`、`from_seq`、`to_seq`、`store_dir`
 - 声明输出：`seq`、`events`、`timeline`、`restored_state`、`up_to_seq`、`state_digest`
 - 实现接受：`from_seq`、`kind`、`outcome`、`payload`、`session_key`、`state`、`store_dir`、`to_seq`
@@ -327,6 +350,7 @@
 
 - 域：tools ｜ 版本：0.1.0 ｜ 开源：是 ｜ 入口：`main.py`
 - 能力（5）：`git.branch`、`git.commit`、`git.diff`、`git.log`、`git.status`
+- 依赖：（无）
 - 声明输入：`path`、`action`、`name`、`message`、`n`、`staged`、`base`
 - 声明输出：`branch`、`clean`、`changed`、`diff`、`files`、`stat`、`commits`、`sha`、`committed`、`branches`、`current`、`created`、`switched`
 - 实现接受：`action`、`base`、`message`、`n`、`name`、`path`、`paths`、`staged`
@@ -338,6 +362,7 @@
 
 - 域：guard ｜ 版本：0.2.0 ｜ 开源：是 ｜ 入口：`main.py`
 - 能力（7）：`guard.check`、`guard.exit_intercept`、`guard.loop_guard`、`guard.pipeline`、`guard.post`、`guard.pre`、`guard.selfcheck`
+- 依赖：（无）
 - 声明输入：`path`、`code`、`paths`、`govern`、`task`、`artifacts`、`checklist`、`session_key`、`file_path`、`bump`、`threshold`、`store_dir`、`since`
 - 声明输出：`issues`、`secrets`、`verdict`、`files`、`summary`、`total`、`passed`、`failed`、`next_prompt`、`items`、`stalled`、`count`、`hint`、`evidence`
 - 实现接受：`artifacts`、`bump`、`checklist`、`code`、`file_path`、`govern`、`path`、`paths`、`session_key`、`since`、`spec`、`store_dir`、`task`、`threshold`
@@ -348,6 +373,7 @@
 
 - 域：llm ｜ 版本：0.2.0 ｜ 开源：是 ｜ 入口：`main.py`
 - 能力（4）：`llm.generate`、`llm.list_models`、`llm.registry`、`llm.review`
+- 依赖：（无）
 - 声明输入：`messages`、`temp`、`max_tokens`、`local_only`、`config_path`、`provider`、`model`、`api_key`
 - 声明输出：`content`、`model`、`provider`、`type`、`models`、`registry`
 - 实现接受：`api_key`、`config_path`、`local_only`、`max_tokens`、`messages`、`model`、`provider`、`temp`
@@ -356,6 +382,7 @@
 
 - 域：locality ｜ 版本：0.1.0 ｜ 开源：是 ｜ 入口：`main.py`
 - 能力（3）：`local.audit`、`local.chain`、`local.route`
+- 依赖：（无）
 - 声明输入：`target`、`code`、`local_only`、`candidates`、`config_path`、`timeout`
 - 声明输出：`ok`、`signals`、`route`、`local_up`、`verdict`、`fallback`
 - 实现接受：`candidates`、`code`、`config_path`、`local_only`、`target`、`timeout`
@@ -364,6 +391,7 @@
 
 - 域：mcp ｜ 版本：0.2.0 ｜ 开源：是 ｜ 入口：`main.py`
 - 能力（5）：`mcp.call`、`mcp.connect`、`mcp.guard`、`mcp.list`、`mcp.tools`
+- 依赖：（无）
 - 声明输入：`server`、`endpoint`、`command`、`tools`、`timeout`、`local_only`、`allow_remote`、`allow_tools`、`action`、`text`、`description`、`name`、`tool`、`source`
 - 声明输出：`servers`、`tools`、`result`、`server`、`guard`、`findings`、`text`
 - 实现接受：`action`、`allow_remote`、`allow_tools`、`arguments`、`command`、`description`、`endpoint`、`local_only`、`name`、`server`、`servers`、`source`、`text`、`timeout`、`tool`、`tools`
@@ -375,6 +403,7 @@
 
 - 域：impact ｜ 版本：0.1.0 ｜ 开源：是 ｜ 入口：`main.py`
 - 能力（2）：`impact.kind`、`impact.method`
+- 依赖：（无）
 - 声明输入：`path`、`symbol`、`transitive`、`max_depth`、`caller`、`to`
 - 声明输出：`symbol`、`impact`、`paths`、`kind`、`entities`、`edges`
 - 实现接受：`caller`、`max_depth`、`path`、`symbol`、`to`、`transitive`
@@ -384,6 +413,7 @@
 
 - 域：codereview ｜ 版本：0.1.0 ｜ 开源：是 ｜ 入口：`main.py`
 - 能力（3）：`minimal.deps`、`minimal.independent`、`minimal.style`
+- 依赖：（无）
 - 声明输入：`path`、`code`、`strict`
 - 声明输出：`ok`、`score`、`issues`、`third_party`、`signals`、`verdict`
 - 实现接受：`code`、`path`、`strict`
@@ -402,6 +432,7 @@
 
 - 域：ontology ｜ 版本：0.1.0 ｜ 开源：是 ｜ 入口：`main.py`
 - 能力（2）：`ontology.chain`、`ontology.quality`
+- 依赖：（无）
 - 声明输入：`web_dir`、`kit_dir`、`data_dir`、`target`
 - 声明输出：`ok`、`links`、`issues`、`quality`、`verdict`
 - 实现接受：`data_dir`、`kit_dir`、`target`、`web_dir`
@@ -410,6 +441,7 @@
 
 - 域：sandbox ｜ 版本：0.3.0 ｜ 开源：是 ｜ 入口：`main.py`
 - 能力（5）：`sandbox.exec`、`sandbox.guard`、`sandbox.interpreter`、`sandbox.poc`、`sandbox.validate`
+- 依赖：（无）
 - 声明输入：`code`、`cmd`、`timeout`、`max_output`、`base_dir`、`path`、`base`、`profile`、`approval`、`scope`
 - 声明输出：`ran`、`verdict`、`rc`、`wall_s`、`evidence`、`out_tail`、`err_tail`、`timed_out`、`overflow`、`rejected`、`safe`、`path`、`decision`、`refused`、`pending`
 - 实现接受：`approval`、`base`、`base_dir`、`cmd`、`code`、`cwd`、`env_clean`、`max_output`、`path`、`profile`、`py`、`scope`、`timeout`
@@ -420,6 +452,7 @@
 
 - 域：secrets ｜ 版本：0.1.0 ｜ 开源：是 ｜ 入口：`main.py`
 - 能力（6）：`secrets.decrypt`、`secrets.encrypt`、`secrets.load`、`secrets.mask`、`secrets.store`、`secrets.vault`
+- 依赖：（无）
 - 声明输入：`plaintext`、`value`、`passphrase`、`name`、`vault_dir`、`bundle`、`keep`
 - 声明输出：`salt`、`iv`、`ciphertext`、`tag`、`decrypted`、`stored`、`name`、`masked`、`names`
 - 实现接受：`bundle`、`keep`、`name`、`passphrase`、`plaintext`、`value`、`vault_dir`
@@ -429,6 +462,7 @@
 
 - 域：security ｜ 版本：0.1.0 ｜ 开源：是 ｜ 入口：`main.py`
 - 能力（5）：`security.dim`、`security.govern`、`security.project`、`security.scan`、`security.secret`
+- 依赖：（无）
 - 声明输入：`path`、`code`、`dimension`
 - 声明输出：`issues`、`by_dimension`、`by_tier`、`secrets`、`total`、`summary`、`files`
 - 实现接受：`code`、`dimension`、`issues`、`path`
@@ -438,6 +472,7 @@
 
 - 域：session ｜ 版本：0.1.0 ｜ 开源：是 ｜ 入口：`main.py`
 - 能力（6）：`session.get`、`session.list`、`session.resume`、`session.start`、`session.status`、`session.step`
+- 依赖：（无）
 - 声明输入：`sid`、`task`、`step_capability`、`inputs`、`output`、`status`、`session_dir`
 - 声明输出：`sid`、`created`、`updated`、`steps`、`status`、`step`、`next`、`sessions`、`summary`
 - 实现接受：`inputs`、`output`、`session_dir`、`sid`、`status`、`step_capability`、`task`
@@ -447,6 +482,7 @@
 
 - 域：taskstate ｜ 版本：0.2.0 ｜ 开源：是 ｜ 入口：`main.py`
 - 能力（1）：`taskstate.track`
+- 依赖：（无）
 - 声明输入：`task`、`action`、`tid`、`state`、`progress`、`evidence`、`gate`、`status_file`、`done_evidence`
 - 声明输出：`status`、`task_id`、`file`、`progress`、`state`
 - 实现接受：`action`、`done_evidence`、`evidence`、`gate`、`progress`、`state`、`status_file`、`task`、`tid`
