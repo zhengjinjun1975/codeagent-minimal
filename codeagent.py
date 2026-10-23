@@ -456,15 +456,15 @@ def _cli():
                 return 2
             ap.print_help()
             return 0
-        _emit(out, cargs.json)
+        return _emit(out, cargs.json)
         return 0 if any(r.get("ok") for r in out.values()) else 1
 
     # ── 统一子命令 ──
     args = ap.parse_args()
     if args.cmd == "status":
-        _emit({"status": ca.atoms()}, args.json)
+        return _emit({"status": ca.atoms()}, args.json)
     elif args.cmd == "models":
-        _emit({"models": ca.rt.list_models()}, args.json)
+        return _emit({"models": ca.rt.list_models()}, args.json)
     elif args.cmd == "graph":
         res = _graph_query(args)
         if args.json:
@@ -472,55 +472,55 @@ def _cli():
         else:
             _print_graph(res, args)
     elif args.cmd == "review":
-        _emit({"review": ca.review(args.path, mode=args.mode)}, args.json)
+        return _emit({"review": ca.review(args.path, mode=args.mode)}, args.json)
     elif args.cmd == "test":
-        _emit({"test": ca.test(path=args.path, target_dir=os.path.dirname(args.path) or ".",
+        return _emit({"test": ca.test(path=args.path, target_dir=os.path.dirname(args.path) or ".",
                                do_mutation=not args.no_mutation,
                                timeout=args.timeout)}, args.json)
     elif args.cmd == "evolve":
-        _emit({"evolve": ca.refine(args.task, json.loads(args.outcome))}, args.json)
+        return _emit({"evolve": ca.refine(args.task, json.loads(args.outcome))}, args.json)
     elif args.cmd == "evolve-loop":
-        _emit({"evolve_loop": ca.evolve_loop(args.task, json.loads(args.outcome),
+        return _emit({"evolve_loop": ca.evolve_loop(args.task, json.loads(args.outcome),
                                              review_path=args.review_path)}, args.json)
     elif args.cmd == "chain":
         code = json.loads(args.code) if args.code else None
-        _emit({"chain": ca.chain(args.task, ctx={"code": code, "language": args.language},
+        return _emit({"chain": ca.chain(args.task, ctx={"code": code, "language": args.language},
                                  auto=args.auto, chain=args.template)}, args.json)
     elif args.cmd == "reuse":
-        _emit({"reuse": ca.reuse(content=args.content, path=args.path)}, args.json)
+        return _emit({"reuse": ca.reuse(content=args.content, path=args.path)}, args.json)
     elif args.cmd == "impact":
-        _emit({"impact": ca.impact(args.path, symbol=args.symbol)}, args.json)
+        return _emit({"impact": ca.impact(args.path, symbol=args.symbol)}, args.json)
     elif args.cmd == "mcp":
         kw = {}
         if args.tool:
             kw["tool"] = args.tool
         if args.arg:
             kw["arguments"] = {"text": args.arg}
-        _emit({"mcp": ca.mcp(action=args.action, **kw)}, args.json)
+        return _emit({"mcp": ca.mcp(action=args.action, **kw)}, args.json)
     elif args.cmd == "skill":
         kw = {}
         if args.name:
             kw["name"] = args.name
         if args.task:
             kw["task"] = args.task
-        _emit({"skill": ca.skill(action=args.action, **kw)}, args.json)
+        return _emit({"skill": ca.skill(action=args.action, **kw)}, args.json)
     elif args.cmd == "plan":
-        _emit({"plan": ca.plan(args.task, language=args.language)}, args.json)
+        return _emit({"plan": ca.plan(args.task, language=args.language)}, args.json)
     elif args.cmd == "llm":
-        _emit({"llm": ca.llm(action=args.action)}, args.json)
+        return _emit({"llm": ca.llm(action=args.action)}, args.json)
     elif args.cmd == "memory":
-        _emit({"memory": ca.memory(json.loads(args.findings), task=args.task)}, args.json)
+        return _emit({"memory": ca.memory(json.loads(args.findings), task=args.task)}, args.json)
     elif args.cmd == "dispatch":
-        _emit({"dispatch": ca.dispatch(task=args.task, files_needed=args.files)}, args.json)
+        return _emit({"dispatch": ca.dispatch(task=args.task, files_needed=args.files)}, args.json)
     elif args.cmd == "project":
-        _emit({"project": ca.project(args.path)}, args.json)
+        return _emit({"project": ca.project(args.path)}, args.json)
     elif args.cmd == "deliver":
-        _emit({"deliver": ca.deliver(args.chain.split(","), json.loads(args.outputs))}, args.json)
+        return _emit({"deliver": ca.deliver(args.chain.split(","), json.loads(args.outputs))}, args.json)
     elif args.cmd == "dep-scan":
-        _emit({"dep_scan": ca.dep_scan(args.target, osv_query=args.osv,
+        return _emit({"dep_scan": ca.dep_scan(args.target, osv_query=args.osv,
                                        allow_remote=args.remote)}, args.json)
     elif args.cmd == "fuzz":
-        _emit({"fuzz": ca.fuzz(args.path, funcname=args.funcname,
+        return _emit({"fuzz": ca.fuzz(args.path, funcname=args.funcname,
                                iterations=args.iterations)}, args.json)
     elif args.cmd == "reg-guard":
         # snapshot 必须给文件：能力 test.snapshot 的 path 是必填，CLI 这层不先拦，
@@ -528,10 +528,10 @@ def _cli():
         if args.action == "snapshot" and not args.path:
             sys.stderr.write("reg-guard --action snapshot 需要 --path <被快照的文件>\n")
             return 2
-        _emit({"reg_guard": ca.reg_guard(action=args.action, path=args.path,
+        return _emit({"reg_guard": ca.reg_guard(action=args.action, path=args.path,
                                          funcs=[args.func] if args.func else None)}, args.json)
     elif args.cmd == "guard":
-        _emit({"guard": ca.guard_chain(args.target, mode=args.mode)}, args.json)
+        return _emit({"guard": ca.guard_chain(args.target, mode=args.mode)}, args.json)
     else:
         ap.print_help()
         return 0
@@ -588,12 +588,28 @@ def _one_line(k, v):
     return "✅ [%s] %s" % (k, summ or _digest(data))
 
 
+def _exit_code(out):
+    """任一信封明确失败就返回 1。
+
+    改动前所有子命令一律 return 0：`ok:false` 打印在屏幕上，退出码却是 0。
+    脚本化调用（CI、Makefile、批处理）只看退出码，于是「路径不存在」
+    「一个文件都没审」这类失败全被当成成功 —— 失败必须能被机器看见，
+    否则人得逐行读 JSON 才知道刚才那步到底成没成。
+    """
+    for v in out.values():
+        if isinstance(v, dict) and v.get("ok") is False:
+            return 1
+    return 0
+
+
 def _emit(out, as_json):
+    """打印并返回退出码。调用方写成 `return _emit(...)` 即可贯通到 sys.exit。"""
     if as_json:
         print(json.dumps(out, ensure_ascii=False, indent=2, default=str))
-        return
+        return _exit_code(out)
     for k, v in out.items():
         print(_one_line(k, v))
+    return _exit_code(out)
 
 
 if __name__ == "__main__":
