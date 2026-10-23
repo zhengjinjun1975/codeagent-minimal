@@ -38,3 +38,12 @@ jobs:
         run: python scripts/verify_atoms_graph.py
       - name: 图谱生成物同步（禁止手改图与表）
         run: python scripts/verify_atoms_graph.py --check-drift
+      # 下面三道此前只在本地跑，CI 不跑 —— 2026-10-23 的 4 处静默吞错就是这么漏的：
+      # 拆函数时写进 `except OSError: continue`，pytest 全绿、宪法门全绿，CI 也会全绿，
+      # 因为读不了的文件被当成「没这文件」，门根本没看见。绿要绿在真检查过的地方。
+      - name: 静默吞错门（读不了就跳过 = 盲区少算，却照样报绿）
+        run: python scripts/verify_silent_except_policy.py
+      - name: 契约总账（manifest 声明的输入必须被实现接住）
+        run: python scripts/export_contracts.py --check
+      - name: 运行时依赖（没有未声明的第三方顶层 import）
+        run: python scripts/verify_runtime_deps.py
