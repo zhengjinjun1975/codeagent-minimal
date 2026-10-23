@@ -1,0 +1,1976 @@
+{
+ "schema": "codeagent-atoms-signatures-v1",
+ "capabilities": {
+  "approval.check": {
+   "atom": "command-approvals",
+   "params": [
+    "policy",
+    "resource",
+    "resource_type"
+   ],
+   "required": [],
+   "has_kwargs": false,
+   "opaque": false
+  },
+  "approval.classify": {
+   "atom": "command-approvals",
+   "params": [
+    "policy",
+    "resource"
+   ],
+   "required": [],
+   "has_kwargs": false,
+   "opaque": false
+  },
+  "approval.orchestrate": {
+   "atom": "command-approvals",
+   "params": [
+    "cache_path",
+    "max_escalations",
+    "policy",
+    "resource",
+    "resource_type",
+    "runner",
+    "user_choice"
+   ],
+   "required": [],
+   "has_kwargs": false,
+   "opaque": false
+  },
+  "approval.policy": {
+   "atom": "command-approvals",
+   "params": [
+    "custom"
+   ],
+   "required": [],
+   "has_kwargs": false,
+   "opaque": false
+  },
+  "approval.resolve": {
+   "atom": "command-approvals",
+   "params": [
+    "decision",
+    "user_choice"
+   ],
+   "required": [],
+   "has_kwargs": false,
+   "opaque": false
+  },
+  "archreview.boundary": {
+   "atom": "arch-review",
+   "params": [
+    "path"
+   ],
+   "required": [
+    "path"
+   ],
+   "has_kwargs": false,
+   "opaque": false
+  },
+  "archreview.intent": {
+   "atom": "arch-review",
+   "params": [
+    "path"
+   ],
+   "required": [
+    "path"
+   ],
+   "has_kwargs": false,
+   "opaque": false
+  },
+  "archreview.layers": {
+   "atom": "arch-review",
+   "params": [
+    "path"
+   ],
+   "required": [
+    "path"
+   ],
+   "has_kwargs": false,
+   "opaque": false
+  },
+  "archreview.surface": {
+   "atom": "arch-review",
+   "params": [
+    "path"
+   ],
+   "required": [
+    "path"
+   ],
+   "has_kwargs": false,
+   "opaque": false
+  },
+  "atomicity.breaks": {
+   "atom": "atomicity-audit",
+   "params": [
+    "agents_dir",
+    "registry_path"
+   ],
+   "required": [],
+   "has_kwargs": false,
+   "opaque": false
+  },
+  "atomicity.manifest": {
+   "atom": "atomicity-audit",
+   "params": [
+    "agents_dir",
+    "registry_path"
+   ],
+   "required": [],
+   "has_kwargs": false,
+   "opaque": false
+  },
+  "atomicity.registry": {
+   "atom": "atomicity-audit",
+   "params": [
+    "agents_dir",
+    "registry_path"
+   ],
+   "required": [],
+   "has_kwargs": false,
+   "opaque": false
+  },
+  "browsersmoke.run": {
+   "atom": "browser-smoke",
+   "params": [
+    "chrome_path",
+    "headless",
+    "login",
+    "min_body",
+    "port",
+    "routes",
+    "url",
+    "wait_sec"
+   ],
+   "required": [],
+   "has_kwargs": false,
+   "opaque": false
+  },
+  "bugdeep.adv": {
+   "atom": "bug-deep",
+   "params": [
+    "code",
+    "path",
+    "rules_file"
+   ],
+   "required": [],
+   "has_kwargs": false,
+   "opaque": false
+  },
+  "bugdeep.model": {
+   "atom": "bug-deep",
+   "params": [
+    "code",
+    "path"
+   ],
+   "required": [],
+   "has_kwargs": false,
+   "opaque": false
+  },
+  "bugdeep.poc": {
+   "atom": "bug-deep",
+   "params": [
+    "run",
+    "sink",
+    "timeout",
+    "title"
+   ],
+   "required": [],
+   "has_kwargs": false,
+   "opaque": false
+  },
+  "bugdeep.rule": {
+   "atom": "bug-deep",
+   "params": [
+    "rules_file",
+    "sink",
+    "title",
+    "verify"
+   ],
+   "required": [],
+   "has_kwargs": false,
+   "opaque": false
+  },
+  "code.implement": {
+   "atom": "code-implement",
+   "params": [
+    "domain",
+    "language",
+    "loop",
+    "max_iter",
+    "output_dir",
+    "path",
+    "task"
+   ],
+   "required": [],
+   "has_kwargs": false,
+   "opaque": false
+  },
+  "code.patch": {
+   "atom": "code-runloop",
+   "params": [
+    "edits",
+    "output_dir",
+    "path",
+    "timeout",
+    "verify",
+    "write_root"
+   ],
+   "required": [],
+   "has_kwargs": false,
+   "opaque": false
+  },
+  "code.runloop": {
+   "atom": "code-runloop",
+   "params": [
+    "fake_model",
+    "language",
+    "max_iterations",
+    "model_config",
+    "output_dir",
+    "path",
+    "task",
+    "verify",
+    "write_root"
+   ],
+   "required": [],
+   "has_kwargs": false,
+   "opaque": false
+  },
+  "code.write": {
+   "atom": "code-implement",
+   "params": [
+    "domain",
+    "language",
+    "loop",
+    "max_iter",
+    "output_dir",
+    "path",
+    "task"
+   ],
+   "required": [],
+   "has_kwargs": false,
+   "opaque": false
+  },
+  "codereview.content": {
+   "atom": "code-review",
+   "params": [],
+   "required": [],
+   "has_kwargs": false,
+   "opaque": true
+  },
+  "codereview.deep": {
+   "atom": "code-review",
+   "params": [
+    "code",
+    "denoise",
+    "max_complexity",
+    "path"
+   ],
+   "required": [],
+   "has_kwargs": false,
+   "opaque": false
+  },
+  "codereview.design": {
+   "atom": "code-review",
+   "params": [],
+   "required": [],
+   "has_kwargs": false,
+   "opaque": true
+  },
+  "codereview.layout": {
+   "atom": "code-review",
+   "params": [],
+   "required": [],
+   "has_kwargs": false,
+   "opaque": true
+  },
+  "codereview.light": {
+   "atom": "code-review",
+   "params": [
+    "base",
+    "max_complexity",
+    "path"
+   ],
+   "required": [
+    "path"
+   ],
+   "has_kwargs": false,
+   "opaque": false
+  },
+  "codereview.lsp": {
+   "atom": "code-review",
+   "params": [
+    "code",
+    "lsp_server",
+    "path",
+    "timeout"
+   ],
+   "required": [],
+   "has_kwargs": false,
+   "opaque": false
+  },
+  "codereview.review": {
+   "atom": "code-review",
+   "params": [
+    "code",
+    "denoise",
+    "lsp",
+    "lsp_server",
+    "max_complexity",
+    "mode",
+    "path",
+    "reuse_atoms",
+    "semantic",
+    "use_llm"
+   ],
+   "required": [],
+   "has_kwargs": false,
+   "opaque": false
+  },
+  "codereview.self_eval": {
+   "atom": "code-review",
+   "params": [
+    "file",
+    "findings",
+    "fp",
+    "missed",
+    "stats_only"
+   ],
+   "required": [],
+   "has_kwargs": false,
+   "opaque": false
+  },
+  "codereview.semantic": {
+   "atom": "code-review",
+   "params": [
+    "code",
+    "denoise",
+    "path"
+   ],
+   "required": [],
+   "has_kwargs": false,
+   "opaque": false
+  },
+  "context.budget": {
+   "atom": "context-compact",
+   "params": [
+    "max_tokens",
+    "steps"
+   ],
+   "required": [],
+   "has_kwargs": false,
+   "opaque": false
+  },
+  "context.compact": {
+   "atom": "context-compact",
+   "params": [
+    "cap",
+    "data",
+    "keep"
+   ],
+   "required": [],
+   "has_kwargs": false,
+   "opaque": false
+  },
+  "context.compaction_cost": {
+   "atom": "context-compact",
+   "params": [
+    "after",
+    "before"
+   ],
+   "required": [],
+   "has_kwargs": false,
+   "opaque": false
+  },
+  "context.disclose": {
+   "atom": "context-compact",
+   "params": [
+    "registry_desc",
+    "task",
+    "top_k"
+   ],
+   "required": [],
+   "has_kwargs": false,
+   "opaque": false
+  },
+  "context.edit": {
+   "atom": "context-compact",
+   "params": [
+    "edits",
+    "items",
+    "keep_head",
+    "keep_tail",
+    "store_dir"
+   ],
+   "required": [],
+   "has_kwargs": false,
+   "opaque": false
+  },
+  "context.estimate": {
+   "atom": "context-compact",
+   "params": [
+    "text"
+   ],
+   "required": [],
+   "has_kwargs": false,
+   "opaque": false
+  },
+  "context.offload": {
+   "atom": "context-compact",
+   "params": [
+    "content",
+    "keep_head",
+    "keep_tail",
+    "label",
+    "store_dir"
+   ],
+   "required": [],
+   "has_kwargs": false,
+   "opaque": false
+  },
+  "context.reveal": {
+   "atom": "context-compact",
+   "params": [
+    "handle",
+    "limit",
+    "offset",
+    "store_dir"
+   ],
+   "required": [],
+   "has_kwargs": false,
+   "opaque": false
+  },
+  "context.store": {
+   "atom": "context-compact",
+   "params": [
+    "store_dir"
+   ],
+   "required": [],
+   "has_kwargs": false,
+   "opaque": false
+  },
+  "deadcode.scan": {
+   "atom": "deadcode",
+   "params": [
+    "path",
+    "threshold"
+   ],
+   "required": [
+    "path"
+   ],
+   "has_kwargs": true,
+   "opaque": false
+  },
+  "deadcode.stats": {
+   "atom": "deadcode",
+   "params": [
+    "path"
+   ],
+   "required": [
+    "path"
+   ],
+   "has_kwargs": true,
+   "opaque": false
+  },
+  "deliver.package": {
+   "atom": "code-deliver",
+   "params": [
+    "artifacts",
+    "outputs"
+   ],
+   "required": [],
+   "has_kwargs": false,
+   "opaque": false
+  },
+  "deliver.report": {
+   "atom": "code-deliver",
+   "params": [
+    "chain",
+    "evidence",
+    "outputs"
+   ],
+   "required": [],
+   "has_kwargs": false,
+   "opaque": false
+  },
+  "depscan.chainbreak": {
+   "atom": "dep-scan",
+   "params": [
+    "repos"
+   ],
+   "required": [],
+   "has_kwargs": false,
+   "opaque": false
+  },
+  "depscan.osv": {
+   "atom": "dep-scan",
+   "params": [
+    "allow_remote",
+    "target"
+   ],
+   "required": [
+    "target"
+   ],
+   "has_kwargs": false,
+   "opaque": false
+  },
+  "depscan.sca": {
+   "atom": "dep-scan",
+   "params": [
+    "allow_remote",
+    "osv_query",
+    "target"
+   ],
+   "required": [
+    "target"
+   ],
+   "has_kwargs": false,
+   "opaque": false
+  },
+  "depscan.scan": {
+   "atom": "dep-scan",
+   "params": [
+    "allow_remote",
+    "osv_query",
+    "target"
+   ],
+   "required": [
+    "target"
+   ],
+   "has_kwargs": false,
+   "opaque": false
+  },
+  "depscan.taint": {
+   "atom": "dep-scan",
+   "params": [
+    "target"
+   ],
+   "required": [
+    "target"
+   ],
+   "has_kwargs": false,
+   "opaque": false
+  },
+  "dispatch.assert_exit": {
+   "atom": "code-dispatch",
+   "params": [
+    "script_path"
+   ],
+   "required": [],
+   "has_kwargs": false,
+   "opaque": false
+  },
+  "dispatch.budget": {
+   "atom": "code-dispatch",
+   "params": [
+    "files_needed",
+    "language",
+    "task"
+   ],
+   "required": [
+    "task"
+   ],
+   "has_kwargs": false,
+   "opaque": false
+  },
+  "dispatch.chain_default": {
+   "atom": "code-dispatch",
+   "params": [
+    "name",
+    "templates_path"
+   ],
+   "required": [],
+   "has_kwargs": false,
+   "opaque": false
+  },
+  "dispatch.chain_select": {
+   "atom": "code-dispatch",
+   "params": [
+    "available",
+    "task",
+    "templates_path"
+   ],
+   "required": [],
+   "has_kwargs": false,
+   "opaque": false
+  },
+  "dispatch.conflict": {
+   "atom": "code-dispatch",
+   "params": [
+    "tasks",
+    "workspace"
+   ],
+   "required": [
+    "tasks"
+   ],
+   "has_kwargs": false,
+   "opaque": false
+  },
+  "dispatch.permission": {
+   "atom": "code-dispatch",
+   "params": [
+    "action",
+    "decision",
+    "policy",
+    "resource",
+    "resource_type",
+    "rules"
+   ],
+   "required": [],
+   "has_kwargs": false,
+   "opaque": false
+  },
+  "dispatch.template": {
+   "atom": "code-dispatch",
+   "params": [
+    "background",
+    "budget",
+    "constraint",
+    "deliverable",
+    "goal",
+    "redline",
+    "state_file"
+   ],
+   "required": [],
+   "has_kwargs": false,
+   "opaque": false
+  },
+  "dispatch.verify": {
+   "atom": "code-dispatch",
+   "params": [
+    "claims",
+    "rerun_cmd",
+    "workdir"
+   ],
+   "required": [
+    "claims"
+   ],
+   "has_kwargs": false,
+   "opaque": false
+  },
+  "dispatch.verify_artifact": {
+   "atom": "code-dispatch",
+   "params": [
+    "expect",
+    "mode",
+    "target"
+   ],
+   "required": [],
+   "has_kwargs": false,
+   "opaque": false
+  },
+  "doc.anchor": {
+   "atom": "doc-freshness",
+   "params": [
+    "path",
+    "root"
+   ],
+   "required": [
+    "path",
+    "root"
+   ],
+   "has_kwargs": false,
+   "opaque": false
+  },
+  "doc.draft": {
+   "atom": "doc-freshness",
+   "params": [
+    "out",
+    "path",
+    "root"
+   ],
+   "required": [
+    "path",
+    "root"
+   ],
+   "has_kwargs": true,
+   "opaque": false
+  },
+  "doc.stale": {
+   "atom": "doc-freshness",
+   "params": [
+    "path",
+    "root"
+   ],
+   "required": [
+    "path",
+    "root"
+   ],
+   "has_kwargs": false,
+   "opaque": false
+  },
+  "domain.imports": {
+   "atom": "domain-review",
+   "params": [
+    "repos",
+    "target"
+   ],
+   "required": [],
+   "has_kwargs": false,
+   "opaque": false
+  },
+  "domain.valve": {
+   "atom": "domain-review",
+   "params": [
+    "data",
+    "rules",
+    "target"
+   ],
+   "required": [],
+   "has_kwargs": false,
+   "opaque": false
+  },
+  "event.append": {
+   "atom": "event-log",
+   "params": [
+    "kind",
+    "outcome",
+    "payload",
+    "session_key",
+    "store_dir"
+   ],
+   "required": [],
+   "has_kwargs": false,
+   "opaque": false
+  },
+  "event.checkpoint": {
+   "atom": "event-log",
+   "params": [
+    "session_key",
+    "state",
+    "store_dir"
+   ],
+   "required": [],
+   "has_kwargs": false,
+   "opaque": false
+  },
+  "event.replay": {
+   "atom": "event-log",
+   "params": [
+    "session_key",
+    "store_dir",
+    "to_seq"
+   ],
+   "required": [],
+   "has_kwargs": false,
+   "opaque": false
+  },
+  "event.timeline": {
+   "atom": "event-log",
+   "params": [
+    "from_seq",
+    "session_key",
+    "store_dir",
+    "to_seq"
+   ],
+   "required": [],
+   "has_kwargs": false,
+   "opaque": false
+  },
+  "evolve.refine": {
+   "atom": "code-evolve",
+   "params": [
+    "auto_sediment",
+    "memdir",
+    "outcome",
+    "snapshot",
+    "task"
+   ],
+   "required": [
+    "outcome",
+    "task"
+   ],
+   "has_kwargs": false,
+   "opaque": false
+  },
+  "evolve.self_prompt": {
+   "atom": "code-evolve",
+   "params": [
+    "memdir",
+    "task",
+    "top_k"
+   ],
+   "required": [
+    "task"
+   ],
+   "has_kwargs": false,
+   "opaque": false
+  },
+  "evolve.skill": {
+   "atom": "code-evolve",
+   "params": [
+    "action",
+    "bucket",
+    "memdir",
+    "task"
+   ],
+   "required": [
+    "action",
+    "bucket",
+    "task"
+   ],
+   "has_kwargs": false,
+   "opaque": false
+  },
+  "evolve.tdd": {
+   "atom": "code-evolve",
+   "params": [
+    "max_fix",
+    "memdir",
+    "path",
+    "task"
+   ],
+   "required": [],
+   "has_kwargs": false,
+   "opaque": false
+  },
+  "fuzz.gen": {
+   "atom": "code-fuzz",
+   "params": [
+    "funcname",
+    "iterations",
+    "max_cases",
+    "path"
+   ],
+   "required": [
+    "path"
+   ],
+   "has_kwargs": false,
+   "opaque": false
+  },
+  "fuzz.project": {
+   "atom": "code-fuzz",
+   "params": [
+    "iterations",
+    "max_funcs",
+    "path",
+    "timeout"
+   ],
+   "required": [
+    "path"
+   ],
+   "has_kwargs": false,
+   "opaque": false
+  },
+  "fuzz.property": {
+   "atom": "code-fuzz",
+   "params": [
+    "funcname",
+    "iterations",
+    "path",
+    "properties",
+    "seed",
+    "timeout"
+   ],
+   "required": [
+    "funcname",
+    "path",
+    "properties"
+   ],
+   "has_kwargs": false,
+   "opaque": false
+  },
+  "fuzz.run": {
+   "atom": "code-fuzz",
+   "params": [
+    "funcname",
+    "iterations",
+    "path",
+    "seed",
+    "timeout"
+   ],
+   "required": [
+    "funcname",
+    "path"
+   ],
+   "has_kwargs": false,
+   "opaque": false
+  },
+  "git.branch": {
+   "atom": "git-ops",
+   "params": [
+    "action",
+    "name",
+    "path"
+   ],
+   "required": [],
+   "has_kwargs": true,
+   "opaque": false
+  },
+  "git.commit": {
+   "atom": "git-ops",
+   "params": [
+    "message",
+    "path",
+    "paths"
+   ],
+   "required": [],
+   "has_kwargs": true,
+   "opaque": false
+  },
+  "git.diff": {
+   "atom": "git-ops",
+   "params": [
+    "base",
+    "path",
+    "staged"
+   ],
+   "required": [],
+   "has_kwargs": true,
+   "opaque": false
+  },
+  "git.log": {
+   "atom": "git-ops",
+   "params": [
+    "n",
+    "path"
+   ],
+   "required": [],
+   "has_kwargs": true,
+   "opaque": false
+  },
+  "git.status": {
+   "atom": "git-ops",
+   "params": [
+    "path"
+   ],
+   "required": [],
+   "has_kwargs": true,
+   "opaque": false
+  },
+  "guard.check": {
+   "atom": "guard",
+   "params": [
+    "code",
+    "govern",
+    "path"
+   ],
+   "required": [],
+   "has_kwargs": false,
+   "opaque": false
+  },
+  "guard.exit_intercept": {
+   "atom": "guard",
+   "params": [
+    "artifacts",
+    "checklist",
+    "since",
+    "task"
+   ],
+   "required": [],
+   "has_kwargs": false,
+   "opaque": false
+  },
+  "guard.loop_guard": {
+   "atom": "guard",
+   "params": [
+    "bump",
+    "file_path",
+    "session_key",
+    "store_dir",
+    "threshold"
+   ],
+   "required": [],
+   "has_kwargs": false,
+   "opaque": false
+  },
+  "guard.pipeline": {
+   "atom": "guard",
+   "params": [
+    "paths"
+   ],
+   "required": [],
+   "has_kwargs": false,
+   "opaque": false
+  },
+  "guard.post": {
+   "atom": "guard",
+   "params": [
+    "code",
+    "govern",
+    "path"
+   ],
+   "required": [],
+   "has_kwargs": false,
+   "opaque": false
+  },
+  "guard.pre": {
+   "atom": "guard",
+   "params": [
+    "code",
+    "path"
+   ],
+   "required": [],
+   "has_kwargs": false,
+   "opaque": false
+  },
+  "guard.selfcheck": {
+   "atom": "guard",
+   "params": [
+    "artifacts",
+    "spec"
+   ],
+   "required": [],
+   "has_kwargs": false,
+   "opaque": false
+  },
+  "impact.analyze": {
+   "atom": "dep-impact",
+   "params": [
+    "impact",
+    "path",
+    "symbol",
+    "transitive"
+   ],
+   "required": [
+    "path"
+   ],
+   "has_kwargs": false,
+   "opaque": false
+  },
+  "impact.circular": {
+   "atom": "dep-impact",
+   "params": [
+    "path"
+   ],
+   "required": [
+    "path"
+   ],
+   "has_kwargs": false,
+   "opaque": false
+  },
+  "impact.coupling": {
+   "atom": "dep-impact",
+   "params": [
+    "path"
+   ],
+   "required": [
+    "path"
+   ],
+   "has_kwargs": false,
+   "opaque": false
+  },
+  "impact.kind": {
+   "atom": "method-impact",
+   "params": [
+    "caller",
+    "path",
+    "to"
+   ],
+   "required": [
+    "caller",
+    "path",
+    "to"
+   ],
+   "has_kwargs": true,
+   "opaque": false
+  },
+  "impact.method": {
+   "atom": "method-impact",
+   "params": [
+    "max_depth",
+    "path",
+    "symbol",
+    "transitive"
+   ],
+   "required": [
+    "path"
+   ],
+   "has_kwargs": true,
+   "opaque": false
+  },
+  "llm.generate": {
+   "atom": "llm-router",
+   "params": [
+    "api_key",
+    "config_path",
+    "local_only",
+    "max_tokens",
+    "messages",
+    "model",
+    "provider",
+    "temp"
+   ],
+   "required": [
+    "messages"
+   ],
+   "has_kwargs": false,
+   "opaque": false
+  },
+  "llm.list_models": {
+   "atom": "llm-router",
+   "params": [
+    "config_path",
+    "local_only"
+   ],
+   "required": [],
+   "has_kwargs": false,
+   "opaque": false
+  },
+  "llm.registry": {
+   "atom": "llm-router",
+   "params": [
+    "config_path",
+    "local_only"
+   ],
+   "required": [],
+   "has_kwargs": false,
+   "opaque": false
+  },
+  "llm.review": {
+   "atom": "llm-router",
+   "params": [
+    "config_path",
+    "local_only",
+    "messages",
+    "model",
+    "provider",
+    "temp"
+   ],
+   "required": [
+    "messages"
+   ],
+   "has_kwargs": false,
+   "opaque": false
+  },
+  "local.audit": {
+   "atom": "localized",
+   "params": [
+    "code",
+    "target"
+   ],
+   "required": [],
+   "has_kwargs": false,
+   "opaque": false
+  },
+  "local.chain": {
+   "atom": "localized",
+   "params": [
+    "candidates",
+    "local_only",
+    "timeout"
+   ],
+   "required": [],
+   "has_kwargs": false,
+   "opaque": false
+  },
+  "local.route": {
+   "atom": "localized",
+   "params": [
+    "config_path"
+   ],
+   "required": [],
+   "has_kwargs": false,
+   "opaque": false
+  },
+  "mcp.call": {
+   "atom": "mcp-client",
+   "params": [
+    "allow_remote",
+    "allow_tools",
+    "arguments",
+    "command",
+    "endpoint",
+    "local_only",
+    "server",
+    "timeout",
+    "tool"
+   ],
+   "required": [
+    "tool"
+   ],
+   "has_kwargs": true,
+   "opaque": false
+  },
+  "mcp.connect": {
+   "atom": "mcp-client",
+   "params": [
+    "allow_remote",
+    "allow_tools",
+    "command",
+    "endpoint",
+    "local_only",
+    "server",
+    "timeout"
+   ],
+   "required": [],
+   "has_kwargs": true,
+   "opaque": false
+  },
+  "mcp.guard": {
+   "atom": "mcp-client",
+   "params": [
+    "action",
+    "description",
+    "name",
+    "source",
+    "text",
+    "tools"
+   ],
+   "required": [],
+   "has_kwargs": true,
+   "opaque": false
+  },
+  "mcp.list": {
+   "atom": "mcp-client",
+   "params": [
+    "servers"
+   ],
+   "required": [],
+   "has_kwargs": false,
+   "opaque": false
+  },
+  "mcp.tools": {
+   "atom": "mcp-client",
+   "params": [
+    "allow_remote",
+    "allow_tools",
+    "command",
+    "endpoint",
+    "local_only",
+    "server",
+    "timeout"
+   ],
+   "required": [],
+   "has_kwargs": true,
+   "opaque": false
+  },
+  "memory.recall": {
+   "atom": "code-memory",
+   "params": [
+    "memdir",
+    "task",
+    "top_k"
+   ],
+   "required": [
+    "task"
+   ],
+   "has_kwargs": false,
+   "opaque": false
+  },
+  "memory.save": {
+   "atom": "code-memory",
+   "params": [
+    "conf",
+    "findings",
+    "memdir",
+    "task"
+   ],
+   "required": [
+    "findings"
+   ],
+   "has_kwargs": false,
+   "opaque": false
+  },
+  "memory.sediment": {
+   "atom": "code-memory",
+   "params": [
+    "action",
+    "bucket",
+    "memdir",
+    "task"
+   ],
+   "required": [
+    "action",
+    "bucket",
+    "task"
+   ],
+   "has_kwargs": false,
+   "opaque": false
+  },
+  "minimal.deps": {
+   "atom": "minimalist-style",
+   "params": [
+    "code",
+    "path"
+   ],
+   "required": [],
+   "has_kwargs": false,
+   "opaque": false
+  },
+  "minimal.independent": {
+   "atom": "minimalist-style",
+   "params": [
+    "code",
+    "path"
+   ],
+   "required": [],
+   "has_kwargs": false,
+   "opaque": false
+  },
+  "minimal.style": {
+   "atom": "minimalist-style",
+   "params": [
+    "code",
+    "path",
+    "strict"
+   ],
+   "required": [],
+   "has_kwargs": false,
+   "opaque": false
+  },
+  "model.assess_complexity": {
+   "atom": "complexity-gate",
+   "params": [
+    "hints",
+    "rules",
+    "task",
+    "text"
+   ],
+   "required": [],
+   "has_kwargs": false,
+   "opaque": false
+  },
+  "model.cache_lookup": {
+   "atom": "model-fallback",
+   "params": [
+    "store_dir",
+    "text",
+    "ttl_sec"
+   ],
+   "required": [],
+   "has_kwargs": false,
+   "opaque": false
+  },
+  "model.cache_put": {
+   "atom": "model-fallback",
+   "params": [
+    "intent",
+    "store_dir",
+    "text"
+   ],
+   "required": [],
+   "has_kwargs": false,
+   "opaque": false
+  },
+  "model.candidates": {
+   "atom": "model-fallback",
+   "params": [
+    "local_only",
+    "preference",
+    "purpose"
+   ],
+   "required": [],
+   "has_kwargs": false,
+   "opaque": false
+  },
+  "model.cascade": {
+   "atom": "model-fallback",
+   "params": [
+    "rules",
+    "store_dir",
+    "text",
+    "ttl_sec"
+   ],
+   "required": [],
+   "has_kwargs": false,
+   "opaque": false
+  },
+  "model.chain": {
+   "atom": "model-fallback",
+   "params": [
+    "call_model",
+    "local_only",
+    "messages",
+    "preference",
+    "purpose"
+   ],
+   "required": [],
+   "has_kwargs": false,
+   "opaque": false
+  },
+  "model.route": {
+   "atom": "model-fallback",
+   "params": [
+    "local_only",
+    "preference",
+    "purpose"
+   ],
+   "required": [],
+   "has_kwargs": false,
+   "opaque": false
+  },
+  "model.rule_match": {
+   "atom": "model-fallback",
+   "params": [
+    "rules",
+    "text"
+   ],
+   "required": [],
+   "has_kwargs": false,
+   "opaque": false
+  },
+  "ontology.chain": {
+   "atom": "ontology-review",
+   "params": [
+    "kit_dir",
+    "web_dir"
+   ],
+   "required": [],
+   "has_kwargs": false,
+   "opaque": false
+  },
+  "ontology.quality": {
+   "atom": "ontology-review",
+   "params": [
+    "data_dir",
+    "kit_dir",
+    "target"
+   ],
+   "required": [],
+   "has_kwargs": false,
+   "opaque": false
+  },
+  "plan.gen": {
+   "atom": "code-plan",
+   "params": [
+    "code",
+    "files_needed",
+    "language",
+    "spec",
+    "task"
+   ],
+   "required": [
+    "task"
+   ],
+   "has_kwargs": false,
+   "opaque": false
+  },
+  "plan.think": {
+   "atom": "code-plan",
+   "params": [
+    "domain",
+    "files_needed",
+    "language",
+    "task"
+   ],
+   "required": [
+    "task"
+   ],
+   "has_kwargs": false,
+   "opaque": false
+  },
+  "project.analyze": {
+   "atom": "code-project",
+   "params": [
+    "file_pattern",
+    "max_complexity",
+    "path"
+   ],
+   "required": [
+    "path"
+   ],
+   "has_kwargs": false,
+   "opaque": false
+  },
+  "project.load": {
+   "atom": "code-project",
+   "params": [
+    "file_pattern",
+    "path"
+   ],
+   "required": [
+    "path"
+   ],
+   "has_kwargs": false,
+   "opaque": false
+  },
+  "project.scan": {
+   "atom": "code-project",
+   "params": [
+    "impact",
+    "max_complexity",
+    "path"
+   ],
+   "required": [
+    "path"
+   ],
+   "has_kwargs": false,
+   "opaque": false
+  },
+  "reuse.atom": {
+   "atom": "code-reuse",
+   "params": [],
+   "required": [],
+   "has_kwargs": false,
+   "opaque": false
+  },
+  "reuse.local": {
+   "atom": "code-reuse",
+   "params": [
+    "content",
+    "path",
+    "top_k"
+   ],
+   "required": [],
+   "has_kwargs": false,
+   "opaque": false
+  },
+  "reuse.remote": {
+   "atom": "code-reuse",
+   "params": [
+    "content",
+    "top_k"
+   ],
+   "required": [
+    "content"
+   ],
+   "has_kwargs": false,
+   "opaque": false
+  },
+  "sandbox.exec": {
+   "atom": "process-sandbox",
+   "params": [
+    "approval",
+    "cmd",
+    "cwd",
+    "env_clean",
+    "max_output",
+    "profile",
+    "scope",
+    "timeout"
+   ],
+   "required": [],
+   "has_kwargs": false,
+   "opaque": false
+  },
+  "sandbox.guard": {
+   "atom": "process-sandbox",
+   "params": [
+    "base",
+    "path"
+   ],
+   "required": [],
+   "has_kwargs": false,
+   "opaque": false
+  },
+  "sandbox.interpreter": {
+   "atom": "process-sandbox",
+   "params": [
+    "py"
+   ],
+   "required": [],
+   "has_kwargs": false,
+   "opaque": false
+  },
+  "sandbox.poc": {
+   "atom": "process-sandbox",
+   "params": [
+    "base_dir",
+    "code",
+    "max_output",
+    "timeout"
+   ],
+   "required": [],
+   "has_kwargs": false,
+   "opaque": false
+  },
+  "sandbox.validate": {
+   "atom": "process-sandbox",
+   "params": [
+    "code",
+    "timeout"
+   ],
+   "required": [],
+   "has_kwargs": false,
+   "opaque": false
+  },
+  "secrets.decrypt": {
+   "atom": "secret-vault",
+   "params": [
+    "bundle",
+    "passphrase"
+   ],
+   "required": [],
+   "has_kwargs": false,
+   "opaque": false
+  },
+  "secrets.encrypt": {
+   "atom": "secret-vault",
+   "params": [
+    "passphrase",
+    "plaintext"
+   ],
+   "required": [],
+   "has_kwargs": false,
+   "opaque": false
+  },
+  "secrets.load": {
+   "atom": "secret-vault",
+   "params": [
+    "name",
+    "passphrase",
+    "vault_dir"
+   ],
+   "required": [],
+   "has_kwargs": false,
+   "opaque": false
+  },
+  "secrets.mask": {
+   "atom": "secret-vault",
+   "params": [
+    "keep",
+    "value"
+   ],
+   "required": [],
+   "has_kwargs": false,
+   "opaque": false
+  },
+  "secrets.store": {
+   "atom": "secret-vault",
+   "params": [
+    "name",
+    "passphrase",
+    "value",
+    "vault_dir"
+   ],
+   "required": [],
+   "has_kwargs": false,
+   "opaque": false
+  },
+  "secrets.vault": {
+   "atom": "secret-vault",
+   "params": [
+    "vault_dir"
+   ],
+   "required": [],
+   "has_kwargs": false,
+   "opaque": false
+  },
+  "security.dim": {
+   "atom": "security-scan",
+   "params": [
+    "code",
+    "dimension",
+    "path"
+   ],
+   "required": [],
+   "has_kwargs": false,
+   "opaque": false
+  },
+  "security.govern": {
+   "atom": "security-scan",
+   "params": [
+    "issues"
+   ],
+   "required": [],
+   "has_kwargs": false,
+   "opaque": false
+  },
+  "security.project": {
+   "atom": "security-scan",
+   "params": [
+    "path"
+   ],
+   "required": [
+    "path"
+   ],
+   "has_kwargs": false,
+   "opaque": false
+  },
+  "security.scan": {
+   "atom": "security-scan",
+   "params": [
+    "code",
+    "path"
+   ],
+   "required": [],
+   "has_kwargs": false,
+   "opaque": false
+  },
+  "security.secret": {
+   "atom": "security-scan",
+   "params": [
+    "code",
+    "path"
+   ],
+   "required": [],
+   "has_kwargs": false,
+   "opaque": false
+  },
+  "session.get": {
+   "atom": "session",
+   "params": [
+    "session_dir",
+    "sid"
+   ],
+   "required": [],
+   "has_kwargs": false,
+   "opaque": false
+  },
+  "session.list": {
+   "atom": "session",
+   "params": [
+    "session_dir"
+   ],
+   "required": [],
+   "has_kwargs": false,
+   "opaque": false
+  },
+  "session.resume": {
+   "atom": "session",
+   "params": [
+    "session_dir",
+    "sid"
+   ],
+   "required": [],
+   "has_kwargs": false,
+   "opaque": false
+  },
+  "session.start": {
+   "atom": "session",
+   "params": [
+    "session_dir",
+    "sid",
+    "task"
+   ],
+   "required": [],
+   "has_kwargs": false,
+   "opaque": false
+  },
+  "session.status": {
+   "atom": "session",
+   "params": [
+    "session_dir",
+    "sid"
+   ],
+   "required": [],
+   "has_kwargs": false,
+   "opaque": false
+  },
+  "session.step": {
+   "atom": "session",
+   "params": [
+    "inputs",
+    "output",
+    "session_dir",
+    "sid",
+    "status",
+    "step_capability"
+   ],
+   "required": [],
+   "has_kwargs": false,
+   "opaque": false
+  },
+  "skill.export": {
+   "atom": "code-skill",
+   "params": [
+    "content",
+    "description",
+    "dest_dir",
+    "frontmatter",
+    "name"
+   ],
+   "required": [
+    "content"
+   ],
+   "has_kwargs": false,
+   "opaque": false
+  },
+  "skill.list": {
+   "atom": "code-skill",
+   "params": [
+    "paths"
+   ],
+   "required": [],
+   "has_kwargs": false,
+   "opaque": false
+  },
+  "skill.load": {
+   "atom": "code-skill",
+   "params": [
+    "name",
+    "path",
+    "paths"
+   ],
+   "required": [],
+   "has_kwargs": false,
+   "opaque": false
+  },
+  "skill.sediment": {
+   "atom": "code-skill",
+   "params": [
+    "action",
+    "bucket",
+    "memdir",
+    "task"
+   ],
+   "required": [
+    "action",
+    "task"
+   ],
+   "has_kwargs": false,
+   "opaque": false
+  },
+  "subagent.dispatch": {
+   "atom": "cli-providers",
+   "params": [
+    "cwd",
+    "provider",
+    "task",
+    "timeout"
+   ],
+   "required": [],
+   "has_kwargs": false,
+   "opaque": false
+  },
+  "subagent.probe": {
+   "atom": "cli-providers",
+   "params": [
+    "name"
+   ],
+   "required": [],
+   "has_kwargs": false,
+   "opaque": false
+  },
+  "subagent.providers": {
+   "atom": "cli-providers",
+   "params": [],
+   "required": [],
+   "has_kwargs": false,
+   "opaque": false
+  },
+  "taskstate.track": {
+   "atom": "task-state",
+   "params": [
+    "action",
+    "done_evidence",
+    "evidence",
+    "gate",
+    "progress",
+    "state",
+    "status_file",
+    "task",
+    "tid"
+   ],
+   "required": [
+    "task"
+   ],
+   "has_kwargs": false,
+   "opaque": false
+  },
+  "test.affected": {
+   "atom": "code-test",
+   "params": [
+    "changed_files",
+    "project_root",
+    "test_map",
+    "transitive"
+   ],
+   "required": [
+    "changed_files"
+   ],
+   "has_kwargs": false,
+   "opaque": false
+  },
+  "test.coverage_analysis": {
+   "atom": "code-test",
+   "params": [
+    "path"
+   ],
+   "required": [
+    "path"
+   ],
+   "has_kwargs": false,
+   "opaque": false
+  },
+  "test.gen": {
+   "atom": "code-test",
+   "params": [
+    "code",
+    "path"
+   ],
+   "required": [
+    "code"
+   ],
+   "has_kwargs": false,
+   "opaque": false
+  },
+  "test.project": {
+   "atom": "code-test",
+   "params": [
+    "exclude",
+    "path",
+    "timeout"
+   ],
+   "required": [],
+   "has_kwargs": false,
+   "opaque": false
+  },
+  "test.run": {
+   "atom": "code-test",
+   "params": [
+    "do_boundary",
+    "do_mutation",
+    "do_stability",
+    "human_review",
+    "path",
+    "target_dir"
+   ],
+   "required": [
+    "path"
+   ],
+   "has_kwargs": false,
+   "opaque": false
+  },
+  "test.select": {
+   "atom": "code-test",
+   "params": [
+    "project_root",
+    "run",
+    "test_map",
+    "transitive"
+   ],
+   "required": [],
+   "has_kwargs": false,
+   "opaque": false
+  },
+  "test.snapshot": {
+   "atom": "code-test",
+   "params": [
+    "args_by_func",
+    "funcs",
+    "path",
+    "snapshot_dir"
+   ],
+   "required": [
+    "path"
+   ],
+   "has_kwargs": false,
+   "opaque": false
+  },
+  "test.tdd": {
+   "atom": "code-test",
+   "params": [
+    "max_iter",
+    "path",
+    "target_dir",
+    "task"
+   ],
+   "required": [
+    "path"
+   ],
+   "has_kwargs": false,
+   "opaque": false
+  },
+  "ui.smoke": {
+   "atom": "browser-smoke",
+   "params": [
+    "chrome_path",
+    "headless",
+    "login",
+    "min_body",
+    "port",
+    "routes",
+    "url",
+    "wait_sec"
+   ],
+   "required": [],
+   "has_kwargs": false,
+   "opaque": false
+  }
+ },
+ "_note": "本文件由 `scripts/verify_atoms_graph.py --update-signatures` 生成，禁手写。它是签名基线：删参数/加必填/改名会触发 G17，改完必须重新生成并写明理由。",
+ "reason": "二期首次建立签名基线（166 条能力），此后删参数/加必填/改名会触发 G17"
+}

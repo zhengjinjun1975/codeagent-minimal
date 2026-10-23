@@ -10,24 +10,26 @@
 
 | 指标 | 值 |
 |---|---|
-| 原子 / 能力 | **41** / **165** |
-| 能力挂载 | **165/165**（声明=挂载的原子 41/41） |
+| 原子 / 能力 | **41** / **166** |
+| 能力挂载 | **166/166**（声明=挂载的原子 41/41） |
 | 有调用边的原子 | **21/41** |
-| 能力覆盖率 | **20.0%**（33/165） |
-| 调用点 | **77** 处（可静态解析 32，动态能力名 45） |
-| 组合 | **7** 条 / **18** 步（其中 0 条组合静态抽不出步骤） |
-| 进入组合的能力 | **12/165** |
+| 能力覆盖率 | **20.5%**（34/166） |
+| 调用点 | **45** 处（看得见 33 / 看不见 12） |
+| 组合 | **7** 条 / **18** 步（可达：cli-reachable 7） |
+| 四问判定 | Q1 GREEN ｜ Q2 GREEN ｜ Q3 GREEN ｜ Q4 YELLOW |
+| 进入组合的能力 | **12/166** |
 | 原子↔原子调用边 | 0（拓扑 star） |
 
 ## 二、组合清单（每一步都能落到真实能力）
 
 组合 = 有序能力序列。下表每条组合的每一步都给出：能力名 → 所在原子 → 静态入参 → 定义位置。
-`未解析` 的行就是会断的地方。
+`未解析` 的行就是会断的地方；`可达` 一列说明这条组合从哪个入口进得来。
 
 ### 改缺陷/修回归（模板）
 
-- 组合 ID：`tpl:agents/dispatch/code-dispatch/chain_templates.json#0`
+- 组合 ID：`tpl:agents/dispatch/code-dispatch/chain_templates.json#改缺陷/修回归`
 - 定义位置：`agents/dispatch/code-dispatch/chain_templates.json`
+- 可达：**cli-reachable**（入口 cli:chain.auto、cli:chain.template、api:run_chain.auto、api:default_chain）
 - 命中关键词：修 bug、修复、报错、异常、崩溃、不生效、回归、还原不了、跑不起来、import 失败、测试红了
 
 | # | 步骤 | 能力 | 所在原子 | 静态入参 | 签名 |
@@ -39,8 +41,9 @@
 
 ### 写码/新增功能（模板）
 
-- 组合 ID：`tpl:agents/dispatch/code-dispatch/chain_templates.json#1`
+- 组合 ID：`tpl:agents/dispatch/code-dispatch/chain_templates.json#写码/新增功能`
 - 定义位置：`agents/dispatch/code-dispatch/chain_templates.json`
+- 可达：**cli-reachable**（入口 cli:chain.auto、cli:chain.template、api:run_chain.auto、api:default_chain）
 - 命中关键词：实现、新增、写一个、写个、生成、开发、加个、接口、函数、脚本
 
 | # | 步骤 | 能力 | 所在原子 | 静态入参 | 签名 |
@@ -50,8 +53,9 @@
 
 ### 代码审查/质量（模板）
 
-- 组合 ID：`tpl:agents/dispatch/code-dispatch/chain_templates.json#2`
+- 组合 ID：`tpl:agents/dispatch/code-dispatch/chain_templates.json#代码审查/质量`
 - 定义位置：`agents/dispatch/code-dispatch/chain_templates.json`
+- 可达：**cli-reachable**（入口 cli:chain.auto、cli:chain.template、api:run_chain.auto、api:default_chain）
 - 命中关键词：审查、评审、代码质量、规范、review、重构建议、问题诊断、哪里写得不好
 
 | # | 步骤 | 能力 | 所在原子 | 静态入参 | 签名 |
@@ -61,8 +65,9 @@
 
 ### 依赖/影响面（模板）
 
-- 组合 ID：`tpl:agents/dispatch/code-dispatch/chain_templates.json#3`
+- 组合 ID：`tpl:agents/dispatch/code-dispatch/chain_templates.json#依赖/影响面`
 - 定义位置：`agents/dispatch/code-dispatch/chain_templates.json`
+- 可达：**cli-reachable**（入口 cli:chain.auto、cli:chain.template、api:run_chain.auto、api:default_chain）
 - 命中关键词：依赖、升级、断链、影响面、影响分析、引用、耦合、版本冲突
 
 | # | 步骤 | 能力 | 所在原子 | 静态入参 | 签名 |
@@ -72,8 +77,9 @@
 
 ### 测试/用例（模板）
 
-- 组合 ID：`tpl:agents/dispatch/code-dispatch/chain_templates.json#4`
+- 组合 ID：`tpl:agents/dispatch/code-dispatch/chain_templates.json#测试/用例`
 - 定义位置：`agents/dispatch/code-dispatch/chain_templates.json`
+- 可达：**cli-reachable**（入口 cli:chain.auto、cli:chain.template、api:run_chain.auto、api:default_chain）
 - 命中关键词：测试、用例、覆盖率、单元测试、冒烟、smoke、pytest
 
 | # | 步骤 | 能力 | 所在原子 | 静态入参 | 签名 |
@@ -82,8 +88,9 @@
 
 ### 排查/定根因（模板）
 
-- 组合 ID：`tpl:agents/dispatch/code-dispatch/chain_templates.json#5`
+- 组合 ID：`tpl:agents/dispatch/code-dispatch/chain_templates.json#排查/定根因`
 - 定义位置：`agents/dispatch/code-dispatch/chain_templates.json`
+- 可达：**cli-reachable**（入口 cli:chain.auto、cli:chain.template、api:run_chain.auto、api:default_chain）
 - 命中关键词：复现、排查、定位、根因、为什么、查不到
 
 | # | 步骤 | 能力 | 所在原子 | 静态入参 | 签名 |
@@ -91,18 +98,25 @@
 | 1 | plan.think | `plan.think` | code-plan | `language=python task=$task` | ✅ |
 | 2 | archreview.layers | `archreview.layers` | arch-review | `path=.` | ✅ |
 
-### codeagent.py.chain（代码内）
+### 全流程/综合任务（模板·默认）
 
-- 组合 ID：`code:codeagent.py#chain:153`
-- 定义位置：`codeagent.py`:136
+- 组合 ID：`tpl:agents/dispatch/code-dispatch/chain_templates.json#全流程/综合任务`
+- 定义位置：`agents/dispatch/code-dispatch/chain_templates.json`
+- 可达：**cli-reachable**（入口 cli:chain、cli:chain.auto、cli:chain.template、api:run_chain.auto、api:default_chain）
 
 | # | 步骤 | 能力 | 所在原子 | 静态入参 | 签名 |
 |---|---|---|---|---|---|
-| 1 | think | `plan.think` | code-plan | `λ 动态` | ✅ |
-| 2 | gen | `plan.gen` | code-plan | `λ 动态` | ✅ |
-| 3 | review | `codereview.review` | code-review | `λ 动态` | ✅ |
-| 4 | test | `test.run` | code-test | `λ 动态` | ✅ |
-| 5 | evolve | `evolve.refine` | code-evolve | `λ 动态` | ✅ |
+| 1 | think | `plan.think` | code-plan | `language=$seed.language task=$task` | ✅ |
+| 2 | gen | `plan.gen` | code-plan | `code=$seed.code language=$seed.language spec=$seed.spec task=$task` | ✅ |
+| 3 | review | `codereview.review` | code-review | `code=$upstream_files reuse_atoms=True use_llm=False` | ✅ |
+| 4 | test | `test.run` | code-test | `target_dir=.` | ✅ |
+| 5 | evolve | `evolve.refine` | code-evolve | `outcome={'score': '$step.review.score', 'issues': '$step.review.issues', 'task': '$task'} task=$task` | ✅ |
+
+### codeagent.py.chain（代码内）
+
+- 组合 ID：`code:codeagent.py#chain`
+- 定义位置：`codeagent.py`:154
+- **静态抽不出步骤**：组合由运行时给出（参数透传），不是代码里的组合定义
 
 ## 三、能力 → 组合 反查（改动影响面）
 
@@ -111,16 +125,17 @@
 
 | 能力 | 原子 | 调用点 | 被哪些组合用到 |
 |---|---|---|---|
-| `codereview.review` | code-review | 3 | 改缺陷/修回归 第4步、写码/新增功能 第2步、codeagent.py.chain 第3步 |
-| `evolve.refine` | code-evolve | 2 | codeagent.py.chain 第5步 |
+| `codereview.review` | code-review | 3 | 改缺陷/修回归 第4步、写码/新增功能 第2步、全流程/综合任务 第3步 |
+| `evolve.refine` | code-evolve | 2 | 全流程/综合任务 第5步 |
 | `memory.save` | code-memory | 2 | — |
 | `reuse.local` | code-reuse | 2 | — |
-| `plan.think` | code-plan | 1 | 改缺陷/修回归 第1步、排查/定根因 第1步、codeagent.py.chain 第1步 |
-| `test.run` | code-test | 1 | 改缺陷/修回归 第3步、codeagent.py.chain 第4步 |
+| `plan.think` | code-plan | 1 | 改缺陷/修回归 第1步、排查/定根因 第1步、全流程/综合任务 第1步 |
+| `test.run` | code-test | 1 | 改缺陷/修回归 第3步、全流程/综合任务 第4步 |
 | `depscan.scan` | dep-scan | 1 | 依赖/影响面 第1步 |
 | `impact.analyze` | dep-impact | 1 | 依赖/影响面 第2步 |
 | `deliver.report` | code-deliver | 1 | — |
 | `dispatch.budget` | code-dispatch | 1 | — |
+| `dispatch.chain_default` | code-dispatch | 1 | — |
 | `dispatch.chain_select` | code-dispatch | 1 | — |
 | `dispatch.template` | code-dispatch | 1 | — |
 | `evolve.self_prompt` | code-evolve | 1 | — |
@@ -141,7 +156,7 @@
 | `code.implement` | code-implement | 0 | 改缺陷/修回归 第2步、写码/新增功能 第1步 |
 | `archreview.layers` | arch-review | 0 | 排查/定根因 第2步 |
 | `deadcode.scan` | deadcode | 0 | 代码审查/质量 第2步 |
-| `plan.gen` | code-plan | 0 | codeagent.py.chain 第2步 |
+| `plan.gen` | code-plan | 0 | 全流程/综合任务 第2步 |
 | `security.project` | security-scan | 0 | 代码审查/质量 第1步 |
 | `test.select` | code-test | 0 | 测试/用例 第1步 |
 | `approval.check` | command-approvals | 0 | — |
@@ -277,7 +292,45 @@
 | `test.tdd` | code-test | 0 | — |
 | `ui.smoke` | browser-smoke | 0 | — |
 
-## 四、规则命中
+## 四、入口与可达性（Q2 通路）
+
+组合被声明了，不等于有人走得到。这一节回答「从哪个入口进得来」——
+`cli-reachable` 敲命令能走；`api-only` 只有库调用能走（允许，须承认）；`declared-only` 谁都不通（G14 红）。
+
+| 入口 | 类型 | 指向 | 证据（文件#符号） |
+|---|---|---|---|
+| `cli:chain` | cli | tpl:agents/dispatch/code-dispatch/chain_templates.json#全流程/综合任务 | `codeagent.py#chain`:default_chain |
+| `cli:chain.auto` | cli | tpl:* | `agent_runtime.py#_chain_select`:select_chain |
+| `cli:chain.template` | cli | tpl:* | `codeagent.py#chain`:default_chain |
+| `api:run_chain.auto` | api | tpl:* | `agent_runtime.py#_chain_select`:select_chain |
+| `api:default_chain` | api | tpl:* | `agent_runtime.py#default_chain`:dispatch.chain_default |
+| `cli:graph` | cli | — | `codeagent.py#_graph_query`:build_graph |
+
+| 组合 | 判定 | 入口 |
+|---|---|---|
+| 改缺陷/修回归 | **cli-reachable** | cli:chain.auto、cli:chain.template、api:run_chain.auto、api:default_chain |
+| 写码/新增功能 | **cli-reachable** | cli:chain.auto、cli:chain.template、api:run_chain.auto、api:default_chain |
+| 代码审查/质量 | **cli-reachable** | cli:chain.auto、cli:chain.template、api:run_chain.auto、api:default_chain |
+| 依赖/影响面 | **cli-reachable** | cli:chain.auto、cli:chain.template、api:run_chain.auto、api:default_chain |
+| 测试/用例 | **cli-reachable** | cli:chain.auto、cli:chain.template、api:run_chain.auto、api:default_chain |
+| 排查/定根因 | **cli-reachable** | cli:chain.auto、cli:chain.template、api:run_chain.auto、api:default_chain |
+| 全流程/综合任务 | **cli-reachable** | cli:chain、cli:chain.auto、cli:chain.template、api:run_chain.auto、api:default_chain |
+
+## 五、自知：门看得见多少（Q4）
+
+看不见的调用点不会违规 —— 所以门必须把「我看不见多少」当成一等结论说出来。
+
+| 证据等级 | 含义 | 数量 | 占比 |
+|---|---|---|---|
+| `verified` | 能力名+参数名都可核（全核） | 30 | 66.7% |
+| `name-only` | 能力名可核，参数被 `**kwargs` 摊开（只核名字） | 3 | 6.7% |
+| `sealed` | 能力名来自变量，但声明了 `dispatch-sealed` 边界（边界已知，目标不可核） | 12 | 26.7% |
+| `blind` | 能力名来自变量且无声明（什么都核不了） | 0 | 0.0% |
+
+- 看得见（verified+name-only）：**33/45**；看不见（sealed+blind）：**12/45 = 26.7%**
+- 阈值：黄 20% / 红 35%（`sealed` 也计入看不见 —— 边界声明不等于能校验）
+
+## 六、规则命中
 
 | 组 | 规则 | 级别 | 命中 | 说明 |
 |---|---|---|---|---|
@@ -294,8 +347,14 @@
 |  | `G11_CHAIN_PLACEHOLDER` | P2 | 0 | 组合入参用了未登记的占位符或占位符写错形态 |
 | A 调用正确性 | `G12_CAP_NOT_MOUNTED` | P0 | 0 | provides 里声明了，但 main.py 没有 register（调了必失败） |
 |  | `G13_CAP_UNDECLARED` | P1 | 0 | main.py 挂了能力，但 provides 没声明（对外不可见） |
+| C 组合可追踪 | `G14_UNREACHABLE_CHAIN` | P1 | 0 | 组合没有任何入口可达（配了忘接，或入口声明被删） |
+|  | `G15_IMPLICIT_CHAIN` | P1 | 0 | 代码里写死了组合（capability 键的 list），没走模板表也没登记 |
+| D 覆盖与自知 | `G16_BLIND_RATIO` | P1 | 0 | 看不见的调用点比例超阈值（盲区在无声长大） |
+| B 依赖一致性 | `G17_SIGNATURE_BREAKING` | P1 | 0 | 能力签名发生破坏性变更（删参数/改必填/改名）且未认领 |
+| D 覆盖与自知 | `G18_DISPATCH_UNSEALED` | P2 | 0 | 转发型包装器没声明 dispatch-sealed 边界（黑盒不可审计） |
+| C 组合可追踪 | `G19_ENTRY_STALE` | P1 | 0 | 入口清单与代码对不上（evidence 找不到/ref 指向不存在的组合） |
 
-## 五、问题明细
+## 七、问题明细
 
 ### G2_UNWIRED_CAPABILITY（132 项，P2）
 

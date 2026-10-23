@@ -35,7 +35,7 @@ class CodeDispatchAgent(AtomicAgent):
     description = "派单原子: 5段模板+自适应预算+背靠背验证+并行冲突防护+allow/ask/deny细粒度权限 + 验收门(verify_artifact逐名diff/断言/生产引用, assert_exit退出码) + 规则层选链(chain_select)"
     provides = ["dispatch.template", "dispatch.budget", "dispatch.verify", "dispatch.conflict",
                 "dispatch.permission", "dispatch.verify_artifact", "dispatch.assert_exit",
-                "dispatch.chain_select"]
+                "dispatch.chain_select", "dispatch.chain_default"]
     depends_on = []
     inputs = ["background", "goal", "constraint", "redline", "deliverable", "task", "files_needed", "language", "claims", "workdir", "rerun_cmd", "tasks", "workspace", "policy", "action", "resource", "resource_type", "target", "expect", "mode", "script_path", "templates_path"]
     outputs = ["template", "budget", "items", "summary", "conflicts", "safe", "recommendation", "decision", "policy", "passed", "checks", "exit_code", "stdout_tail", "matched", "source", "chain", "template_name", "score", "hits", "dropped", "reason", "ok"]
@@ -51,6 +51,8 @@ class CodeDispatchAgent(AtomicAgent):
         self.register("dispatch.assert_exit", self._assert_exit)
         # 规则层选链（薄壳，核心在 chain_selector.py）
         self.register("dispatch.chain_select", self._chain_select)
+        # 组合的单一来源：从模板表取「默认链」或按名取链（替代代码里写死的链，见 G15）
+        self.register("dispatch.chain_default", self._chain_default)
 
     # ── dispatch.template：派单5段模板 ──
     def _template(self, background="", goal="", constraint="", redline="", deliverable="",
@@ -206,6 +208,32 @@ class CodeDispatchAgent(AtomicAgent):
         if not script_path:
             return self._envelope(False, degraded=True, error="缺 script_path 入参")
         return self._envelope(True, data=vg.assert_exit(script_path))
+
+    def _chain_default(self, name=None, templates_path=None):
+        """从模板表取一条**已声明**的组合：给了 name 取同名，否则取 default:true 的那条。
+
+        组合只允许一个源 —— 这张模板表。以前代码里还写死了一条 5 步链，
+        于是同一个意图有两条链用不同原子，用户敲不同入口得到不同结果。
+        """
+        tpls = cs.load_templates(templates_path)
+        if not tpls:
+            return self._envelope(False, degraded=True,
+                                  error="模板表读不到或为空：%s" % (templates_path or "chain_templates.json"))
+        if name:
+            hit = next((t for t in tpls if t.get("name") == name), None)
+            if hit is None:
+                return self._envelope(False, degraded=False,
+                                      error="模板表里没有名为 %r 的组合（有：%s）"
+                                            % (name, [t["name"] for t in tpls]))
+        else:
+            hit = next((t for t in tpls if t.get("default")), None)
+            if hit is None:
+                return self._envelope(False, degraded=False,
+                                      error="模板表里没有标 default:true 的组合（有：%s）"
+                                            % [t["name"] for t in tpls])
+        return self._envelope(True, data={"name": hit["name"], "chain": hit["chain"],
+                                          "note": hit.get("note", ""),
+                                          "default": bool(hit.get("default"))})
 
     def _chain_select(self, task="", templates_path=None, available=None):
         """规则层选链：关键词命中模板即给能力序列（**0 次模型调用**）。

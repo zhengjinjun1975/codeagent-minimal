@@ -33,6 +33,9 @@ import tempfile
 import threading
 import time
 
+# 错误码单一定义在 atomic_base（原子自己也要用同一套码），这里只引用，不复制一遍
+from atomic_base import ERR_UNKNOWN, ERR_CONTRACT, CONTRACT_CODES  # noqa: F401
+
 # ── 组装链的临时工作区（test.run 跑真文件用的）────────────────────────
 # 以前每个 test.run 步骤 mkdtemp 一个目录、从不清理：实测积到 293 个（每跑一次漏一个）。
 # 现在留最近 _FLOW_WS_KEEP 个（结果里的 files_tested 路径还有效），更早的建新的时顺手删；
@@ -120,8 +123,23 @@ def _ok(data):
     return {"ok": True, "data": data}
 
 
-def _fail(error, degraded=True, data=None):
-    return {"ok": False, "data": data or {}, "error": error, "degraded": degraded}
+def _fail(error, degraded=True, data=None, code=None):
+    """失败信封。code 只在能分类时给（CAP_UNKNOWN / CAP_CONTRACT / ATOM_FAIL ...），
+    让上层能区分「改代码才能好」和「这一次没成」。"""
+    out = {"ok": False, "data": data or {}, "error": error, "degraded": degraded}
+    if code:
+        out["code"] = code
+    return out
+
+
+def _data_or_error(res):
+    """信封 → 数据；失败只留 error。子步骤失败不该让整条闭环抛异常。"""
+    return res.get("data", {}) if res.get("ok") else {"error": res.get("error")}
+
+
+def _no_inputs(_data, _seed):
+    """没有入参的步骤（链里写裸能力名时用这个）。"""
+    return {}
 
 
 # ── 链组装小工具（P1-4 编排按需编译用，确定性、无依赖）──
@@ -141,27 +159,123 @@ def _first_json_object(text):
     return text[i:j + 1] if 0 <= i < j else ""
 
 
-def _resolve_step_inputs(spec, data, task):
+def _resolve_step_inputs(spec, data, task, seed=None):
     """把链步骤里的**静态入参规格**解析成真入参（模板表用，P1-4）。
 
-    支持两个占位符：`$task` → 本次任务文本；`$upstream_files` → 上游第一个「files 为非空 dict」
-    的产出（文件名字典）。其它字面量原样传。上游没有产物时 `$upstream_files` 解析成 None
-    （该步会如实降级，不编一个假产物出来）。
+    占位符文法（四种，只认这四种；不认识的形态原样当字面量，由图谱门的 G11 抓）：
+      `$task`                  → 本次任务文本
+      `$upstream_files`        → 上游第一个「files 为非空 dict」的产出（文件名字典）
+      `$seed.<key>[.<key>]`    → 本次运行的种子数据（如 `$seed.language`）
+      `$step.<步骤名>.<字段>`   → 之前某一步的产出字段（如 `$step.review.score`）
+    字典值递归解析，故 `{"outcome": {"score": "$step.review.score"}}` 这种嵌套结构可用。
+
+    为什么不再只支持两个占位符：代码里那条写死的 5 步链要搬进模板表，
+    它的入参带 `$seed.code`、`$step.review.score` 这类引用。搬过去才谈得上
+    「组合只有一个源」（见 docs/ATOMS_GRAPH_V2_PLAN.md §4 M1 / §5 G15）。
+    上游没有产物时 `$upstream_files` 解析成 None（该步如实降级，不编假产物）。
     """
     upstream = None
     for _v in (data or {}).values():
         if isinstance(_v, dict) and isinstance(_v.get("files"), dict) and _v["files"]:
             upstream = _v["files"]
             break
-    out = {}
-    for k, v in (spec or {}).items():
+
+    def _dig(expr, table):
+        cur = table
+        for part in expr.split("."):
+            if not isinstance(cur, dict) or part not in cur:
+                return None
+            cur = cur[part]
+        return cur
+
+    def _one(v):
+        if isinstance(v, dict):
+            return {k: _one(x) for k, x in v.items()}
+        if isinstance(v, list):
+            return [_one(x) for x in v]
+        if not isinstance(v, str) or not v.startswith("$"):
+            return v
         if v == "$task":
-            out[k] = task or ""
-        elif v == "$upstream_files":
-            out[k] = upstream
-        else:
-            out[k] = v
-    return out
+            return task or ""
+        if v == "$upstream_files":
+            return upstream
+        if v.startswith("$seed."):
+            return _dig(v[len("$seed."):], seed or {})
+        if v.startswith("$step."):
+            body = v[len("$step."):]
+            name, _, rest = body.partition(".")
+            got = (data or {}).get(name)
+            if not rest:
+                return got
+            return _dig(rest, got) if isinstance(got, dict) else None
+        return v                      # 认不出的形态原样传，由 G11 在提交时报
+
+    return {k: _one(v) for k, v in (spec or {}).items()}
+
+
+# ── 链执行小工具（run_chain 拆出来的，各自单一职责）──
+def _step_of_item(item, task):
+    """链里的一项 → (步骤名, 能力名, 取入参的函数)。
+
+    裸字符串是 `"cap.x"`；dict 的 inputs 可以是静态规格（走占位符解析）
+    也可以是函数（历史写法，照旧）。
+    """
+    if isinstance(item, str):
+        return item, item, _no_inputs
+    step = item.get("step", item.get("capability"))
+    cap = item["capability"]
+    spec = item.get("inputs")
+    if isinstance(spec, dict):
+        return step, cap, lambda d, s, _sp=spec: _resolve_step_inputs(_sp, d, task, s)
+    return step, cap, spec or _no_inputs
+
+
+def _reuse_prev(step, prev, results, data, flow):
+    """上一轮已通过的步骤直接复用：结果与数据原样搬过来，连预算都不占。
+    返回是否复用（复用则该步不执行）。"""
+    if not (isinstance(prev, dict) and prev.get("ok")):
+        return False
+    results[step] = prev
+    if isinstance(prev.get("data"), dict):
+        data[step] = prev["data"]
+    flow[step] = {"ok": True, "reused": True}
+    return True
+
+
+def _absorb_step(step, res, results, data, flow):
+    """一步的结果落进 results / flow / data 三处。三处口径必须一起改，
+    否则「哪些步成了」在信封里和 flow 里会对不上。"""
+    results[step] = res
+    if res.get("ok") and isinstance(res.get("data"), dict):
+        data[step] = res["data"]
+        flow[step] = {"ok": True, "keys": list(res["data"].keys())}
+    else:
+        flow[step] = {"ok": False, "error": res.get("error"), "code": res.get("code")}
+
+
+def _materialize_target(inputs, data):
+    """test.run 要跑真实文件：把上游产出的 files 落盘到临时工作区，返回落盘路径。
+
+    不硬编码上游产文件步骤名为 "gen"——gen 步骤可叫 "gen"/"plan.gen"/任意自定义名，
+    故扫描已产出 data，取第一个「files 为非空 dict(文件名→内容)」的步骤结果作为被测代码，
+    避免 test.run 无 path → degraded。
+    """
+    gen_files = {}
+    for _v in data.values():
+        if isinstance(_v, dict) and isinstance(_v.get("files"), dict) and _v["files"]:
+            gen_files = _v["files"]
+            break
+    if not gen_files:
+        return None
+    tmp = _new_flow_ws()
+    inputs["target_dir"] = tmp
+    paths = []
+    for fname, fcontent in gen_files.items():
+        fp = os.path.join(tmp, os.path.basename(str(fname)))
+        with open(fp, "w", encoding="utf-8") as f:
+            f.write(fcontent if isinstance(fcontent, str) else str(fcontent))
+        paths.append(fp)
+    return paths
 
 
 # ── ① 运行预算熔断（2026-09-21，P0-2）─────────────────────────────────
@@ -409,14 +523,31 @@ class AgentRuntime:
                                      "subagents": out}}
 
 
+    def near_capabilities(self, capability, limit=5):
+        """打错能力名时给出近似候选。**不猜**，只按字符串相似度列，让人一眼挑对。
+
+        以前只回一句「候选见 describe().capabilities」，等于让调用者自己去翻 165 条。
+        错误信息的成本决定了它会不会被用：能直接给出候选，人才会立刻改对。
+        """
+        try:
+            import difflib
+            return difflib.get_close_matches(str(capability), list(self._cap_index), n=limit, cutoff=0.55)
+        except Exception:  # fail-open: 近似候选是锦上添花，算不出来不影响报错主流程
+            return []
+
     def _run_capability_impl(self, capability, **inputs):
         name = self.capability_atom(capability)
         if name is None:
-            return _fail(f"能力 '{capability}' 无可用原子（候选见 describe().capabilities）")
+            near = self.near_capabilities(capability)
+            hint = ("；相近的能力：%s" % "、".join(near)) if near else ""
+            return _fail(f"能力 '{capability}' 无可用原子（候选见 describe().capabilities）{hint}",
+                         code=ERR_UNKNOWN,
+                         data={"capability": capability, "near": near})
         a = self.agents[name]
         caps = a.capabilities()
         if capability not in caps or not caps[capability].get("callable"):
-            return _fail(f"原子 {name} 能力 {capability} 不可用")
+            return _fail(f"原子 {name} 能力 {capability} 不可用", code=ERR_UNKNOWN,
+                         data={"capability": capability, "atom": name})
         # 数据不出厂默认：llm.generate 等敏感能力强制 local_only 透传
         if capability in ("llm.generate",):
             inputs.setdefault("local_only", self.local_only)
@@ -489,6 +620,80 @@ class AgentRuntime:
         return [c for c in picked if isinstance(c, str)]
 
     # ── 原子协同：数据流链（run_flow）────────
+    # ── 组合的单一来源（模板表）────────────
+    def default_chain(self, name=None):
+        """取一条**已声明**的组合：默认取模板表里标了 `default: true` 的那条，给了 name 取同名。
+
+        为什么要有这件：组合以前有两个源 —— 代码里一条写死的 5 步链，模板表里另一套。
+        同一个意图两条链用不同原子（`plan.gen` vs `code.implement`），用户敲不同入口
+        得到不同结果，而且模板表那 6 条在 CLI 上一条都走不到。现在全部收口到模板表：
+        代码不留写死的链（图谱门 G15 就查这个），谁想加组合改 json 即可。
+        返回 (chain, error)；chain 为 None 时 error 说明原因（不编一条假链）。
+        """
+        r = self.run_capability("dispatch.chain_default", name=name)
+        if not r.get("ok"):
+            return None, r.get("error") or "取不到组合"
+        d = r.get("data") or {}
+        chain = d.get("chain")
+        if not isinstance(chain, list) or not chain:
+            return None, "组合 %r 是空的" % (d.get("name") or name)
+        return chain, None
+
+    def _chain_select(self, task, rb, model_fn):
+        """没给链就现场选一条（规则优先，模型只兜底）。
+
+        返回 (chain, selection, problem)；成功时 problem 为 None。
+        problem = (信封里的 verdict, 给人看的错误信息)。
+        """
+        sel = self.select_chain(task, rb=rb, model_fn=model_fn)
+        selection = sel.get("data") or {}
+        if not sel.get("ok"):
+            err = str(sel.get("error"))
+            return None, selection, ("选链失败：" + err, "自动选链失败：" + err)
+        chain = selection.get("chain") or []
+        if not chain:
+            return None, selection, ("选链未产出步骤", "自动选链未产出任何步骤")
+        return chain, selection, None
+
+    def _run_multi_files(self, cap, paths, tmp):
+        """多文件：逐文件跑 test.run 并聚合红绿（非空壳）。"""
+        # dispatch-sealed: *  ← 逐文件重跑 test.run：能力名来自组合定义
+        sub_results = [self.run_capability(cap, path=p, target_dir=tmp) for p in paths]
+        ok_sub = [s for s in sub_results if s.get("ok")]
+        ggs = [s["data"]["red_green"]["green"] for s in ok_sub
+               if isinstance(s.get("data"), dict) and "red_green" in s["data"]]
+        all_green = bool(ggs) and len(ok_sub) == len(paths) and all(ggs)
+        common = {"summary": f"test {len(ok_sub)}/{len(paths)} 文件通过",
+                  "files_tested": paths, "per_file": sub_results}
+        if all_green:
+            return _ok(dict(common, red_green={"red": False, "green": True}))
+        return _fail(f"test 有 {len(paths)-len(ok_sub)} 项失败", degraded=False,
+                     data=dict(common, red_green={"red": True, "green": False}))
+
+    def _exec_step(self, cap, inputs, data, rb):
+        """执行一步。返回 (信封, fused)。
+
+        fused 非 None = 预算不允许这一步，调用方应停机。
+        test.run 缺 path 时先把上游产物落盘（真实文件，红绿闭环非空壳）。
+        """
+        allowed, why = rb.step(cap, inputs)
+        if not allowed:
+            return None, {"step": cap, "capability": cap, "reason": why}
+        flow_files = None
+        if cap == "test.run" and "path" not in inputs:
+            flow_files = _materialize_target(inputs, data)
+            if flow_files and len(flow_files) > 1:
+                return self._run_multi_files(cap, flow_files, inputs["target_dir"]), None
+            if flow_files:
+                inputs["path"] = flow_files[0]
+        # dispatch-sealed: *  ← run_chain：能力名来自组合定义
+        res = self.run_capability(cap, **inputs)
+        # 透传标记只留在本层（不传给原子 _run，避免 CodeTestAgent._run()
+        # unexpected 'flow_files' 崩溃），供事后把「真实落盘文件」写入 files_tested。
+        if flow_files and res.get("ok") and isinstance(res.get("data"), dict):
+            res["data"]["files_tested"] = flow_files
+        return res, None
+
     def run_chain(self, chain=None, task=None, seed=None, on_step=None, budget=None,
                   reuse=None, model_fn=None):
         """按能力序列执行原子协同，上一原子 {ok,data} 注入下一原子。
@@ -507,133 +712,87 @@ class AgentRuntime:
         （提示措辞 hash / 编排链 / 努力档 / 模型）和成本量一起记下来，才有同口径可比。写账本失败不影响运行。
         """
         t0 = time.time()
-        results = {}
-        flow = {}
-        data = dict(seed or {})
-        rb = _resolve_run_budget(budget)
+        st = {"task": task, "seed": seed, "reuse": reuse, "on_step": on_step,
+              "rb": _resolve_run_budget(budget), "data": dict(seed or {}),
+              "results": {}, "flow": {}, "selection": None, "reused": [],
+              "fused": None, "t0": t0}
         # ── 编排按需编译：没给链就现场选一条（规则优先，模型只兜底）──
-        selection = None
         if chain is None:
-            sel = self.select_chain(task, rb=rb, model_fn=model_fn)
-            selection = sel.get("data") or {}
-            if not sel.get("ok"):
+            chain, st["selection"], problem = self._chain_select(task, st["rb"], model_fn)
+            if problem:
                 out = {"task": task, "results": {}, "flow": {}, "ok_steps": [], "chain": [],
-                       "budget": rb.snapshot(), "selection": selection,
-                       "verdict": "选链失败：" + str(sel.get("error"))}
-                return _fail("自动选链失败：" + str(sel.get("error")), degraded=False, data=out)
-            chain = selection.get("chain") or []
-            if not chain:
-                out = {"task": task, "results": {}, "flow": {}, "ok_steps": [], "chain": [],
-                       "budget": rb.snapshot(), "selection": selection,
-                       "verdict": "选链未产出步骤"}
-                return _fail("自动选链未产出任何步骤", degraded=False, data=out)
-        reused_steps = []
-        fused = None
+                       "budget": st["rb"].snapshot(), "selection": st["selection"],
+                       "verdict": problem[0]}
+                return _fail(problem[1], degraded=False, data=out)
+        st["chain"] = chain
+        halted = self._run_steps(chain, st)
+        return halted if halted is not None else self._finish_chain(st)
+
+    def _run_steps(self, chain, st):
+        """逐步骤执行。返回信封 = 提前停机（契约错误）；返回 None = 跑完，交给收尾。"""
         for item in chain:
-            if isinstance(item, str):
-                step = cap = item
-                inputs_fn = lambda d, s, _cap=cap: {}
-            else:
-                step = item.get("step", item.get("capability"))
-                cap = item["capability"]
-                spec = item.get("inputs")
-                # 静态入参规格（模板表写的 dict）走占位符解析；函数式入参照旧
-                inputs_fn = (lambda d, s, _sp=spec: _resolve_step_inputs(_sp, d, task)) \
-                    if isinstance(spec, dict) else (spec or (lambda d, s: {}))
+            step, cap, inputs_fn = _step_of_item(item, st["task"])
             # 选择性重跑：上一轮已通过的步骤直接复用，连预算都不占
-            prev = (reuse or {}).get(step)
-            if isinstance(prev, dict) and prev.get("ok"):
-                results[step] = prev
-                if isinstance(prev.get("data"), dict):
-                    data[step] = prev["data"]
-                flow[step] = {"ok": True, "reused": True}
-                reused_steps.append(step)
-                if on_step:
-                    on_step(step, prev, data)
+            if _reuse_prev(step, (st["reuse"] or {}).get(step),
+                           st["results"], st["data"], st["flow"]):
+                st["reused"].append(step)
+                if st["on_step"]:
+                    st["on_step"](step, st["results"][step], st["data"])
                 continue
-            try:
-                inputs = inputs_fn(data, seed or {})
-                if task and cap == "plan.think":
-                    inputs.setdefault("task", task)
-                if task and cap == "plan.gen":
-                    inputs.setdefault("task", task)
-                # 运行预算熔断：入参已知才谈得上"同一动作"，故在算完 inputs 之后、执行之前判
-                allowed, why = rb.step(cap, inputs)
-                if not allowed:
-                    fused = {"step": step, "capability": cap, "reason": why}
-                    break
-                # 组装链真实执行：test.run 环节若上游 gen 产出文件 dict，落盘到临时
-                # 工作区并传 path（test 跑真实文件，红绿闭环非空壳）。
-                # 修复 P0：不硬编码上游产文件步骤名为 "gen"。gen 步骤可叫 "gen"/"plan.gen"/
-                # 任意自定义名，故扫描已产出 data，取第一个「files 为非空 dict(文件名->内容)」
-                # 的步骤结果作为被测代码，避免 test.run 无 path → degraded。
-                if cap == "test.run" and "path" not in inputs:
-                    gen_files = {}
-                    for _k, _v in data.items():
-                        if isinstance(_v, dict) and isinstance(_v.get("files"), dict) and _v["files"]:
-                            gen_files = _v["files"]
-                            break
-                    if gen_files:
-                        tmp = _new_flow_ws()
-                        paths = []
-                        for fname, fcontent in gen_files.items():
-                            fp = os.path.join(tmp, os.path.basename(str(fname)))
-                            with open(fp, "w", encoding="utf-8") as f:
-                                f.write(fcontent if isinstance(fcontent, str) else str(fcontent))
-                            paths.append(fp)
-                        inputs["target_dir"] = tmp
-                        # 透传标记只留在本层（不传给原子 _run，避免
-                        # CodeTestAgent._run() unexpected 'flow_files' 崩溃），
-                        # 供事后把「真实落盘文件」写入 files_tested。
-                        _flow_files = paths
-                        if len(paths) == 1:
-                            inputs["path"] = paths[0]
-                        else:
-                            # 多文件：逐文件跑 test.run 并聚合红绿（非空壳）
-                            sub_results = [self.run_capability(cap, path=p, target_dir=tmp)
-                                           for p in paths]
-                            ok_sub = [s for s in sub_results if s.get("ok")]
-                            ggs = [s["data"]["red_green"]["green"] for s in ok_sub
-                                   if isinstance(s.get("data"), dict) and "red_green" in s["data"]]
-                            all_green = bool(ggs) and len(ok_sub) == len(paths) and all(ggs)
-                            if all_green:
-                                res = _ok({"red_green": {"red": False, "green": True},
-                                           "summary": f"test {len(ok_sub)}/{len(paths)} 文件通过",
-                                           "files_tested": paths, "per_file": sub_results})
-                            else:
-                                res = _fail(f"test 有 {len(paths)-len(ok_sub)} 项失败",
-                                            degraded=False,
-                                            data={"red_green": {"red": True, "green": False},
-                                                  "summary": f"test {len(ok_sub)}/{len(paths)} 文件通过",
-                                                  "files_tested": paths, "per_file": sub_results})
-                            results[step] = res
-                            if res.get("ok") and isinstance(res.get("data"), dict):
-                                data[step] = res["data"]
-                                flow[step] = {"ok": True, "keys": list(res["data"].keys())}
-                            else:
-                                flow[step] = {"ok": False, "error": res.get("error")}
-                            if on_step:
-                                on_step(step, res, data)
-                            continue
-                res = self.run_capability(cap, **inputs)
-                if cap == "test.run" and res.get("ok") and isinstance(res.get("data"), dict) \
-                        and locals().get("_flow_files"):
-                    res["data"]["files_tested"] = _flow_files
-            except Exception as e:
-                res = _fail(f"协同异常 {step}: {type(e).__name__}: {e}")
-            results[step] = res
-            if res.get("ok") and isinstance(res.get("data"), dict):
-                data[step] = res["data"]
-                flow[step] = {"ok": True, "keys": list(res["data"].keys())}
-            else:
-                flow[step] = {"ok": False, "error": res.get("error")}
-            if on_step:
-                on_step(step, res, data)
+            res, fused = self._attempt(cap, inputs_fn, step, st)
+            if fused:
+                fused["step"] = step
+                st["fused"] = fused
+                return None
+            _absorb_step(step, res, st["results"], st["data"], st["flow"])
+            if st["on_step"]:
+                st["on_step"](step, res, st["data"])
+            # 契约错误（能力名写错 / 参数接不住）是**编排 bug**，不是"这一步没成"。
+            # 继续往下跑只会拿空数据级联降级，把根因冲掉（以前就是这样：真正错在第一步，
+            # 报出来的却是第三步失败）。故当场停机，并如实说清停在哪、错在哪。
+            if res.get("code") in CONTRACT_CODES:
+                return self._halt_on_contract(step, cap, res, st)
+        return None
+
+    def _attempt(self, cap, inputs_fn, step, st):
+        """执行一步并把异常收成信封。返回 (信封, fused)；fused 非 None = 预算不放行。"""
+        try:
+            inputs = inputs_fn(st["data"], st["seed"] or {})
+            if st["task"] and cap in ("plan.think", "plan.gen"):
+                inputs.setdefault("task", st["task"])
+            return self._exec_step(cap, inputs, st["data"], st["rb"])
+        except Exception as e:
+            return _fail(f"协同异常 {step}: {type(e).__name__}: {e}"), None
+
+    @staticmethod
+    def _chain_caps(chain):
+        return [c.get("capability") if isinstance(c, dict) else c for c in chain]
+
+    def _halt_on_contract(self, step, cap, res, st):
+        """链上遇契约错误：停机并如实说清停在哪、错在哪（不吞成 degraded）。"""
+        chain = st["chain"]
+        ok_steps = [s for s, r in st["results"].items() if r.get("ok")]
+        out = {"task": st["task"], "results": st["results"], "flow": st["flow"],
+               "ok_steps": ok_steps, "chain": self._chain_caps(chain),
+               "budget": st["rb"].snapshot(), "selection": st["selection"],
+               "reused": st["reused"],
+               "halted_at": {"step": step, "capability": cap, "code": res.get("code"),
+                             "error": res.get("error")},
+               "verdict": "契约错误停机@%s：%s" % (step, res.get("error"))}
+        self._record_cost(st["task"], chain, st["rb"], out, st["t0"], stopped="contract")
+        return _fail("链在第 %s 步因契约错误停机：%s" % (step, res.get("error")),
+                     degraded=False, code=res.get("code"), data=out)
+
+    def _finish_chain(self, st):
+        """正常收尾：全通 / 部分通过 / 预算熔断，三种都记账后返回。"""
+        chain, results, rb, fused = st["chain"], st["results"], st["rb"], st["fused"]
         ok_steps = [s for s, r in results.items() if r.get("ok")]
-        out = {"task": task, "results": results, "flow": flow,
-               "ok_steps": ok_steps, "chain": [c.get("capability") if isinstance(c, dict) else c for c in chain],
-               "budget": rb.snapshot(), "selection": selection, "reused": reused_steps,
-               "verdict": "全部通过" if len(ok_steps) == len(chain) else f"通过 {len(ok_steps)}/{len(chain)}"}
+        out = {"task": st["task"], "results": results, "flow": st["flow"],
+               "ok_steps": ok_steps, "chain": self._chain_caps(chain),
+               "budget": rb.snapshot(), "selection": st["selection"],
+               "reused": st["reused"],
+               "verdict": "全部通过" if len(ok_steps) == len(chain)
+               else f"通过 {len(ok_steps)}/{len(chain)}"}
         if fused:
             # 已执行步数取 rb.steps（计数器只累计被放行的步）——不用 len(results)：
             # results 以步骤名为键，步骤名重复时会互相覆盖（曾把 9 步算成 1 步）。
@@ -643,11 +802,12 @@ class AgentRuntime:
             out["completed_steps"] = done
             out["unfinished"] = [c.get("capability") if isinstance(c, dict) else c
                                  for c in chain[done:]]
-            self._record_fuse(task or "", fused, rb)
-            self._record_cost(task, chain, rb, out, t0, stopped=fused.get("reason", ""))
+            self._record_fuse(st["task"] or "", fused, rb)
+            self._record_cost(st["task"], chain, rb, out, st["t0"],
+                              stopped=fused.get("reason", ""))
             return _fail("运行预算熔断：" + fused["reason"], degraded=False, data=out)
         out["completed_steps"] = rb.steps
-        self._record_cost(task, chain, rb, out, t0, stopped="")
+        self._record_cost(st["task"], chain, rb, out, st["t0"], stopped="")
         return _ok(out)
 
     def _record_cost(self, task, chain, rb, out, t0, stopped=""):
@@ -732,6 +892,7 @@ class AgentRuntime:
     def reg_guard(self, action="snapshot", **kw):
         """统一调用回归护栏：action=snapshot → 回归快照；action=affected → 增量测试选择。"""
         cap = {"snapshot": "test.snapshot", "affected": "test.affected"}.get(action, "test.snapshot")
+        # dispatch-sealed: test.  ← reg_guard：action → test.snapshot/test.affected
         return self.run_capability(cap, **kw)
 
     def review_with_guard(self, path, mode="code"):
@@ -780,6 +941,7 @@ class AgentRuntime:
         purpose: "gen" → llm.generate, "review" → llm.review, "evolve" → llm.review。
         数据不出厂默认。"""
         cap = {"gen": "llm.generate", "review": "llm.review", "evolve": "llm.review"}[purpose]
+        # dispatch-sealed: llm.  ← route_model：purpose → llm.generate/llm.review
         return self.run_capability(cap, messages=messages, **kw)
 
     def list_models(self):
@@ -825,31 +987,31 @@ class AgentRuntime:
             return _fail(f"自进化 refine 失败: {r.get('error')}", data={"refine": r})
         d = {"refine": r["data"]}
         # 记忆复盘：从 outcome.issues 沉淀 lessons
-        issues = outcome.get("issues") or []
-        mem = self.run_capability("memory.save", findings=issues,
-                                  task=task, memdir=memdir)
-        d["memory"] = mem.get("data", {}) if mem.get("ok") else {"error": mem.get("error")}
+        d["memory"] = _data_or_error(self.run_capability(
+            "memory.save", findings=outcome.get("issues") or [], task=task, memdir=memdir))
         # 技能沉淀：refine 的精炼动作
         action = r["data"].get("refinement", "")
         if action:
-            sk = self.run_capability("skill.sediment", task=task, action=action,
-                                     bucket=r["data"].get("bucket", "P"), memdir=memdir)
-            d["skill"] = sk.get("data", {}) if sk.get("ok") else {"error": sk.get("error")}
+            d["skill"] = _data_or_error(self.run_capability(
+                "skill.sediment", task=task, action=action,
+                bucket=r["data"].get("bucket", "P"), memdir=memdir))
         # 取回经验（越用越准）
-        pr = self.run_capability("evolve.self_prompt", task=task, memdir=memdir, top_k=3)
-        d["prompt"] = pr.get("data", {}) if pr.get("ok") else {"error": pr.get("error")}
-        # 沉淀技能 → SKILL.md 标准资产
-        if export_skill and action:
-            ex = self.sediment_skill_to_md(task, action)
-            d["exported"] = ex.get("data", {}) if ex.get("ok") else {"error": ex.get("error")}
-        # 审查接入 MCP 工具（资产协同）
-        if review_path:
-            rv = self.review_with_mcp(review_path)
-            d["review_mcp"] = rv.get("data", {}) if rv.get("ok") else {"error": rv.get("error")}
+        d["prompt"] = _data_or_error(self.run_capability(
+            "evolve.self_prompt", task=task, memdir=memdir, top_k=3))
+        d.update(self._evolve_assets(task, action, export_skill, review_path))
         # 闭环校验：refine kept + 记忆 + 技能沉淀
         d["loop_closed"] = bool(r["data"].get("kept")) and "memory" in d and "skill" in d
         d["verdict"] = r["data"].get("verdict")
         return _ok(d)
+
+    def _evolve_assets(self, task, action, export_skill, review_path):
+        """闭环后段：沉淀 SKILL.md 标准资产、可选接入 MCP 审查（生态协同）。"""
+        out = {}
+        if export_skill and action:
+            out["exported"] = _data_or_error(self.sediment_skill_to_md(task, action))
+        if review_path:
+            out["review_mcp"] = _data_or_error(self.review_with_mcp(review_path))
+        return out
 
 
 # ── 进程内运行时单例（接线用） ──────────────────
@@ -885,6 +1047,7 @@ if __name__ == "__main__":
         kw = {}
         if args.path:
             kw["path"] = args.path
+        # dispatch-sealed: *  ← 模块级 CLI 透传：--run 参数就是能力名
         r = rt.run_capability(args.run, **kw)
         print(json.dumps(r, ensure_ascii=False, indent=2, default=str))
         if not r.get("ok") and not r.get("degraded"):

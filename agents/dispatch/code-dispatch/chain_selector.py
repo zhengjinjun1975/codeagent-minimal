@@ -24,7 +24,10 @@ def load_templates(path=None):
             continue
         if not chain:
             continue
-        out.append({"name": name, "keywords": kws, "chain": chain, "note": tpl.get("note", "")})
+        out.append({"name": name, "keywords": kws, "chain": chain, "note": tpl.get("note", ""),
+                    # default:true 的那条是显式默认链（`codeagent chain` 不带参数时走它）。
+                    # 保留这个字段是为了让"默认走哪条"也写在表里，而不是藏在代码里。
+                    "default": bool(tpl.get("default"))})
     return out
 
 

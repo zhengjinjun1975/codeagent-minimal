@@ -14,7 +14,8 @@
     "dispatch.permission",
     "dispatch.verify_artifact",
     "dispatch.assert_exit",
-    "dispatch.chain_select"
+    "dispatch.chain_select",
+    "dispatch.chain_default"
   ],
   "depends_on": [],
   "inputs": [
@@ -39,7 +40,8 @@
     "expect",
     "mode",
     "script_path",
-    "templates_path"
+    "templates_path",
+    "name"
   ],
   "outputs": [
     "template",
@@ -63,7 +65,8 @@
     "score",
     "hits",
     "dropped",
-    "reason"
+    "reason",
+    "default"
   ],
   "permission": {
     "needs": [

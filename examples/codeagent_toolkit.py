@@ -46,6 +46,7 @@ def run_capability(capability: str, **kwargs) -> str:
     """方式①进程内：统一运行时能力路由。返回 JSON 字符串(含 ok/data 信封)。"""
     from agent_runtime import AgentRuntime
     rt = AgentRuntime(local_only=True)
+    # dispatch-sealed: *  ← 示例工具：按名字调任意能力
     res = rt.run_capability(capability, **kwargs)
     return json.dumps(res, ensure_ascii=False, default=str)
 

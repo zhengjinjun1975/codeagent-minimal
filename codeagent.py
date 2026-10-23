@@ -33,7 +33,7 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 if HERE not in sys.path:
     sys.path.insert(0, HERE)
 
-from agent_runtime import AgentRuntime, _ok, _fail
+from agent_runtime import AgentRuntime, _fail
 
 
 class CodeAgent:
@@ -44,6 +44,7 @@ class CodeAgent:
 
     # ── 统一运行 ─────────────────────────────
     def run(self, capability, **kwargs):
+        # dispatch-sealed: *  ← 统一门面 run(capability) → 任意能力（对外 API 入口）
         return self.rt.run_capability(capability, **kwargs)
 
     def atoms(self):
@@ -82,15 +83,18 @@ class CodeAgent:
     def skill(self, action="list", **kw):
         cap = {"list": "skill.list", "load": "skill.load", "export": "skill.export",
                "sediment": "skill.sediment"}.get(action, "skill.list")
+        # dispatch-sealed: skill.  ← 统一门面 skill(action) → skill.*
         return self.rt.run_capability(cap, **kw)
 
     def mcp(self, action="tools", **kw):
         cap = {"tools": "mcp.tools", "call": "mcp.call", "list": "mcp.list"}.get(action, "mcp.tools")
+        # dispatch-sealed: mcp.  ← 统一门面 mcp(action) → mcp.*
         return self.rt.run_capability(cap, **kw)
 
     def llm(self, action="list_models", **kw):
         cap = {"list_models": "llm.list_models", "registry": "llm.registry",
                "review": "llm.review"}.get(action, "llm.list_models")
+        # dispatch-sealed: llm.  ← 统一门面 llm(action) → llm.*
         return self.rt.run_capability(cap, **kw)
 
     def dispatch(self, task=None, files_needed=1):
@@ -130,27 +134,24 @@ class CodeAgent:
         return self.rt.review_with_guard(target, mode=mode)
 
     # ── 组装链（完整大链，含 MCP/多模型/SKILL 协同）──
-    def chain(self, task, code=None, spec=None, language="python", chain=None):
-        """运行 think→gen→review→test→evolve 大链（数据不出厂）。
-        可选参数：code/spec 直接给 gen；chain 自定义能力序列。"""
-        default = [
-            {"step": "think", "capability": "plan.think",
-             "inputs": lambda d, s: {"task": s.get("task"), "language": s.get("language", "python")}},
-            {"step": "gen", "capability": "plan.gen",
-             "inputs": lambda d, s: {"task": s.get("task"), "code": s.get("code"),
-                                     "spec": s.get("spec"), "language": s.get("language", "python")}},
-            {"step": "review", "capability": "codereview.review",
-             "inputs": lambda d, s: {"code": d.get("gen", {}).get("files") or s.get("code"),
-                                     "use_llm": False, "reuse_atoms": True}},
-            {"step": "test", "capability": "test.run",
-             "inputs": lambda d, s: {"target_dir": "."}},
-            {"step": "evolve", "capability": "evolve.refine",
-             "inputs": lambda d, s: {"task": s.get("task"),
-                                     "outcome": {"score": d.get("review", {}).get("score", 0),
-                                                 "issues": d.get("review", {}).get("issues", []),
-                                                 "task": s.get("task")}}},
-        ]
-        return self.rt.run_chain(chain or default, task=task,
+    def chain(self, task, code=None, spec=None, language="python", chain=None,
+              auto=False, template=None):
+        """运行组装链。
+
+        组合**只有一个源**：`chain_templates.json`。这里不再留写死的默认链
+        （旧版有一条 5 步硬编码链，和模板表里那套用不同原子，同一个意图两种结果）。
+          chain=None, auto=False  → 走模板表里 default:true 的那条（默认「全流程/综合任务」）
+          chain=None, auto=True   → 让运行时按任务关键词选链（选不中才退模型兜底）
+          template="改缺陷/修回归" → 指定模板表里的某条
+          chain=[...]             → 直接给能力序列（调用方自带）
+        可选参数：code/spec 直接给 gen；language 传给 think/gen。
+        """
+        if chain is None and not auto:
+            chain, err = self.rt.default_chain(template)
+            if chain is None:
+                return _fail("取不到组合：%s（模板表见 agents/dispatch/code-dispatch/"
+                             "chain_templates.json）" % err)
+        return self.rt.run_chain(chain, task=task,
                                  seed={"task": task, "code": code, "spec": spec,
                                        "language": language})
 
@@ -167,56 +168,73 @@ class CodeAgent:
 
 
 # ── CLI ─────────────────────────────────────
+def _gq_cap(graph, cap):
+    """反查一条能力：在哪、谁在调、被哪些组合用到。"""
+    info = graph["capability_index"].get(cap)
+    if not info:
+        near = [c for c in graph["capability_index"] if cap.split(".")[0] in c][:8]
+        return {"ok": False, "error": "能力不存在：%s" % cap, "near": near}
+    node = next((n for n in graph["nodes"] if n["id"] == info["atom"]), {})
+    return {"ok": True, "capability": cap, "atom": info["atom"],
+            "domain": node.get("domain"),
+            "wired": bool(info["sites"] or info["chains"]),
+            "call_sites": info["sites"], "used_by_chains": info["chains"],
+            "dependents": sorted({e["from"] for e in graph["edges"]
+                                  if e.get("capability") == cap})}
+
+
+def _gq_chain(graph, q):
+    """按名字前缀查组合。"""
+    q = q.lower()
+    hits = [c for c in graph["chains"]
+            if q in str(c["name"]).lower() or q in c["chain_id"].lower()]
+    if not hits:
+        return {"ok": False, "matched": 0, "chains": [], "near":
+                [{"id": c["chain_id"], "name": c["name"]} for c in graph["chains"]]}
+    return {"ok": True, "matched": len(hits),
+            "chains": [{"id": c["chain_id"], "name": c["name"], "file": c["file"],
+                        "reach": c.get("reach"),
+                        "steps": [{"order": s.get("order"), "capability": s.get("capability"),
+                                   "atom": s.get("atom"), "resolved": s.get("resolved"),
+                                   "inputs": s.get("inputs")} for s in c["steps"]]}
+                       for c in hits]}
+
+
+def _gq_summary(graph):
+    m = graph["metrics"]
+    return {"ok": True,
+            "atoms": m["atoms"], "capabilities": m["capabilities"],
+            "call_sites": {"total": m["call_sites"], "visible": m["call_sites_static"],
+                           "evidence": m["evidence"], "blind_ratio": m["blind_ratio"]},
+            "chains": {"total": m["chains"], "steps": m["chain_steps"],
+                       "by_reach": m["chains_by_reach"],
+                       "items": [{"id": c["chain_id"], "name": c["name"],
+                                  "steps": len(c["steps"]), "dynamic": c["dynamic"],
+                                  "default": bool(c.get("default")),
+                                  "reach": c.get("reach"),
+                                  "seq": [s.get("capability") for s in c["steps"]]}
+                                 for c in graph["chains"]]},
+            "questions": m["questions"],
+            "findings_by_rule": m["rules_fired"]}
+
+
 def _graph_query(args):
     """原子能力图谱查询：图从代码现算（registry + 各原子 main.py + 全仓调用点 + 组合模板），
     不读任何缓存文件 —— 缓存会让人查到一张昨天的图。
 
     三个入口：
-      graph                    总览（原子/能力/组合/规则命中）
-      graph --cap code.implement  反查：这条能力在哪个原子、谁在调、被哪些组合用到
+      graph                      总览（家底 / 四问 / 组合可达性）
+      graph --cap code.implement 反查：在哪、谁在调、被哪些组合用到
       graph --chain 改缺陷        看一条组合的全部步骤与签名核对
     """
     import atoms_graph_core as g
 
-    root = os.path.dirname(os.path.abspath(__file__))
-    graph = g.build_graph(root)
-    m = graph["metrics"]
-
+    graph = g.build_graph(os.path.dirname(os.path.abspath(__file__)))
     if args.cap:
-        info = graph["capability_index"].get(args.cap)
-        if not info:
-            near = [c for c in graph["capability_index"] if args.cap.split(".")[0] in c][:8]
-            return {"ok": False, "error": "能力不存在：%s" % args.cap, "near": near}
-        node = next((n for n in graph["nodes"] if n["id"] == info["atom"]), {})
-        impl = None
-        for n in graph["nodes"]:
-            if n["id"] == info["atom"]:
-                impl = n
-                break
-        return {"ok": True, "capability": args.cap, "atom": info["atom"],
-                "domain": (impl or {}).get("domain"),
-                "wired": bool(info["sites"] or info["chains"]),
-                "call_sites": info["sites"], "used_by_chains": info["chains"],
-                "dependents": sorted({e["from"] for e in graph["edges"]
-                                      if e.get("capability") == args.cap})}
-
+        return _gq_cap(graph, args.cap)
     if args.chain:
-        q = args.chain.lower()
-        hits = [c for c in graph["chains"]
-                if q in str(c["name"]).lower() or q in c["chain_id"].lower()]
-        return {"ok": bool(hits), "matched": len(hits),
-                "chains": [{"id": c["chain_id"], "name": c["name"], "file": c["file"],
-                            "steps": [{"order": s.get("order"), "capability": s.get("capability"),
-                                       "atom": s.get("atom"), "resolved": s.get("resolved"),
-                                       "inputs": s.get("inputs")} for s in c["steps"]]}
-                           for c in hits] or [{"id": c["chain_id"], "name": c["name"]}
-                                              for c in graph["chains"]]}
-
-    return {"ok": True, "summary": m,
-            "chains": [{"id": c["chain_id"], "name": c["name"], "steps": len(c["steps"]),
-                        "dynamic": c["dynamic"],
-                        "seq": [s.get("capability") for s in c["steps"]]} for c in graph["chains"]],
-            "findings_by_rule": m["rules_fired"]}
+        return _gq_chain(graph, args.chain)
+    return _gq_summary(graph)
 
 
 def _pg_cap(res):
@@ -257,24 +275,27 @@ def _pg_chain(res):
 
 
 def _pg_summary(res):
-    """总览：家底 + 组合序列。"""
-    m = res["summary"]
+    """总览：家底 + 四问 + 组合序列。"""
+    cs = res["call_sites"]
+    qs = res.get("questions") or {}
     print("原子能力图谱（从代码现算，不读缓存）")
-    print("  原子 %d ｜ 能力 %d（挂载 %d/%d）｜ 有调用路径 %d/%d"
-          % (m["atoms"], m["capabilities"], m["capabilities_mounted"], m["capabilities"],
-             m["atoms_wired"], m["atoms"]))
-    print("  能力覆盖 %.1f%%（%d/%d，其中 %d 条只经组合可达）"
-          % (m["capability_coverage"] * 100, m["capabilities_reached"], m["capabilities"],
-             m["capabilities_chain_only"]))
-    print("  调用点 %d（可静态解析 %d）｜组合 %d 条 %d 步"
-          % (m["call_sites_raw"], m["call_sites"], m["chains"], m["chain_steps"]))
-    if m["rules_fired"]:
-        print("  规则命中：" + "、".join("%s %d" % (k, v) for k, v in sorted(m["rules_fired"].items())))
+    print("  原子 %d ｜ 能力 %d ｜ 调用点 %d（看得见 %d / 看不见 %d，%.1f%%）"
+          % (res["atoms"], res["capabilities"], cs["total"], cs["visible"],
+             cs["total"] - cs["visible"], cs["blind_ratio"] * 100))
+    print("  组合 %d 条 %d 步 ｜ 可达 %s"
+          % (res["chains"]["total"], res["chains"]["steps"],
+             "、".join("%s %d" % (k, v) for k, v in (res["chains"]["by_reach"] or {}).items()) or "—"))
+    if qs:
+        print("  四问：" + " ｜ ".join("%s %s %s" % (q, qs[q]["name"], qs[q]["level"].upper())
+                                      for q in ("Q1", "Q2", "Q3", "Q4") if q in qs))
+    if res["findings_by_rule"]:
+        print("  规则命中：" + "、".join("%s %d" % (k, v)
+                                        for k, v in sorted(res["findings_by_rule"].items())))
     print("\n组合：")
-    for c in res["chains"]:
-        print("  %-14s %d 步  %s%s" % (c["name"][:14], c["steps"],
-                                        " → ".join(c.get("seq") or []) or "?",
-                                        "（动态，静态抽不出）" if c["dynamic"] else ""))
+    for c in res["chains"]["items"]:
+        print("  %-14s %d 步  %-14s %s%s" % (c["name"][:14], c["steps"], c.get("reach") or "—",
+                                            " → ".join(c.get("seq") or []) or "?",
+                                            "（动态，静态抽不出）" if c["dynamic"] else ""))
     print("\n用法：graph --cap <能力名> 反查影响面 ｜ graph --chain <名字> 看某条组合的每一步")
 
 
@@ -318,9 +339,13 @@ def _cli():
     p = sub.add_parser("evolve-loop", help="大自进化闭环")
     p.add_argument("--task", required=True); p.add_argument("--outcome", required=True)
     p.add_argument("--review-path", default=None); _add_json(p)
-    p = sub.add_parser("chain", help="组装链(think→gen→review→test→evolve)")
+    p = sub.add_parser("chain", help="组装链（组合定义在模板表，默认走「全流程/综合任务」）")
     p.add_argument("--task", required=True)
-    p.add_argument("--code", default=None); p.add_argument("--language", default="python"); _add_json(p)
+    p.add_argument("--code", default=None); p.add_argument("--language", default="python")
+    p.add_argument("--auto", action="store_true",
+                   help="按任务关键词自动选链（选不中才退模型兜底）")
+    p.add_argument("--template", default=None, help="指定模板表里的组合名，如 改缺陷/修回归")
+    _add_json(p)
     p = sub.add_parser("reuse", help="复用检索")
     p.add_argument("--content", default=None); p.add_argument("--path", default=None); _add_json(p)
     p = sub.add_parser("impact", help="依赖图影响分析")
@@ -432,7 +457,8 @@ def _cli():
                                              review_path=args.review_path)}, args.json)
     elif args.cmd == "chain":
         code = json.loads(args.code) if args.code else None
-        _emit({"chain": ca.chain(args.task, code=code, language=args.language)}, args.json)
+        _emit({"chain": ca.chain(args.task, code=code, language=args.language,
+                                 auto=args.auto, template=args.template)}, args.json)
     elif args.cmd == "reuse":
         _emit({"reuse": ca.reuse(content=args.content, path=args.path)}, args.json)
     elif args.cmd == "impact":

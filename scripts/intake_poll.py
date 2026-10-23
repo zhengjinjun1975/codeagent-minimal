@@ -150,6 +150,7 @@ def run_chain(steps, task, fake_model=None):
         if fake_model and str(cap).startswith("code."):
             ins.setdefault("fake_model", fake_model)
         try:
+            # dispatch-sealed: *  ← 需求单轮询：能力名来自任务配置
             r = rt.run_capability(cap, **ins)
         except Exception as e:
             r = {"ok": False, "error": repr(e)[:300]}

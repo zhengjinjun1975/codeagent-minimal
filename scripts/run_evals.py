@@ -76,6 +76,7 @@ def run_case(case, runtime):
     # 题集用相对路径（可移植）：相对仓库根解析，避免绑定某台机器的绝对路径
     if isinstance(args.get("path"), str) and not os.path.isabs(args["path"]):
         args = dict(args, path=os.path.join(ROOT, args["path"]))
+    # dispatch-sealed: *  ← 评测跑批：能力名来自用例定义
     env = runtime.run_capability(call.get("capability"), **args)
     passed = judge(env, case.get("expect") or {})
     if passed:

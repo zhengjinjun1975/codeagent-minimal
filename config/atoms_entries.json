@@ -1,0 +1,54 @@
+{
+  "schema": "codeagent-atoms-entries-v1",
+  "_note": "入口清单：声明「哪个可执行入口走到哪些组合」。为什么是声明的而不是自动推断的——原型实测过：建函数级调用图从 _cli 出发能 BFS 到 select_chain，但真实语义是 run_chain 只在 chain is None 时才调它，而 chain() 永远传具体链。名字可达 ≠ 路径可达，一个 or 表达式就击穿朴素调用图（详见 docs/ATOMS_GRAPH_V2_PLAN.md §4 M1）。所以由人来声明，门只核「声明与代码还对不对得上」。refs 里的组合 ID 必须从 `--emit` 的输出里挑，不许手敲（手敲会在代码移位后静默失效，而失效方向恰好是误报不可达）。evidence 用「文件#符号 + 必须出现的 token」定位，不用行号：行号会漂，符号名稳定。",
+  "entries": [
+    {
+      "id": "cli:chain",
+      "kind": "cli",
+      "command": "codeagent chain --task ...",
+      "note": "不带 --auto/--template 时走模板表里 default:true 的那条",
+      "refs": ["tpl:agents/dispatch/code-dispatch/chain_templates.json#全流程/综合任务"],
+      "evidence": {"file": "codeagent.py", "symbol": "chain", "token": "default_chain"}
+    },
+    {
+      "id": "cli:chain.auto",
+      "kind": "cli",
+      "command": "codeagent chain --auto",
+      "note": "按任务关键词选链（dispatch.chain_select 读同一张模板表）",
+      "refs": ["tpl:*"],
+      "evidence": {"file": "agent_runtime.py", "symbol": "_chain_select", "token": "select_chain"}
+    },
+    {
+      "id": "cli:chain.template",
+      "kind": "cli",
+      "command": "codeagent chain --template 改缺陷/修回归",
+      "note": "按名字取模板表里的任意一条",
+      "refs": ["tpl:*"],
+      "evidence": {"file": "codeagent.py", "symbol": "chain", "token": "default_chain"}
+    },
+    {
+      "id": "api:run_chain.auto",
+      "kind": "api",
+      "symbol": "AgentRuntime.run_chain",
+      "note": "库调用传 chain=None 时的自动选链（同一张模板表；实现已抽到 _chain_select）",
+      "refs": ["tpl:*"],
+      "evidence": {"file": "agent_runtime.py", "symbol": "_chain_select", "token": "select_chain"}
+    },
+    {
+      "id": "api:default_chain",
+      "kind": "api",
+      "symbol": "AgentRuntime.default_chain",
+      "note": "库调用取默认链 / 按名取链",
+      "refs": ["tpl:*"],
+      "evidence": {"file": "agent_runtime.py", "symbol": "default_chain", "token": "dispatch.chain_default"}
+    },
+    {
+      "id": "cli:graph",
+      "kind": "cli",
+      "command": "codeagent graph",
+      "note": "只读查询：不走到任何组合",
+      "refs": [],
+      "evidence": {"file": "codeagent.py", "symbol": "_graph_query", "token": "build_graph"}
+    }
+  ]
+}
