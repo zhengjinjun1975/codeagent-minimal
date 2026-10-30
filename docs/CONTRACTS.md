@@ -15,14 +15,14 @@
 
 | 项 | 数 |
 |----|----|
-| 原子 | 41 |
-| 能力 | 166 |
-| 声明输入 | 277 |
+| 原子 | 42 |
+| 能力 | 169 |
+| 声明输入 | 285 |
 | 断链 | 0 |
-| 漏记 | 56 |
-| 可静态判定的原子 | 35 / 41 |
+| 漏记 | 57 |
+| 可静态判定的原子 | 35 / 42 |
 
-判不了的原子（吃 `**kwargs` 或签名不透明）：`code-review`、`deadcode`、`doc-freshness`、`git-ops`、`mcp-client`、`method-impact`
+判不了的原子（吃 `**kwargs` 或签名不透明）：`code-explore`、`code-review`、`deadcode`、`doc-freshness`、`git-ops`、`mcp-client`、`method-impact`
 
 ## 断链（必须为 0）
 
@@ -40,11 +40,12 @@
 | `code-deliver` | deliver | 2 | 3 | 0 | 1 |
 | `code-dispatch` | dispatch | 9 | 23 | 0 | 5 |
 | `code-evolve` | evolve | 4 | 6 | 0 | 4 |
+| `code-explore` | code | 3 | 5 | 0 | 0 |
 | `code-fuzz` | fuzz | 4 | 8 | 0 | 0 |
-| `code-implement` | code | 2 | 7 | 0 | 0 |
+| `code-implement` | code | 2 | 10 | 0 | 0 |
 | `code-memory` | memory | 3 | 4 | 0 | 3 |
 | `code-plan` | plan | 2 | 5 | 0 | 1 |
-| `code-project` | project | 3 | 3 | 0 | 0 |
+| `code-project` | project | 3 | 3 | 0 | 1 |
 | `code-reuse` | reuse | 3 | 3 | 0 | 0 |
 | `code-review` | codereview | 9 | 11 | 0 | 6 |
 | `code-runloop` | code | 2 | 9 | 0 | 2 |
@@ -136,7 +137,7 @@
 
 ### code-dispatch
 
-- 域：dispatch ｜ 版本：0.4.0 ｜ 开源：是 ｜ 入口：`main.py`
+- 域：dispatch ｜ 版本：0.5.0 ｜ 开源：是 ｜ 入口：`main.py`
 - 能力（9）：`dispatch.assert_exit`、`dispatch.budget`、`dispatch.chain_default`、`dispatch.chain_select`、`dispatch.conflict`、`dispatch.permission`、`dispatch.template`、`dispatch.verify`、`dispatch.verify_artifact`
 - 依赖：（无）
 - 声明输入：`background`、`goal`、`constraint`、`redline`、`deliverable`、`task`、`files_needed`、`language`、`claims`、`workdir`、`rerun_cmd`、`tasks`、`workspace`、`policy`、`action`、`resource`、`resource_type`、`target`、`expect`、`mode`、`script_path`、`templates_path`、`name`
@@ -155,6 +156,17 @@
 - 实现接受：`action`、`auto_sediment`、`bucket`、`max_fix`、`memdir`、`outcome`、`path`、`snapshot`、`task`、`top_k`
 - 漏记（清单没写、实现接受）：`action`、`bucket`、`max_fix`、`path`
 
+### code-explore
+
+- 域：code ｜ 版本：0.1.0 ｜ 开源：是 ｜ 入口：`main.py`
+- 能力（3）：`code.explore`、`code.graph_init`、`code.graph_status`
+- 依赖：（无）
+- 声明输入：`query`、`project`、`timeout`、`max_inline_chars`、`force`
+- 声明输出：`payload`、`chars`、`tokens_est`、`elapsed_s`、`truncated`、`spill_path`
+- 实现接受：`force`、`max_inline_chars`、`project`、`query`、`timeout`
+- 对账：**判不了**（吃 `**kwargs` 或签名不透明）
+- 权限：read/write/exec，不联网
+
 ### code-fuzz
 
 - 域：fuzz ｜ 版本：0.2.0 ｜ 开源：是 ｜ 入口：`main.py`
@@ -166,12 +178,12 @@
 
 ### code-implement
 
-- 域：code ｜ 版本：0.2.0 ｜ 开源：是 ｜ 入口：`main.py`
+- 域：code ｜ 版本：0.3.0 ｜ 开源：是 ｜ 入口：`main.py`
 - 能力（2）：`code.implement`、`code.write`
 - 依赖：（无）
-- 声明输入：`task`、`language`、`path`、`output_dir`、`domain`、`loop`、`max_iter`
+- 声明输入：`task`、`language`、`path`、`output_dir`、`domain`、`loop`、`max_iter`、`write_root`、`verify`、`skill_path`
 - 声明输出：`files`、`score`、`summary`、`issues`、`versions`、`written`、`write_error`、`engine`
-- 实现接受：`domain`、`language`、`loop`、`max_iter`、`output_dir`、`path`、`task`
+- 实现接受：`domain`、`language`、`loop`、`max_iter`、`output_dir`、`path`、`skill_path`、`task`、`verify`、`write_root`
 
 ### code-memory
 
@@ -195,12 +207,13 @@
 
 ### code-project
 
-- 域：project ｜ 版本：0.2.0 ｜ 开源：是 ｜ 入口：`main.py`
+- 域：project ｜ 版本：0.1.0 ｜ 开源：是 ｜ 入口：`main.py`
 - 能力（3）：`project.analyze`、`project.load`、`project.scan`
 - 依赖：（无）
 - 声明输入：`path`、`file_pattern`、`max_complexity`
 - 声明输出：`files`、`snapshot`、`issues`、`summary`、`coverage`
-- 实现接受：`file_pattern`、`max_complexity`、`path`
+- 实现接受：`file_pattern`、`impact`、`max_complexity`、`path`
+- 漏记（清单没写、实现接受）：`impact`
 
 ### code-reuse
 

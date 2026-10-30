@@ -698,7 +698,7 @@ def self_eval_stats():
 
 
 def _static_analyze(content: str, max_complexity: int = 10, strict_undefined: bool = False,
-                    semantic: bool = True, denoise: bool = True) -> dict:
+                    semantic: bool = True, denoise: bool = True, path=None) -> dict:
     """对单文件执行全量静态分析, 返回结构化结果 + 得分
 
     semantic=True: 启用逐行语义审查（定位高影响 bug/边界/断链）。

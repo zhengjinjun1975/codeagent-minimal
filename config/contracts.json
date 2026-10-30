@@ -1,13 +1,14 @@
 {
  "schema": "codeagent-contracts-v1",
  "summary": {
-  "atoms": 41,
-  "capabilities": 166,
-  "declared_inputs": 277,
+  "atoms": 42,
+  "capabilities": 169,
+  "declared_inputs": 285,
   "broken": 0,
-  "undeclared": 56,
+  "undeclared": 57,
   "judgeable": 35,
   "unjudgeable_atoms": [
+   "code-explore",
    "code-review",
    "deadcode",
    "doc-freshness",
@@ -298,7 +299,7 @@
   {
    "atom": "code-dispatch",
    "domain": "dispatch",
-   "version": "0.4.0",
+   "version": "0.5.0",
    "open_source": true,
    "entry": "main.py",
    "path": "agents/dispatch/code-dispatch",
@@ -492,6 +493,63 @@
    ]
   },
   {
+   "atom": "code-explore",
+   "domain": "code",
+   "version": "0.1.0",
+   "open_source": true,
+   "entry": "main.py",
+   "path": "agents/code/code-explore",
+   "provides": [
+    "code.explore",
+    "code.graph_status",
+    "code.graph_init"
+   ],
+   "depends_on": [],
+   "declared_inputs": [
+    "query",
+    "project",
+    "timeout",
+    "max_inline_chars",
+    "force"
+   ],
+   "declared_outputs": [
+    "payload",
+    "chars",
+    "tokens_est",
+    "elapsed_s",
+    "truncated",
+    "spill_path"
+   ],
+   "accepted_params": [
+    "force",
+    "max_inline_chars",
+    "project",
+    "query",
+    "timeout"
+   ],
+   "broken": [],
+   "undeclared": [],
+   "judgeable": false,
+   "permission": {
+    "needs": [
+     "read",
+     "write",
+     "exec"
+    ],
+    "network": false
+   },
+   "resource": {
+    "model_calls": 0,
+    "timeout_sec": 600,
+    "memory_mb": 512
+   },
+   "capabilities": [
+    "code.explore",
+    "code.graph_init",
+    "code.graph_status"
+   ]
+  },
+  {
    "atom": "code-fuzz",
    "domain": "fuzz",
    "version": "0.2.0",
@@ -551,7 +609,7 @@
   {
    "atom": "code-implement",
    "domain": "code",
-   "version": "0.2.0",
+   "version": "0.3.0",
    "open_source": true,
    "entry": "main.py",
    "path": "agents/code/code-implement",
@@ -567,7 +625,10 @@
     "output_dir",
     "domain",
     "loop",
-    "max_iter"
+    "max_iter",
+    "write_root",
+    "verify",
+    "skill_path"
    ],
    "declared_outputs": [
     "files",
@@ -586,7 +647,10 @@
     "max_iter",
     "output_dir",
     "path",
-    "task"
+    "skill_path",
+    "task",
+    "verify",
+    "write_root"
    ],
    "broken": [],
    "undeclared": [],
@@ -700,7 +764,7 @@
   {
    "atom": "code-project",
    "domain": "project",
-   "version": "0.2.0",
+   "version": "0.1.0",
    "open_source": true,
    "entry": "main.py",
    "path": "agents/project/code-project",
@@ -724,11 +788,14 @@
    ],
    "accepted_params": [
     "file_pattern",
+    "impact",
     "max_complexity",
     "path"
    ],
    "broken": [],
-   "undeclared": [],
+   "undeclared": [
+    "impact"
+   ],
    "judgeable": true,
    "permission": {},
    "resource": {},

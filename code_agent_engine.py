@@ -741,6 +741,87 @@ def _gen_go_tests(path, content):
 
 # ── CodeAgent ──────────────────────────────────────
 
+# ── 静态导入检查 ───────────────────────────────────
+
+_ROOT_MARKERS = ("kernel", "foundations", "pyproject.toml", "setup.py", "package.json")
+
+
+def _project_root(start):
+    """从 start 往上找项目根。找不到返回 None（此时静态导入检查整体跳过）。"""
+    cur = os.path.abspath(start or ".")
+    for _ in range(12):
+        if any(os.path.exists(os.path.join(cur, m)) for m in _ROOT_MARKERS):
+            return cur
+        parent = os.path.dirname(cur)
+        if parent == cur:
+            break
+        cur = parent
+    return None
+
+
+def _unresolvable_imports(code, near_dir):
+    """找出引用了不存在模块的 import。返回问题列表，空表示都能解析。
+
+    只查"从本地仓 import 的东西"，不查标准库与第三方：标准库必然存在，
+    第三方缺了会在运行时报错，那时由自检抓。这里要抓的是模型编出来的路径
+    （kernel.db、xxx.scoped 这种看着像但不是真的）。
+
+    判据是"模块名以本地仓里真实存在的顶层目录开头，但整体 import 不到"。
+    拿不到仓根时返回空（fail-open，不阻断生成）。
+    """
+    import ast as _ast
+    import importlib as _il
+
+    root = _project_root(near_dir)
+    if not root:
+        return []
+    try:
+        tops = {d for d in os.listdir(root)
+                if os.path.isdir(os.path.join(root, d)) and not d.startswith(".")}
+    except OSError:  # fail-open: 列不出目录就跳过静态导入检查
+        return []
+    if not tops:
+        return []
+    if root not in sys.path:
+        sys.path.insert(0, root)
+    try:
+        tree = _ast.parse(code or "")
+    except SyntaxError:  # expected-exc: 语法错已在上一道检查里报过，这里不重复报
+        return []
+
+    bad = []
+    for node in _ast.walk(tree):
+        if isinstance(node, _ast.Import):
+            for a in node.names:
+                if a.name.split(".")[0] not in tops:
+                    continue
+                try:
+                    _il.import_module(a.name)
+                except Exception:  # noqa: BLE001 - 导入失败就是问题本身
+                    bad.append("%s（第 %d 行）" % (a.name, node.lineno))
+        elif isinstance(node, _ast.ImportFrom):
+            mod = node.module or ""
+            if mod.split(".")[0] not in tops:
+                continue
+            try:
+                m = _il.import_module(mod)
+            except Exception:  # noqa: BLE001 - 同上
+                bad.append("%s（第 %d 行）" % (mod, node.lineno))
+                continue
+            for a in node.names:
+                if a.name == "*":
+                    continue
+                # 子模块也是合法的 ImportFrom 目标：from kernel.semantics import main
+                # 导的是 kernel/semantics/main.py，hasattr 查不到但它真实存在。
+                sub = os.path.join(root, *mod.split("."), a.name + ".py")
+                sub_pkg = os.path.join(root, *mod.split("."), a.name, "__init__.py")
+                if os.path.isfile(sub) or os.path.isfile(sub_pkg):
+                    continue
+                if not hasattr(m, a.name):
+                    bad.append("%s.%s 不存在（第 %d 行）" % (mod, a.name, node.lineno))
+    return bad
+
+
 class CodeAgent:
     """代码辅助智能体。
 
@@ -1133,8 +1214,12 @@ class CodeAgent:
                 with open(skill_path, "r", encoding="utf-8") as f:
                     skill_text = f.read()
                 # 限制长度，避免撑爆上下文
-                if len(skill_text) > 4000:
-                    skill_text = skill_text[:4000] + "\n...(截断)"
+                # 上限可配：7000 字的接口清单被砍到 4000 就只剩一半约束，
+                # 而"接口跑偏"的直接成因就是约束没进上下文。
+                _cap = int(os.environ.get("CODEAGENT_SKILL_MAX", "16000"))
+                if len(skill_text) > _cap:
+                    print(f"[Skill] 警告: 规格 {len(skill_text)} 字超过上限 {_cap}，已截断，请拆分规格文件")
+                    skill_text = skill_text[:_cap] + "\n...(截断，请拆分规格文件)"
                 print(f"[Skill] 已加载: {skill_path}")
             except Exception as e:
                 print(f"[Skill] 加载失败: {e}")
@@ -1232,12 +1317,35 @@ class CodeAgent:
                 "summary": review.get("summary", ""),
             })
 
-            if score > best["score"]:
+            # 结构契约参与版本排序。模型自评分不可靠：实测过第 1 轮自评 92 分
+            # 但接口全错，按分数锁成 best 后，后面更接近规格的产物从没被核过。
+            # 三档：通过 2 > 未判 1 > 不通过 0。
+            _round_struct = None
+            if loop and skill_text:
+                try:
+                    import engine_struct_contract as _esc0
+                    _c0 = _esc0.parse_contract(skill_text)
+                    if _c0.get("has_contract"):
+                        _round_struct = True
+                        for _src0 in (files or {}).values():
+                            if not _esc0.check_source(_src0, _c0).get("passed"):
+                                _round_struct = False
+                                break
+                except Exception:  # fail-open: 契约模块不可用时不参与排序
+                    _round_struct = None
+
+            def _tier(ok):
+                return 2 if ok is True else (1 if ok is None else 0)
+
+            if (not best.get("files")
+                    or ((_tier(_round_struct), score)
+                        > (_tier(best.get("_struct_ok")), best["score"]))):
                 best = {
                     "files": files, "score": score,
                     "summary": review.get("summary",""),
                     "issues": review.get("issues",[]),
                     "best_version": round_no,
+                    "_struct_ok": _round_struct,
                 }
 
             # 智能终止：连续两轮不提升
@@ -1277,30 +1385,114 @@ class CodeAgent:
         if m_dir:
             target_dir = os.path.dirname(os.path.abspath(m_dir.group(1)))
         written = []
+        _syntax_bad = []
         if best.get("files"):
             try:
                 os.makedirs(target_dir, exist_ok=True)
-                # 若 task 明确"写入文件 X"，用那个绝对路径作为首选落盘点
+                _targets = []
                 if m_dir:
-                    full = os.path.abspath(m_dir.group(1))
-                    os.makedirs(os.path.dirname(full), exist_ok=True)
-                    # 取最佳版本里任意一份代码（多个文件时取第一个）
-                    first_code = next(iter(best["files"].values()))
-                    with open(full, "w", encoding="utf-8") as f:
-                        f.write(first_code)
-                    written.append(full)
-                    print(f"[落盘] {full}")
+                    # 若 task 明确"写入文件 X"，用那个绝对路径作为首选落盘点
+                    _full = os.path.abspath(m_dir.group(1))
+                    os.makedirs(os.path.dirname(_full), exist_ok=True)
+                    _targets = [(_full, next(iter(best["files"].values())))]
                 else:
-                    for fname, code in best["files"].items():
-                        full = os.path.join(target_dir, fname)
-                        with open(full, "w", encoding="utf-8") as f:
-                            f.write(code)
-                        written.append(full)
-                        print(f"[落盘] {full}")
+                    for _fn, _code in best["files"].items():
+                        _targets.append((os.path.join(target_dir, _fn), _code))
+                for _full, _code in _targets:
+                    # 语法坏的不落盘。落盘发生在核验之前，一份 shell 命令被当成 .py
+                    # 写进去，会把上一版能跑的产物直接盖掉（实测过）。
+                    if _full.endswith(".py"):
+                        try:
+                            ast.parse(_code or "")
+                        except SyntaxError as _e:
+                            _syntax_bad.append("%s 语法错误（第 %s 行）：%s" % (
+                                os.path.basename(_full), _e.lineno, _e.msg))
+                            continue
+                        # 导入能不能解析，落盘前查一次。生成的代码爱写"看着对"的模块名
+                        # （kernel.db / xxx.scoped），语法完全合法，一跑才 ModuleNotFoundError。
+                        _bad_imp = _unresolvable_imports(_code or "", os.path.dirname(_full) or target_dir)
+                        if _bad_imp:
+                            _syntax_bad.append("%s 引用了不存在的模块：%s" % (
+                                os.path.basename(_full), "；".join(_bad_imp[:3])))
+                            continue
+                    with open(_full, "w", encoding="utf-8") as f:
+                        f.write(_code)
+                    written.append(_full)
+                    print(f"[落盘] {_full}")
                 best["written"] = written
             except Exception as e:
                 print(f"[落盘失败] {e}")
                 best["write_error"] = str(e)
+
+        if _syntax_bad:
+            best["syntax_error"] = "；".join(_syntax_bad)
+            best["passed"] = False
+            print("[语法] 未落盘：%s" % _syntax_bad[0])
+
+        # 结构契约核对（第三道门）。按内存源码核对：语法坏的文件根本没落盘，
+        # 按盘上路径核会漏掉它们。
+        if skill_text and best.get("files"):
+            try:
+                import engine_struct_contract as _esc
+                _c = _esc.parse_contract(skill_text)
+                if _c.get("has_contract"):
+                    _bad = []
+                    for _fn, _src in best["files"].items():
+                        _cr = _esc.check_source(_src, _c)
+                        if not _cr.get("passed"):
+                            _bad.append(_esc.format_issues(_cr))
+                    if _bad:
+                        best["struct_contract"] = "\n".join(_bad)
+                        best["passed"] = False
+                        print("[结构契约] 未通过：%s" % _bad[0].splitlines()[0])
+            except Exception as _e:  # fail-open: 契约模块不可用时不改变原有返回行为
+                print("[结构契约] 跳过: %s" % _e)
+
+        # 行为探针（第四道门）。签名与常量都对，行为仍可能整体跑偏：
+        # 参数从哪来、返回什么形状、审批档位听谁的。这类只有真跑一遍才看得见。
+        if skill_text:
+            _probe = None
+            try:
+                import engine_struct_contract as _esc2
+                _probe = (_esc2.parse_contract(skill_text) or {}).get("probe")
+            except Exception:  # fail-open: 解析不了探针声明就退回前三道门
+                _probe = None
+            if _probe:
+                _cands = []
+                if os.path.isabs(_probe):
+                    _cands.append(_probe)
+                else:
+                    _cands.append(os.path.join(target_dir, _probe))
+                    _up = os.path.abspath(target_dir)
+                    for _ in range(3):
+                        _up = os.path.dirname(_up)
+                        _cands.append(os.path.join(_up, _probe))
+                _pp = next((c for c in _cands if os.path.exists(c)), None)
+                if _pp is None:
+                    best["behavior_probe"] = "规格声明的探针不存在: %s" % _probe
+                    best["passed"] = False
+                    print("[行为探针] 探针不存在: %s" % _probe)
+                else:
+                    _env = dict(os.environ)
+                    _env["PYTHONIOENCODING"] = "utf-8"
+                    try:
+                        _pr = subprocess.run([sys.executable, _pp],
+                                             cwd=os.path.dirname(_pp) or ".",
+                                             capture_output=True, text=True,
+                                             timeout=240, env=_env)
+                        if _pr.returncode != 0:
+                            best["behavior_probe"] = ((_pr.stdout or "") + (_pr.stderr or ""))[-1200:]
+                            best["passed"] = False
+                            print("[行为探针] 未通过")
+                    except Exception as _pe:  # fail-open: 跑不起来按不通过报原因
+                        best["behavior_probe"] = "探针执行异常: %s" % _pe
+                        best["passed"] = False
+
+        # 通过语义：语法、自检、结构契约、行为探针四者全过才算通过。
+        best["accepted"] = (not _syntax_bad
+                            and bool(best.get("passed", True))
+                            and not best.get("struct_contract")
+                            and not best.get("behavior_probe"))
 
         _log_to_obsidian("implement", task, best)
         return best

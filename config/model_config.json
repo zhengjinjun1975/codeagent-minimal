@@ -4,7 +4,7 @@
     "name": "DeepSeek",
     "type": "openai",
     "base_url": "https://api.deepseek.com/v1/chat/completions",
-    "model": "deepseek-v4-flash",
+    "model": "deepseek-chat",
     "api_key": "DEEPSEEK_API_KEY"
   }
 }

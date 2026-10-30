@@ -1,0 +1,23 @@
+{
+  "name": "code-explore",
+  "version": "0.1.0",
+  "domain": "code",
+  "description": "代码知识图探索原子: 调本地 codegraph explore（colbymchenry/codegraph, MIT），一次拿到相关符号、调用关系与逐字原文，等价于已做过一轮 Read；需外部 CLI（npm i -g @colbymchenry/codegraph 或设 CODEGRAPH_BIN），未装时该能力回 degraded、其余原子不受影响；只适合跨文件结构问题，单点查证请用 grep；索引缺失或未装 CLI 一律回 degraded，不静默兜底成 grep；超长 payload 截断并落盘，避免一次灌爆上下文。",
+  "open_source": true,
+  "standalone": true,
+  "agent_class": "CodeExploreAgent",
+  "entry": "main.py",
+  "provides": ["code.explore", "code.graph_status", "code.graph_init"],
+  "depends_on": [],
+  "inputs": ["query", "project", "timeout", "max_inline_chars", "force"],
+  "outputs": ["payload", "chars", "tokens_est", "elapsed_s", "truncated", "spill_path"],
+  "permission": {
+    "needs": ["read", "write", "exec"],
+    "network": false
+  },
+  "resource": {
+    "model_calls": 0,
+    "timeout_sec": 600,
+    "memory_mb": 512
+  }
+}

@@ -30,7 +30,7 @@ import chain_selector as cs
 
 class CodeDispatchAgent(AtomicAgent):
     name = "code-dispatch"
-    version = "0.4.0"
+    version = "0.5.0"
     domain = "dispatch"
     description = "派单原子: 5段模板+自适应预算+背靠背验证+并行冲突防护+allow/ask/deny细粒度权限 + 验收门(verify_artifact逐名diff/断言/生产引用, assert_exit退出码) + 规则层选链(chain_select)"
     provides = ["dispatch.template", "dispatch.budget", "dispatch.verify", "dispatch.conflict",
@@ -210,9 +210,9 @@ class CodeDispatchAgent(AtomicAgent):
         return self._envelope(True, data=vg.assert_exit(script_path))
 
     def _chain_default(self, name=None, templates_path=None):
-        """从模板表取一条**已声明**的组合：给了 name 取同名，否则取 default:true 的那条。
+        """从模板表取一条已声明的组合：给了 name 取同名，否则取 default:true 的那条。
 
-        组合只允许一个源 —— 这张模板表。以前代码里还写死了一条 5 步链，
+        组合只允许一个源，就是这张模板表。以前代码里还写死了一条 5 步链，
         于是同一个意图有两条链用不同原子，用户敲不同入口得到不同结果。
         """
         tpls = cs.load_templates(templates_path)

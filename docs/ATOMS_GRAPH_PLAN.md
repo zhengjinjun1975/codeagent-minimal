@@ -1,7 +1,7 @@
 # codeagent-minimal 编排契约改动方案 v1
 
 > 状态：**定稿待实施**。本文只定义改什么、为什么、怎么验收，不含代码实施。
-> 基线时间：2026-10-23　｜　对象：`D:\codeagent-minimal`（41 原子 / 165 能力 / 166 个 py 文件，纯标准库）
+> 基线时间：2026-10-23　｜　对象：`D:\codeagent-minimal`（42 原子 / 165 能力 / 166 个 py 文件，纯标准库）
 > 配套材料：`docs/ATOMS_GRAPH_DESIGN.md`（设计论述）、`docs/atoms_graph.html`（完整性图，2026-10-23 快照）。
 > 机读图 `atoms_graph.json` 与体检清单 `atoms_graph_report.md` 属生成物，待一期脚本落地后随 `--check-drift` 一并入库。
 
@@ -15,7 +15,7 @@
 
 | 事实 | 数字 | 后果 |
 |---|---|---|
-| 能力声明完整、挂载完整 | 165/165，41 个原子逐条相等 | 原子本身完备，问题是没人调 |
+| 能力声明完整、挂载完整 | 165/165，42 个原子逐条相等 | 原子本身完备，问题是没人调 |
 | 有真实调用入口的原子 | 17 / 41 | 24 个零调用原子完整但零入口 |
 | 能力被调到 | 27 / 165（16.4%） | 83.6% 的能力没有可执行入口 |
 | 原子↔原子调用边 | 0（纯星型） | `depends_on` 5 条全是装饰 |
@@ -162,7 +162,7 @@ python scripts/verify_atoms_graph.py --check-drift                 # 生成物�
 | `atomic_base.py` / `agent_runtime.py` / `agent_loader.py` | **全仓**（公共层改动影响所有原子，不允许绕过） |
 | 其他文件 | 该文件内的调用点 |
 
-这条"公共层改动 → 全仓红"是防绕过的关键。否则改一下 `run_capability` 就能让 41 个原子的契约全失真而门全绿。
+这条"公共层改动 → 全仓红"是防绕过的关键。否则改一下 `run_capability` 就能让 42 个原子的契约全失真而门全绿。
 
 ### 4.6 门自己的测试
 
@@ -321,7 +321,7 @@ except TypeError as e:
 10. `atomic_base.call` 加 `bind` 预检（BAD_ARGS）
 11. `agent_runtime` 加错误码 + `_call_chain` + 事件流扩字段
 
-二期改动集中在公共层，**必须全量回归 242 个测试**，并且逐原子跑一遍 `codeagent.py status --json` 比对 41 个原子的 `provides/registered` 不变。
+二期改动集中在公共层，**必须全量回归 242 个测试**，并且逐原子跑一遍 `codeagent.py status --json` 比对 42 个原子的 `provides/registered` 不变。
 
 ### 三期：把图变成入口
 
@@ -351,7 +351,7 @@ except TypeError as e:
 | 风险 | 影响 | 对策 |
 |---|---|---|
 | baseline 变成永久豁免 | 门形同虚设 | 强制 `expires`，过期即红；stale 条目必报 |
-| 改 `atomic_base.call` 影响全部 41 原子 | 全仓行为变化 | 二期单独一个 PR，先只加 `bind` 预检（不改变业务异常路径），全量回归后再合 |
+| 改 `atomic_base.call` 影响全部 42 原子 | 全仓行为变化 | 二期单独一个 PR，先只加 `bind` 预检（不改变业务异常路径），全量回归后再合 |
 | 改 `_dispatch_stack` 影响嵌套派活 | 深度门可能误判 | 新增 `_call_chain` 独立栈，不动原 `depth`/`cap` 语义 |
 | 生成物与代码不同步 | 图误导 | `--check-drift` 卡在 CI |
 | 全量红一上来就阻断所有人 | 没人能合 PR | 一期只判改动（`--changed-only`），存量进台账 |

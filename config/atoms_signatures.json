@@ -191,6 +191,38 @@
    "has_kwargs": false,
    "opaque": false
   },
+  "code.explore": {
+   "atom": "code-explore",
+   "params": [
+    "force",
+    "max_inline_chars",
+    "project",
+    "query",
+    "timeout"
+   ],
+   "required": [],
+   "has_kwargs": true,
+   "opaque": false
+  },
+  "code.graph_init": {
+   "atom": "code-explore",
+   "params": [
+    "project",
+    "timeout"
+   ],
+   "required": [],
+   "has_kwargs": true,
+   "opaque": false
+  },
+  "code.graph_status": {
+   "atom": "code-explore",
+   "params": [
+    "project"
+   ],
+   "required": [],
+   "has_kwargs": true,
+   "opaque": false
+  },
   "code.implement": {
    "atom": "code-implement",
    "params": [
@@ -200,7 +232,10 @@
     "max_iter",
     "output_dir",
     "path",
-    "task"
+    "skill_path",
+    "task",
+    "verify",
+    "write_root"
    ],
    "required": [],
    "has_kwargs": false,
@@ -246,7 +281,10 @@
     "max_iter",
     "output_dir",
     "path",
-    "task"
+    "skill_path",
+    "task",
+    "verify",
+    "write_root"
    ],
    "required": [],
    "has_kwargs": false,
@@ -1480,7 +1518,7 @@
   "project.scan": {
    "atom": "code-project",
    "params": [
-    "file_pattern",
+    "impact",
     "max_complexity",
     "path"
    ],
@@ -1974,5 +2012,5 @@
   }
  },
  "_note": "本文件由 `scripts/verify_atoms_graph.py --update-signatures` 生成，禁手写。它是签名基线：删参数/加必填/改名会触发 G17，改完必须重新生成并写明理由。",
- "reason": "project.scan/project.analyze 删掉 impact 形参：该形参从建库起只在签名里接收、函数体从未引用，全仓无调用点传它（grep 到的 impact= 全部属于 dep_report / impact.analyze）。留着等于对调用方承诺一个不会发生的分析——与「判不了要说判不了」同等口径，假参数也必须清掉。同批新增 coverage 输出（多语言覆盖度，empty=true 时 ok 恒为 false）。受影响调用点：0 个（capability 层调用全部只传 path）。"
+ "reason": "code-implement 新增 write_root/verify/skill_path 三参数（长规格走 skill_path，退出门用 verify），已接到 _implement 与引擎；code-explore 参数由外部 codegraph CLI 转发。改动方：内部会话，影响点：CLI + manifest，调用方按新参数派活。"
 }

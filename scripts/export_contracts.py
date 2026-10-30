@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-"""export_contracts.py — 契约总账：把 41 个原子「声明的」和「实现的」摆在一起对账。
+"""export_contracts.py — 契约总账：把 42 个原子「声明的」和「实现的」摆在一起对账。
 
 为什么要有这道账：
     test.run 的 timeout 在 manifest 里声明了，实现层一直没接，传进去直接 CAP_CONTRACT

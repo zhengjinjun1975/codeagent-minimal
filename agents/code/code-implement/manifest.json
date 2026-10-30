@@ -1,6 +1,6 @@
 {
   "name": "code-implement",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "domain": "code",
   "description": "写码原子: 底层用仓库自包含 code_agent_engine(规划+自动复用+迭代循环+可选工作日志落库), 将任务实现为生产代码写入磁盘。可用于代码实现编排与真实写码。",
   "open_source": true,
@@ -18,7 +18,10 @@
     "output_dir",
     "domain",
     "loop",
-    "max_iter"
+    "max_iter",
+    "write_root",
+    "verify",
+    "skill_path"
   ],
   "outputs": [
     "files",

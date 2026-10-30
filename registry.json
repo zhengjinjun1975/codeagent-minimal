@@ -145,9 +145,54 @@
       ],
       "path": "agents/bugdeep/bug-deep"
     },
+    "code-explore": {
+      "name": "code-explore",
+      "version": "0.1.0",
+      "domain": "code",
+      "description": "代码知识图探索原子: 调本地 codegraph explore（colbymchenry/codegraph, MIT），一次拿到相关符号、调用关系与逐字原文，等价于已做过一轮 Read；需外部 CLI（npm i -g @colbymchenry/codegraph 或设 CODEGRAPH_BIN），未装时该能力回 degraded、其余原子不受影响；只适合跨文件结构问题，单点查证请用 grep；索引缺失或未装 CLI 一律回 degraded，不静默兜底成 grep；超长 payload 截断并落盘，避免一次灌爆上下文。",
+      "open_source": true,
+      "standalone": true,
+      "agent_class": "CodeExploreAgent",
+      "entry": "main.py",
+      "provides": [
+        "code.explore",
+        "code.graph_status",
+        "code.graph_init"
+      ],
+      "depends_on": [],
+      "inputs": [
+        "query",
+        "project",
+        "timeout",
+        "max_inline_chars",
+        "force"
+      ],
+      "outputs": [
+        "payload",
+        "chars",
+        "tokens_est",
+        "elapsed_s",
+        "truncated",
+        "spill_path"
+      ],
+      "permission": {
+        "needs": [
+          "read",
+          "write",
+          "exec"
+        ],
+        "network": false
+      },
+      "resource": {
+        "model_calls": 0,
+        "timeout_sec": 600,
+        "memory_mb": 512
+      },
+      "path": "agents/code/code-explore"
+    },
     "code-implement": {
       "name": "code-implement",
-      "version": "0.2.0",
+      "version": "0.3.0",
       "domain": "code",
       "description": "写码原子: 底层用仓库自包含 code_agent_engine(规划+自动复用+迭代循环+可选工作日志落库), 将任务实现为生产代码写入磁盘。可用于代码实现编排与真实写码。",
       "open_source": true,
@@ -165,7 +210,10 @@
         "output_dir",
         "domain",
         "loop",
-        "max_iter"
+        "max_iter",
+        "write_root",
+        "verify",
+        "skill_path"
       ],
       "outputs": [
         "files",
@@ -453,7 +501,7 @@
     },
     "code-dispatch": {
       "name": "code-dispatch",
-      "version": "0.4.0",
+      "version": "0.5.0",
       "domain": "dispatch",
       "description": "派单原子: 复用 dispatch_template 派单5段 + estimate_budget 自适应预算 + back_to_back 背靠背验证 + check_workspace_conflicts 并行冲突防护 + allow/ask/deny 三级细粒度权限 + 验收门(verify_artifact 逐名diff/断言脚本/生产引用, assert_exit 退出码)。核心在 verify_gate.py, 纯stdlib。规则层选链 chain_select(核心 chain_selector.py + chain_templates.json): 关键词命中模板即出能力序列, 0 次模型调用; 未命中如实 matched=False 由调用方模型兜底。",
       "open_source": true,
@@ -1196,7 +1244,7 @@
     },
     "code-project": {
       "name": "code-project",
-      "version": "0.2.0",
+      "version": "0.1.0",
       "domain": "project",
       "description": "项目加载/分析原子: 多语言识别(AST/文本两档), 产出项目快照+问题清单+覆盖度。project.load 快照, project.scan 扫描问题, project.analyze 分析。零文件判非 ok。",
       "open_source": true,
@@ -1715,6 +1763,7 @@
     "arch-review",
     "atomicity-audit",
     "bug-deep",
+    "code-explore",
     "code-implement",
     "code-runloop",
     "minimalist-style",

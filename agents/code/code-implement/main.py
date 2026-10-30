@@ -34,7 +34,7 @@ def _load_local_engine():
 
 class CodeImplementAgent(AtomicAgent):
     name = "code-implement"
-    version = "0.2.0"
+    version = "0.3.0"
     domain = "code"
     description = "写码原子: 底层用本仓库自包含写码引擎(含工程纪律+复用+循环+可选工作日志), 真写生产代码到磁盘"
     open_source = True
@@ -50,7 +50,8 @@ class CodeImplementAgent(AtomicAgent):
 
     # ── code.implement / code.write：真写生产代码 ──
     def _implement(self, task=None, language="python", path=None, output_dir=None,
-                   domain="general", loop=False, max_iter=5):
+                   domain="general", loop=False, max_iter=5, write_root=None,
+                   verify=None, skill_path=None):
         """调本家引擎 CodeAgent().implement() 真写码到磁盘。
 
         输入：
@@ -84,6 +85,9 @@ class CodeImplementAgent(AtomicAgent):
                 max_iter=int(max_iter or 5), domain=domain,
                 output_dir=tgt_dir,
                 auto_reuse=True,
+                skill_path=skill_path,
+                # write_root / verify 在副本引擎里没有对应实现，接受但不透传，
+                # 保持参数面与母体一致，避免调用方按母体的参数派活时报未知参数。
             )
         except Exception as e:  # 引擎运行异常 → 降级
             return self._envelope(False, degraded=True,
@@ -115,12 +119,18 @@ if __name__ == "__main__":
     ap.add_argument("--domain", default="general")
     ap.add_argument("--path", default=None)
     ap.add_argument("--loop", action="store_true")
+    ap.add_argument("--max_iter", type=int, default=5)
+    ap.add_argument("--write_root", default=None)
+    ap.add_argument("--verify", default=None)
+    ap.add_argument("--skill_path", default=None,
+                    help="规格文件路径：长规格走这里，不要塞进 task")
     args = ap.parse_args()
     agent.load()
     print("══ code-implement 原子自测 ══", agent.describe()["name"], "status=" + agent.describe()["status"])
     r = agent.run(_capability=args.capability, task=args.task, language=args.language,
                   output_dir=args.output_dir, domain=args.domain, path=args.path,
-                  loop=args.loop)
+                  loop=args.loop, max_iter=args.max_iter, write_root=args.write_root,
+                  verify=args.verify, skill_path=args.skill_path)
     print(json.dumps(r, ensure_ascii=False, indent=2, default=str))
     if not r["ok"]:
         sys.exit(1)

@@ -1,6 +1,6 @@
 {
   "name": "code-project",
-  "version": "0.2.0",
+  "version": "0.1.0",
   "domain": "project",
   "description": "项目加载/分析原子: 多语言识别(AST/文本两档), 产出项目快照+问题清单+覆盖度。project.load 快照, project.scan 扫描问题, project.analyze 分析。零文件判非 ok。",
   "open_source": true,

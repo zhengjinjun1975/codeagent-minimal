@@ -181,6 +181,28 @@
       ]
     },
     {
+      "name": "代码图谱/影响面",
+      "note": "先建索引，再按问题查图谱，最后看索引状态。code-explore 依赖外部 codegraph CLI，未安装时该步如实降级而不是伪造结果。",
+      "keywords": [
+        "代码图谱",
+        "调用关系",
+        "谁调用",
+        "影响面分析",
+        "依赖图",
+        "codegraph"
+      ],
+      "chain": [
+        "code.graph_init",
+        {
+          "capability": "code.explore",
+          "inputs": {
+            "query": "$task"
+          }
+        },
+        "code.graph_status"
+      ]
+    },
+    {
       "name": "全流程/综合任务",
       "default": true,
       "note": "显式默认链（旧版代码里写死的那 5 步，2026-10-23 搬进本表）。任务不属于任何关键词模板时的确定性兜底：出方案 → 生成代码 → 审查 → 跑测试 → 精炼。走这条链要过 5 个原子，比单发模板慢，故只作默认而非优选。",

@@ -10,14 +10,14 @@
 
 | 指标 | 值 |
 |---|---|
-| 原子 / 能力 | **41** / **166** |
-| 能力挂载 | **166/166**（声明=挂载的原子 41/41） |
-| 有调用边的原子 | **21/41** |
-| 能力覆盖率 | **20.5%**（34/166） |
+| 原子 / 能力 | **42** / **169** |
+| 能力挂载 | **169/169**（声明=挂载的原子 42/42） |
+| 有调用边的原子 | **22/42** |
+| 能力覆盖率 | **21.9%**（37/169） |
 | 调用点 | **45** 处（看得见 33 / 看不见 12） |
-| 组合 | **7** 条 / **18** 步（可达：cli-reachable 7） |
+| 组合 | **8** 条 / **21** 步（可达：cli-reachable 8） |
 | 四问判定 | Q1 GREEN ｜ Q2 GREEN ｜ Q3 GREEN ｜ Q4 YELLOW |
-| 进入组合的能力 | **12/166** |
+| 进入组合的能力 | **15/169** |
 | 原子↔原子调用边 | 0（拓扑 star） |
 
 ## 二、组合清单（每一步都能落到真实能力）
@@ -98,6 +98,19 @@
 | 1 | plan.think | `plan.think` | code-plan | `language=python task=$task` | ✅ |
 | 2 | archreview.layers | `archreview.layers` | arch-review | `path=.` | ✅ |
 
+### 代码图谱/影响面（模板）
+
+- 组合 ID：`tpl:agents/dispatch/code-dispatch/chain_templates.json#代码图谱/影响面`
+- 定义位置：`agents/dispatch/code-dispatch/chain_templates.json`
+- 可达：**cli-reachable**（入口 cli:chain.auto、cli:chain.template、api:run_chain.auto、api:default_chain）
+- 命中关键词：代码图谱、调用关系、谁调用、影响面分析、依赖图、codegraph
+
+| # | 步骤 | 能力 | 所在原子 | 静态入参 | 签名 |
+|---|---|---|---|---|---|
+| 1 | code.graph_init | `code.graph_init` | code-explore | `—` | ✅ |
+| 2 | code.explore | `code.explore` | code-explore | `query=$task` | ✅ |
+| 3 | code.graph_status | `code.graph_status` | code-explore | `—` | ✅ |
+
 ### 全流程/综合任务（模板·默认）
 
 - 组合 ID：`tpl:agents/dispatch/code-dispatch/chain_templates.json#全流程/综合任务`
@@ -155,6 +168,9 @@
 | `taskstate.track` | task-state | 1 | — |
 | `code.implement` | code-implement | 0 | 改缺陷/修回归 第2步、写码/新增功能 第1步 |
 | `archreview.layers` | arch-review | 0 | 排查/定根因 第2步 |
+| `code.explore` | code-explore | 0 | 代码图谱/影响面 第2步 |
+| `code.graph_init` | code-explore | 0 | 代码图谱/影响面 第1步 |
+| `code.graph_status` | code-explore | 0 | 代码图谱/影响面 第3步 |
 | `deadcode.scan` | deadcode | 0 | 代码审查/质量 第2步 |
 | `plan.gen` | code-plan | 0 | 全流程/综合任务 第2步 |
 | `security.project` | security-scan | 0 | 代码审查/质量 第1步 |
@@ -314,6 +330,7 @@
 | 依赖/影响面 | **cli-reachable** | cli:chain.auto、cli:chain.template、api:run_chain.auto、api:default_chain |
 | 测试/用例 | **cli-reachable** | cli:chain.auto、cli:chain.template、api:run_chain.auto、api:default_chain |
 | 排查/定根因 | **cli-reachable** | cli:chain.auto、cli:chain.template、api:run_chain.auto、api:default_chain |
+| 代码图谱/影响面 | **cli-reachable** | cli:chain.auto、cli:chain.template、api:run_chain.auto、api:default_chain |
 | 全流程/综合任务 | **cli-reachable** | cli:chain、cli:chain.auto、cli:chain.template、api:run_chain.auto、api:default_chain |
 
 ## 五、自知：门看得见多少（Q4）

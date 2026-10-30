@@ -1427,6 +1427,7 @@ function makeSvgGraph(d, kind, label) {
 
 /* ═══════════ 原子中文功能名映射 (显示中文, 调用仍用后端原子名) ═══════════ */
 const ATOM_CN = {
+  "code-explore": "代码图谱探查",
   "command-approvals": "命令审批", "complexity-gate": "复杂度闸", "cli-providers": "外部CLI子代理", "arch-review": "架构审查", "atomicity-audit": "原子化审计",
   "bug-deep": "深挖Bug", "code-review": "代码审查", "minimalist-style": "极简风格",
   "context-compact": "上下文压缩", "code-deliver": "交付报告", "dep-scan": "依赖SCA",
@@ -2237,7 +2238,7 @@ async function loadExtList() {
   }));
 }
 
-/* ═══════════ 架构图(41原子一张图) ═══════════ */
+/* ═══════════ 架构图(42原子一张图) ═══════════ */
 function renderArch() {
   const box = $("arch-svg-box");
   if (!S.atoms.length) { box.innerHTML = "<div class='placeholder'>原子库未加载</div>"; return; }
