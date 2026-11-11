@@ -52,6 +52,7 @@ class CodeImplementAgent(AtomicAgent):
         self.register("code.write", self._implement)  # 别名
 
     # ── code.implement / code.write：真写生产代码 ──
+    # 宪法例外: 80 行是「备参→调引擎→校验→落盘」一条直线；拆开要把 task/opts/结果三份中间态来回传
     def _implement(self, task=None, language="python", path=None, output_dir=None,
                    domain="general", loop=False, max_iter=5, write_root=None,
                    verify=None, skill_path=None):

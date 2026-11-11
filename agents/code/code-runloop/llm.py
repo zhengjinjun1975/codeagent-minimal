@@ -66,6 +66,7 @@ def load_config(config_path=None):
             "error": "找不到 model_config.json(generate 段); 请检查 config 路径或 --model-config"}
 
 
+# 宪法例外: 重试循环与请求构造合在一处，「只对可恢复错重试」的口径才看得见；拆开会让退避与判定分家
 def _post_json(url, payload, headers, timeout=None):
     """纯 stdlib POST; 绕开系统代理(Clash 常未连节点), 与 code_agent_engine 一致。
 

@@ -1674,6 +1674,7 @@ class CodeAgent:
         def _sev(ded):
             return "critical" if ded >= 20 else ("major" if ded == 15 else "minor")
 
+        # 宪法例外: 九项规则的判定表，每项一支；拆成九个函数只会把 skill/报告参数重复传九遍
         def _scan(item):
             if item == "1":
                 if re.search(r'(永远不要|永不|一律不|无条件(禁止|不能)|绝对(不能|不要)|never\s+(use|do|touch)|禁止一切)', skill, re.I):
@@ -2016,6 +2017,7 @@ class CodeAgent:
     # _refine_experience（小步证据-backed 经验沉淀，借鉴 Prime Agent /refine）
     # ═══════════════════════════════════════════════
 
+    # 宪法例外: 经验沉淀流水线（提取→评分→落库），拆开要传三份中间态，可读性反而下降
     def _refine_experience(self, trajectory: dict, enable=True) -> dict:
         """小步经验沉淀(可选, 借鉴 Prime Agent /refine)。
 

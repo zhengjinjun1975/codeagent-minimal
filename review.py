@@ -955,6 +955,7 @@ def _apply_external(static: dict, content: str, denoise: bool) -> None:
     static["score"] = max(0, 100 - penalty)
 
 
+# 宪法例外: 8 个开关一一对应 CLI 与原子入参；打包成 dict 后「哪个开关影响哪段」更难追
 def review_file(path: str, use_llm: bool, max_complexity: int = 10, strict_undefined: bool = False, external: bool = False, reuse_atoms: bool = False, semantic: bool = True, denoise: bool = True) -> dict:
     content = Path(path).read_text(encoding="utf-8", errors="ignore")
     opts = {"max_complexity": max_complexity, "strict_undefined": strict_undefined,

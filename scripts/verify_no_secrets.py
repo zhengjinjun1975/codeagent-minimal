@@ -56,6 +56,7 @@ def scan_text(text, where, out):
         out.append((judge(m.group(0)), where, len(m.group(0))))
 
 
+# 宪法例外: 目录遍历 + 逐文件扫描 + 跳过规则，拆开要把 hits 与 SKIP_DIRS 来回传
 def scan_worktree(out):
     for dirpath, dirnames, filenames in os.walk(ROOT):
         dirnames[:] = [d for d in dirnames if d not in SKIP_DIRS]

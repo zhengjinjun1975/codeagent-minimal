@@ -69,6 +69,7 @@ class CodeExploreAgent(AtomicAgent):
             return None, "codegraph 退出码 %s：%s" % (p.returncode, (err or out)[:300])
         return out, None
 
+    # 宪法例外: 参数表要吸收运行时透传的额外入参（**_）；收成 5 个就得给调用方改参数名
     def _explore(self, query=None, project=None, timeout=DEFAULT_TIMEOUT,
                  max_inline_chars=MAX_INLINE_CHARS, force=False, **_):
         query = (query or "").strip()

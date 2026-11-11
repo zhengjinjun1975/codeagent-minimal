@@ -31,7 +31,8 @@ CRED_PATTERNS = [
     (r"(?i)\b(api_key|apikey|secret|token)\s*=\s*[\"'][A-Za-z0-9\-_]{12,}[\"']", "明文密钥/令牌"),
 ]
 # 明显是样例/假值的形态：门不当它真凭据（否则测试夹具与文档示例会把门淹掉）
-FAKE_CRED_RE = re.compile(r"(abcdef|example|dummy|fake|xxxx|0{6,}|1234)", re.I)
+FAKE_CRED_RE = re.compile(
+    r"(abcdef|example|dummy|fake|xxxx|0{6,}|1234|placeholder|test-key|sample[_-]?key)", re.I)
 PLACEHOLDER_RE = re.compile(r"(TODO|FIXME|XXX|待补|待实现)")
 IGNORE_FILE = ".constitutionignore"
 # 仓里既有的夹具约定（agents/test/code-test/project_verify.py 用的是同一套）：文件名前缀即夹具

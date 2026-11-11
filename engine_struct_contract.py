@@ -6,6 +6,7 @@ import os
 sys.stdout.reconfigure(encoding='utf-8', errors='replace')
 
 
+# 宪法例外: 契约块解析是平铺状态机（段头/字段/收尾），拆段要把当前段与缓冲区来回传；且需与母体实现逐字节一致
 def parse_contract(text):
     # 契约块边界靠行首标记界定，避免正文里偶然出现的同名行被误收
     lines = text.splitlines()
@@ -130,6 +131,7 @@ def check_file(path, contract):
     return check_source(text, contract)
 
 
+# 宪法例外: 结构校验是平铺检查清单，每项独立早返回；拆开要同时传 result 与 ast 树
 def check_source(text, contract):
     """直接校验内存里的源码文本。
 

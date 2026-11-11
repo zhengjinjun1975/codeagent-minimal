@@ -48,25 +48,40 @@ class CodeProjectAgent(AtomicAgent):
         return sorted(out)
 
     def _load(self, path, file_pattern="*.py"):
-        """项目快照: 文件清单 + 每个文件的类/函数/imports。"""
-        files = self._collect(path, file_pattern)
-        snapshot = []
-        for f in files:
-            try:
-                src = open(f, encoding="utf-8", errors="ignore").read()
-                tree = ast.parse(src)
-                cls = [n.name for n in tree.body if isinstance(n, ast.ClassDef)]
-                funcs = [n.name for n in ast.walk(tree) if isinstance(n, (ast.FunctionDef, ast.AsyncFunctionDef)) and not n.name.startswith("_")]
-                imports = []
-                for n in ast.walk(tree):
-                    if isinstance(n, ast.Import):
-                        imports += [a.name for a in n.names]
-                    elif isinstance(n, ast.ImportFrom):
-                        imports.append(n.module or "")
-                snapshot.append({"file": f, "classes": cls, "functions": funcs, "imports": imports})
-            except Exception:
-                snapshot.append({"file": f, "classes": [], "functions": [], "imports": []})
-        return {"files": files, "snapshot": snapshot, "count": len(files)}
+        """项目快照: 文件清单 + 每个文件的类/函数/imports。
+
+        覆盖口径与审查层同一份（audit_scan.collect / coverage）：清单为空时
+        明确回「没审」（ok=False + code=NO_FILES），不返回看起来正常的空结果。
+        """
+        import audit_scan
+
+        files = (audit_scan.collect(path) if os.path.isdir(path)
+                 else self._collect(path, file_pattern))
+        cov = audit_scan.coverage(files)
+        if not files:
+            return audit_scan.empty_verdict(path, cov)
+        snapshot = [self._snapshot_one(f) for f in files]
+        return {"files": files, "snapshot": snapshot, "count": len(files),
+                "coverage": cov}
+
+    def _snapshot_one(self, f):
+        """单文件的类/函数/imports；读不了或非 Python（.js 等）就给空清单，不猜。"""
+        try:
+            src = open(f, encoding="utf-8", errors="ignore").read()
+            tree = ast.parse(src)
+        except Exception:
+            return {"file": f, "classes": [], "functions": [], "imports": []}
+        cls = [n.name for n in tree.body if isinstance(n, ast.ClassDef)]
+        funcs = [n.name for n in ast.walk(tree)
+                 if isinstance(n, (ast.FunctionDef, ast.AsyncFunctionDef))
+                 and not n.name.startswith("_")]
+        imports = []
+        for n in ast.walk(tree):
+            if isinstance(n, ast.Import):
+                imports += [a.name for a in n.names]
+            elif isinstance(n, ast.ImportFrom):
+                imports.append(n.module or "")
+        return {"file": f, "classes": cls, "functions": funcs, "imports": imports}
 
     def _scan(self, path, max_complexity=10, impact=False):
         """扫描问题: 对每个 py 文件跑静态分析。"""
