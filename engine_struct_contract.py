@@ -115,6 +115,27 @@ def parse_contract(text):
 
 
 def check_file(path, contract):
+    """读盘后校验。"""
+    if not os.path.exists(path):
+        return {'passed': False, 'missing': [], 'param_mismatch': [],
+                'lines': 0, 'issues': ['文件不存在: %s' % path]}
+
+    try:
+        with open(path, 'r', encoding='utf-8') as f:
+            text = f.read()
+    except Exception as e:  # fail-open: 读不了一般按不通过处理并报原因
+        return {'passed': False, 'missing': [], 'param_mismatch': [],
+                'lines': 0, 'issues': ['文件读取失败: %s' % e]}
+
+    return check_source(text, contract)
+
+
+def check_source(text, contract):
+    """直接校验内存里的源码文本。
+
+    产物还没落盘时用这个判结构。意义在于：结构对不对要能进版本排序，
+    否则模型自评高但接口错的版本会锁死 best，后面更好的版本永远不被检查。
+    """
     result = {
         'passed': False,
         'missing': [],
@@ -122,17 +143,6 @@ def check_file(path, contract):
         'lines': 0,
         'issues': [],
     }
-
-    if not os.path.exists(path):
-        result['issues'].append('文件不存在: %s' % path)
-        return result
-
-    try:
-        with open(path, 'r', encoding='utf-8') as f:
-            text = f.read()
-    except Exception as e:
-        result['issues'].append('文件读取失败: %s' % e)
-        return result
 
     result['lines'] = len(text.splitlines())
 
