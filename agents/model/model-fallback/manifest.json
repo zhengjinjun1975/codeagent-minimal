@@ -15,9 +15,39 @@
     "model.cache_put",
     "model.cascade"
   ],
-  "depends_on": ["llm.list_models"],
-  "inputs": ["messages", "call_model", "purpose", "preference", "local_only", "candidates", "text", "rules", "ttl_sec", "store_dir", "intent"],
-  "outputs": ["ok", "verdict", "provider", "type", "result", "fell_back", "candidates", "errors", "layer", "shortcut", "matched", "handler", "confidence", "hit", "key", "size"],
+  "depends_on": [
+    "llm.list_models"
+  ],
+  "inputs": [
+    "messages",
+    "call_model",
+    "purpose",
+    "preference",
+    "local_only",
+    "text",
+    "rules",
+    "ttl_sec",
+    "store_dir",
+    "intent"
+  ],
+  "outputs": [
+    "ok",
+    "verdict",
+    "provider",
+    "type",
+    "result",
+    "fell_back",
+    "candidates",
+    "errors",
+    "layer",
+    "shortcut",
+    "matched",
+    "handler",
+    "confidence",
+    "hit",
+    "key",
+    "size"
+  ],
   "permission": {
     "needs": [
       "read",

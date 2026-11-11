@@ -33,7 +33,20 @@ DEFAULT_OUTPUT_DIR = os.path.join(REPO_ROOT, "_impl_output")
 # 对照 one-shot 93.29%。⇒ 6 轮是预算不够而非策略错，默认抬到 8；仍受步数/墙钟/token 三重预算约束，
 # 更长的任务由派活方显式传 max_iterations（知情才加）。
 DEFAULT_MAX_ITER = 8
+# 编辑型任务（目标文件已存在 = 改旧代码）默认 12 轮。
+# 依据（2026-10-16 实测 0/2 + trace 逐轮读）：编辑型的轮次大头花在「edit 不匹配 → 重读全文 → 再试」，
+# 生成型 8 轮不够用。两种任务用一个数盖，就是把「策略错」当成「预算够」。
+EDIT_DEFAULT_MAX_ITER = 12
 TRACE_KEEP = 60
+
+
+def _pick_max_iter(max_iterations, target_path):
+    """调用方显式给了就听调用方的；没给按任务类型取默认（改旧文件 12 / 从零生成 8）。"""
+    if max_iterations:
+        return int(max_iterations)
+    if target_path and os.path.isfile(target_path):
+        return EDIT_DEFAULT_MAX_ITER
+    return DEFAULT_MAX_ITER
 
 
 
@@ -103,7 +116,7 @@ class CodeRunLoopAgent(AtomicAgent):
         return {"ok": True, "data": data}
 
     def _runloop(self, task=None, path=None, output_dir=None, verify=None,
-                 language="python", max_iterations=DEFAULT_MAX_ITER,
+                 language="python", max_iterations=None,
                  fake_model=None, model_config=None, write_root=None):
         """真跑反馈闭环写码。
 
@@ -130,11 +143,12 @@ class CodeRunLoopAgent(AtomicAgent):
             llm_generate = SmokeFake(target_path)
 
         trace = []
+        _iters = _pick_max_iter(max_iterations, target_path)
         try:
             r = run_loop(task, target_path=target_path, output_dir=out_dir,
                          verify=verify, language=language,
                          llm_generate=llm_generate,
-                         max_iterations=int(max_iterations or DEFAULT_MAX_ITER),
+                         max_iterations=_iters,
                          config_path=model_config, trace=trace,
                          write_root=write_root,
                          allow_skip_verify=False)
@@ -175,14 +189,15 @@ if __name__ == "__main__":
     ap = argparse.ArgumentParser(
         description="code-runloop 原子 CLI(真跑反馈闭环写码自测入口)")
     ap.add_argument("--capability", default="code.runloop",
-                    choices=["code.runloop"])
+                    choices=["code.runloop", "code.patch"])
     ap.add_argument("--task", default="实现一个 greet(name) 返回问候语, 纯标准库, 并确保可 import")
     ap.add_argument("--path", default=None, help="目标文件绝对路径(权威, 做 DoD)")
     ap.add_argument("--output_dir", default=None, help="工作目录(缺省 path 所在目录)")
     ap.add_argument("--verify", default=None,
                     help="DoD 校验命令(缺省 .py → python -m py_compile <path>)")
     ap.add_argument("--language", default="python")
-    ap.add_argument("--max-iterations", type=int, default=DEFAULT_MAX_ITER)
+    ap.add_argument("--max-iterations", type=int, default=None,
+                    help="轮数上限（缺省按任务类型：改旧文件 12 / 从零生成 8）")
     ap.add_argument("--fake-model", default=None, choices=[None, "smoke", "none"],
                     help="smoke=确定性自纠冒烟(不连网); none/省略=读 config 真调模型")
     ap.add_argument("--verbose", action="store_true", help="打印回合轨迹")
@@ -192,11 +207,13 @@ if __name__ == "__main__":
 
     agent.load()
     print(f"══ {agent.name} 原子自测 ══ v{agent.version} status={agent.describe()['status']}")
-    _edits = json.loads(args.edits_json) if args.edits_json else None
-    r = agent.run(_capability=args.capability, task=args.task, path=args.path,
-                  output_dir=args.output_dir, verify=args.verify,
-                  language=args.language, max_iterations=args.max_iterations,
-                  fake_model=args.fake_model, edits=_edits)
+    # 入参按能力对齐: edits 只有 code.patch 收(传了 code.runloop 会因未知入参直接拒)。
+    kw = dict(task=args.task, path=args.path, output_dir=args.output_dir,
+              verify=args.verify, language=args.language,
+              max_iterations=args.max_iterations, fake_model=args.fake_model)
+    if args.capability == "code.patch":
+        kw["edits"] = json.loads(args.edits_json) if args.edits_json else None
+    r = agent.run(_capability=args.capability, **kw)
     if r.get("ok") and args.verbose:
         _print_trace(r["data"].get("trace", []))
     print(json.dumps(r, ensure_ascii=False, indent=2, default=str))

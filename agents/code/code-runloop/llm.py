@@ -12,17 +12,17 @@ import urllib.request
 
 DEFAULT_CONFIG_NAMES = [
     os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "..", "..",
-                 "config", "model_config.json"),  # 仓库根目录下的 config/model_config.json
+                 "config", "model_config.json"),  # codeagent-minimal/config/model_config.json
     os.path.join(os.path.dirname(os.path.abspath(__file__)), "config", "model_config.json"),
 ]
 
 
 def _env_file_hits():
-    """同 code_agent_engine._read_env: 从本地 .env 兜底读 key。"""
+    """同 code_agent_engine._read_env: 从 hermes .env 兜底读 key。"""
     hits = []
     home = os.path.expanduser("~")
     for cand in (os.path.join(home, ".codeagent", ".env"),
-                 os.path.join(home, "AppData", "Local", "codeagent", ".env")):
+                 os.path.join(home, "AppData", "Local", "hermes", ".env")):
         if os.path.isfile(cand):
             hits.append(cand)
     return hits
@@ -66,19 +66,60 @@ def load_config(config_path=None):
             "error": "找不到 model_config.json(generate 段); 请检查 config 路径或 --model-config"}
 
 
-def _post_json(url, payload, headers, timeout=120):
-    """纯 stdlib POST; 绕开系统代理(Clash 常未连节点), 与 code_agent_engine 一致。"""
+def _post_json(url, payload, headers, timeout=None):
+    """纯 stdlib POST; 绕开系统代理(Clash 常未连节点), 与 code_agent_engine 一致。
+
+    容错口径与 llm-router / engine_llm 对齐：**只对可恢复错重试**
+    （超时 / 连接错 / 408 / 425 / 429 / 5xx），业务 4xx 直接返回、不重试。
+    次数与退避走环境变量：CODEAGENT_HTTP_RETRIES（默认 2）/ CODEAGENT_HTTP_BACKOFF（默认 3 秒）。
+    读超时默认 180 秒（大文件生成常超过 120 秒），CODEAGENT_LLM_TIMEOUT 可覆盖。
+
+    历史：2026-10-17 前这里是单发零重试、timeout 硬编码 120，
+    一次 read timeout 就让整块报废（L1d / L1d2 两块连续死在同一句）。
+    """
+    import os as _os
+    import time as _time
+    import urllib.error  # noqa: F401  (仅本函数用)
+
+    if timeout is None:
+        try:
+            timeout = int(_os.environ.get("CODEAGENT_LLM_TIMEOUT", "180"))
+        except ValueError:
+            timeout = 180
+    try:
+        retries = max(0, int(_os.environ.get("CODEAGENT_HTTP_RETRIES", "2")))
+    except ValueError:
+        retries = 2
+    try:
+        backoff = max(0.0, float(_os.environ.get("CODEAGENT_HTTP_BACKOFF", "3")))
+    except ValueError:
+        backoff = 3.0
+
     # 显式空代理表 → 直连, 不复用系统代理
     proxy_handler = urllib.request.ProxyHandler({})
     opener = urllib.request.build_opener(proxy_handler)
     data = json.dumps(payload).encode("utf-8")
-    req = urllib.request.Request(url, data=data, headers=headers, method="POST")
-    try:
-        with opener.open(req, timeout=timeout) as resp:
-            raw = resp.read().decode("utf-8", "replace")
-        return json.loads(raw)
-    except Exception as e:  # noqa
-        return {"error": f"{type(e).__name__}: {e}"}
+
+    last = ""
+    for attempt in range(retries + 1):
+        req = urllib.request.Request(url, data=data, headers=headers, method="POST")
+        try:
+            with opener.open(req, timeout=timeout) as resp:
+                raw = resp.read().decode("utf-8", "replace")
+            return json.loads(raw)
+        except urllib.error.HTTPError as e:  # noqa
+            code = getattr(e, "code", 0) or 0
+            retryable = code in (408, 425, 429) or 500 <= code < 600
+            last = "HTTPError %s: %s" % (code, e)
+            if not retryable or attempt >= retries:
+                return {"error": last}
+        except Exception as e:  # noqa
+            # 超时 / 连接重置 / DNS 抖动都属可恢复
+            last = "%s: %s" % (type(e).__name__, e)
+            if attempt >= retries:
+                return {"error": last}
+        _time.sleep(backoff * (attempt + 1))
+    return {"error": last or "未知错误"}
 
 
 def _call_openai(gen, messages, temp, max_tokens):
@@ -88,7 +129,10 @@ def _call_openai(gen, messages, temp, max_tokens):
     if not key:
         return {"error": "generate API_KEY 未配置(需 env 或 ~/.codeagent/.env)"}
     payload = {"model": model, "messages": messages,
-               "temperature": temp, "max_tokens": max_tokens}
+               "temperature": temp, "max_tokens": max_tokens,
+               # 推理型模型（deepseek-v4-flash）在复杂任务上会一路思考到把预算耗光、
+               # 正文只回空串或一行；代码生成必须显式关掉思考（实测关掉后 finish_reason=stop、正文完整）。
+               "thinking": {"type": "disabled"}}
     # DeepSeek reasoner: 显式关闭 thinking(兼容 generate 配置带 type 的场景)
     headers = {"Authorization": "Bearer " + key, "Content-Type": "application/json"}
     body = _post_json(url, payload, headers)

@@ -1,6 +1,6 @@
-# CodeAgent Minimal 能力对照说明（Positioning）
+# CodeAgent 能力对照说明（Positioning）
 
-> **数据口径**：同类项目星标 / 许可 = **2026-09-23 经 GitHub API 实测**（`gh api repos/<owner>/<repo>`）；本仓数字取自 `registry.json`（42 原子 / 165 能力）与全库扫描（140 个 `.py` / 31,071 行 / **无 requirements.txt**）。
+> **数据口径**：同类项目星标 / 许可 = **2026-09-23 经 GitHub API 实测**（`gh api repos/<owner>/<repo>`）；本仓数字取自 `registry.json`（42 原子 / 161 能力）与全库扫描（269 个 `.py` / 45,771 行 / **无 requirements.txt**）。
 > 本文件只做**定位与边界**说明：优势逐条列出，短板同样逐条列出，不拔高、不贬低。
 
 ---
@@ -29,7 +29,7 @@
    ● Goose (54.6k)                │   ● Ruff (49.7k) ● Bandit (8.3k) ● pylint (5.7k)
                                   │   ● pytest (14.5k) ● mutmut (1.4k) ● Hypothesis (9.0k)
                                   │
-                                  │   ★ CodeAgent Minimal —— 本地零依赖 + 治理闭环 + 可组装
+                                  │   ★ CodeAgent —— 本地零依赖 + 治理闭环 + 可组装
                   本地零依赖（不装任何第三方包也能跑）
 ```
 
@@ -51,7 +51,7 @@
 | `aider-AI/aider` | 49,122 | Apache-2.0 | 终端结对编程 | 需模型 API | 云端 | ✗ |
 | `continuedev/continue` | 35,997 | Apache-2.0 | IDE 助手 | 需模型 | 云端 | ✗ |
 | `SWE-agent/SWE-agent` | 20,386 | MIT | 研究型修 issue 代理 | 需模型 API | 云端 | ✗ |
-| **CodeAgent Minimal（本仓）** | — | Apache-2.0 | **质量治理内核** | **无（可选增强缺失即降级）** | **默认不出厂** | **✓（42 原子 / 165 能力）** |
+| **CodeAgent（本仓）** | — | Apache-2.0 | **质量治理内核** | **无（可选增强缺失即降级）** | **默认不出厂** | **✓（42 原子 / 161 能力）** |
 
 ## 表 B：与「质量治理工具类」同层，差在覆盖与组装
 
@@ -79,33 +79,35 @@
 | `pypa/pip-audit` | 1,366 | Apache-2.0 | 依赖漏洞 | pip | 自有格式 | ✗ | ✓ |
 | `tarpas/pytest-testmon` | 1,015 | MIT | 增量测试选择 | pip | 自有格式 | ✗ | ✓ |
 | `sixty-north/cosmic-ray` | 658 | MIT | 变异测试 | pip | 自有格式 | ✗ | ✓ |
-| **CodeAgent Minimal（本仓）** | — | Apache-2.0 | **上表多类合一**（审查 + 安全 + 依赖 + 测试 + 突变 + 影响 + 合规） | **无** | **统一 `{ok, data}` 信封** | **✓ 组装链** | **✓ 默认** |
+| **CodeAgent（本仓）** | — | Apache-2.0 | **上表多类合一**（审查 + 安全 + 依赖 + 测试 + 突变 + 影响 + 合规） | **无** | **统一 `{ok, data}` 信封** | **✓ 组装链** | **✓ 默认** |
 
 ---
 
 ## 优势（逐条显性，不埋在表格里）
 
-1. **零安装起点**：无 `requirements.txt`；核心判定全走标准库（可选增强如 bandit / pyflakes / coverage / pytest 装了才用、缺失即降级）。对照：Semgrep 要装引擎 + 规则、CodeQL 要建数据库、Trivy 要下漏洞库、SonarQube 要起服务 + DB。
-2. **覆盖面 × 组装**：42 原子 / 165 能力，横跨代码审查、安全扫描、依赖 SCA、测试与变异、影响分析（方法级 / 依赖级）、死代码、架构审查、本体 / 领域审查、Git 只读工具、审批、沙箱、上下文压缩、模型降级；可任意组装成链（`guard` 安全质量链、`chain` think→gen→review→test→evolve）。
-3. **统一契约**：每个原子同一生命周期（`discovered → loaded → ready`）、统一 `{ok, data}` 信封、失败自动降级 `{ok:false, degraded:true}`；manifest 声明 `permission`（read/write/exec/net）+ `resource` 并受门复核。
-4. **数据不出厂是默认值**：云端 LLM / 远端漏洞库必须显式开启；同类编码代理默认就把代码 / 上下文交给云端模型。
-5. **自证体系**：195 条 pytest + **7 项跨面能力一致性门**（含分辨力自检：注入错误计数 / 删表行 / 删映射键必须报红）+ GitHub Actions CI。
-6. **可加壳扩展不碰核心**：扩展原子挂壳层（Lab 编排画布），核心原子只读复用；拆得开、拼得起。
-7. **危险面收紧**：命令审批（`approval.check/classify/policy`）细粒度 allow/ask/deny + 执行期审批门；沙箱执行不可信 PoC。
+1. **零安装起点**：无 `requirements.txt`；217 个核心 `.py` 里第三方 import 共 13 处，**全部是「装了才用 / 缺失即降级」**（bandit / pyflakes / coverage / pytest / stdlib_list / websocket 等），核心判定全走标准库。对照：Semgrep 要装引擎 + 规则、CodeQL 要建数据库、Trivy 要下漏洞库、SonarQube 要起服务 + DB。
+2. **覆盖面 × 组装**：42 原子 / 161 能力，横跨代码审查、安全扫描、依赖 SCA、测试与变异、影响分析（方法级 / 依赖级）、死代码、架构审查、本体 / 领域审查、审批、沙箱、上下文压缩、模型降级；可任意组装成链（`guard` 安全质量链、`chain` think→gen→review→test→evolve）。单点工具各自只能干一件事，拼起来得自己写胶水。
+3. **统一契约**：每个原子同一生命周期（`discovered → loaded → ready`）、统一 `{ok, data}` 信封、失败自动降级 `{ok:false, degraded:true}`；manifest 声明 `permission`（read/write/exec/net）+ `resource`，由 `scripts/verify_manifest_caps.py` 用 AST **独立复核**。
+4. **数据不出厂是默认值**：云端 LLM / 远端 OSV 必须显式开启（`--remote / --osv / --llm`）；同类编码代理默认就把代码 / 上下文交给云端模型。
+5. **自证体系**：30 扇 `verify_*` 门 + pytest 332 条 + **真·干净检出**（`git clone` 到临时目录）复跑 + `evals` 题集 pass^k。这种「先证明我自己能用」的门，在对照表里的项目里基本没有（多半只有 CI 单测）。
+6. **可加壳扩展不碰核心**：扩展原子挂壳层（lab 编排画布），核心 42 原子只读复用；拆得开、拼得起。
+7. **危险面收紧**：`git-ops` 只放 `status/diff/log/branch`（**不开放 push / reset --hard / force**）；命令审批（`approval.check/classify/policy`）做细粒度 allow/ask/deny。
 8. **可解释可复算**：判定主体是规则 / 阈值，能复算、能对账；模型只做兜底与增强，不把结论托付给黑盒。
 
 ## 短板（同样显性，别误用）
 
 1. **单点深度不如专业工具**：Semgrep 的规则库、CodeQL 的数据流 / 污点深度、Trivy 的漏洞库时效、pytest 的插件生态，本仓都比不上。本仓是**「广度 + 零依赖 + 可组装」**，不是**「最深」**。
 2. **不写代码**：不做 Aider / Cline 那类多文件大改；`code.implement` / `code-runloop` 是受控小步。
-3. **接入走 CLI / REST / 框架 Tool**：没有 VS Code 插件那条路（有本地 Lab 编排与浏览器前端）。
+3. **无 IDE / 编辑器集成**：没有 VS Code 插件那条路；接入走 CLI / REST / 框架 Tool。
 4. **无社区生态与星标体量**：单人维护、无第三方插件市场（表中的星标差就是真实差距）。
-5. **规则库靠外部**：离线时只有内置规则，远端漏洞库要显式开启且需网络。
-6. **无大仓公开基准**：本仓自身规模下逐原子实测，但**未做过超大仓库压测**，不能声称生产级大仓性能。
+5. **漏洞 / 规则库靠外部**：OSV 远端要显式开启且需网络；离线时只有内置规则。
+6. **无大仓公开基准**：本仓自身 45,771 行规模下有逐原子实测，但**未做过超大仓库压测**，不能声称生产级大仓性能。
 
 ---
 
 ## 可借鉴清单（短板→路线，按优先级）
+
+本仓单点不如专业工具，它们的做法就是下一步的路线图（按性价比排序）：
 
 1. `testmon` 式**受影响测试选择**（已有 `test.select` 雏形，可深做）
 2. `coverage.py` 式**分支覆盖**（当前是行级 / 冒烟级）
@@ -117,4 +119,4 @@
 ## 数据来源（可复核）
 
 - 同类项目星标 / 许可：`gh api repos/<owner>/<repo>`，**2026-09-23 实测**；许可取自 `license.spdx_id`；另经 3 路独立调研（编码代理 / 静态分析安全 / 测试变异）一手核对，数字一致。
-- 本仓：`registry.json`（42 原子 / 165 能力）；全库扫描 140 个 `.py` / 31,071 行 / 无 `requirements.txt`；测试数取自 `pytest` 实测。
+- 本仓：`registry.json`（42 原子 / 161 能力）；全库扫描 269 个 `.py` / 45,771 行 / 无 `requirements.txt`；第三方 import 扫描（217 个核心文件、13 处均为可选增强）；门数取自 `scripts/ci.py` 输出。

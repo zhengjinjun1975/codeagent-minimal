@@ -13,6 +13,7 @@
 """
 import json
 import os
+import shutil
 import sys
 import tempfile
 import threading
@@ -65,6 +66,21 @@ def lab():
     yield {"cfg": cfg, "db": db, "server": server, "base": base, "td": td,
            "tgt": tgt, "ext": ext, "cap": cap}
     server.shutdown()
+    db.close()                                    # 不关 sqlite → Windows 上 td 删不掉（曾每跑一次漏一个）
+    import gc
+    import history_db as _hdb                     # 服务端走 get_db() 单例，它持有同一个 lab.db
+    with _hdb._db_lock:
+        if _hdb._db is not None:
+            _hdb._db.close()
+            _hdb._db = None
+    gc.collect()                                  # 连接对象先回收，句柄才真的松手
+    for _ in range(5):                            # Windows 上句柄释放有延迟，重试几次再放弃
+        shutil.rmtree(td, ignore_errors=True)
+        if not os.path.exists(td):
+            break
+        time.sleep(0.4)
+    if os.path.exists(td):
+        print("[warn] 临时目录没清掉（有句柄还占着）: %s" % td)
 
 
 def get(lab, p, timeout=60):

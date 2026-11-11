@@ -20,12 +20,7 @@
     "name"
   ],
   "outputs": [
-    "providers",
-    "count",
-    "usable",
-    "ok",
-    "degraded",
-    "provider"
+    "echo"
   ],
   "path": "agents/subagent/cli-providers",
   "permission": {

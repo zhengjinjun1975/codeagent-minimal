@@ -2,7 +2,7 @@
   "name": "code-implement",
   "version": "0.3.0",
   "domain": "code",
-  "description": "写码原子: 底层用仓库自包含 code_agent_engine(规划+自动复用+迭代循环+可选工作日志落库), 将任务实现为生产代码写入磁盘。可用于代码实现编排与真实写码。",
+  "description": "写码原子: 底层用本家自包含 code_agent_engine(CodeAgentEngine,含PONYTAIL+auto_reuse+loop+落Obsidian), 真写生产代码到磁盘。供 codeagent-minimal(唯一codeagent) p1 编码实现编排真写码。",
   "open_source": true,
   "agent_class": "CodeImplementAgent",
   "entry": "main.py",
@@ -32,5 +32,19 @@
     "written",
     "write_error",
     "engine"
-  ]
+  ],
+  "permission": {
+    "needs": [
+      "read",
+      "write",
+      "exec",
+      "net"
+    ],
+    "network": true
+  },
+  "resource": {
+    "model_calls": 1,
+    "timeout_sec": 600,
+    "memory_mb": 1024
+  }
 }

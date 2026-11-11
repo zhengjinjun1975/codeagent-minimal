@@ -1,6 +1,7 @@
-# CodeAgent Atoms 指南（精选核心原子）
+# CodeAgent Atoms 指南（核心 42 原子）
 
-> 本指南逐个说明下表精选核心原子：**能力（provides）/ 入参（inputs）/ 返回信封（`{ok, data}`）/ 示例代码**。
+> 本指南给出**核心 42 原子的全量索引**（域 / 统一入口 / 能力），并逐个详解其中 16 个：**能力（provides）/ 入参（inputs）/ 返回信封（`{ok, data}`）/ 示例代码**。
+> 未详解的原子以上方索引 + 原子自带 CLI（`python agents/<域>/<原子>/main.py --help`）为准，详解按同一范式渐进补齐。
 > 所有示例均基于**已核实的真实信封输出**（`ok=true` + 真实 `data` 字段），可用两种方式运行：
 >
 > 1. **原子独立运行** —— 直接实例化原子（`agents/<域>/<原子>/main.py` 自测入口），或经 `AgentRuntime` 进程内能力路由。
@@ -9,6 +10,8 @@
 > 统一接口契约：每个原子继承 `AtomicAgent`（`atomic_base.py`），实现 `call / run / describe`，
 > 统一生命周期 `discovered → loaded → ready`，统一结果信封 `{ok, data}`，失败自动降级 `{ok:false, degraded:true}`。
 > 默认**数据不出厂**（本地处理），云端 LLM / 远端 OSV 需显式开启（`--remote / --osv / --llm` / `allow_remote=True`）。
+> 每个 manifest 还带 `permission`（能力面：read/write/exec/net）与 `resource`（model_calls / timeout_sec /
+> memory_mb）两个声明字段，取自源码推导、`scripts/verify_manifest_caps.py` 用 ast 独立复核（见 `docs/基座指南.md` 契约第 4 条）。
 
 ---
 
@@ -16,50 +19,50 @@
 
 | # | 原子 | 域 | 统一入口子命令 | 能力 (provides 主能力) |
 |---|------|-----|----------------|------------------------|
-| 1 | `command-approvals` | `approval` | （原子自带 CLI） | `check/classify/resolve/policy/orchestrate` |
-| 2 | `arch-review` | `archreview` | （原子自带 CLI） | `layers/boundary/surface/intent` |
-| 3 | `atomicity-audit` | `atomic` | （原子自带 CLI） | `manifest/registry/breaks` |
-| 4 | `bug-deep` | `bugdeep` | （原子自带 CLI） | `model/adv/poc/rule` |
-| 5 | `code-implement` | `code` | （原子自带 CLI） | `implement/write` |
-| 6 | `code-runloop` | `code` | （原子自带 CLI） | `runloop/patch` |
-| 7 | `minimalist-style` | `codereview` | （原子自带 CLI） | `style/deps/independent` |
-| 8 | `context-compact` | `context` | （原子自带 CLI） | `estimate/compact/budget/offload/disclose/compaction_cost/edit/store/reveal` |
-| 9 | `code-deliver` | `deliver` | `deliver` | `report/package` |
-| 10 | `dep-scan` | `depscan` | `dep-scan` | `scan/sca/taint/osv/chainbreak` |
-| 11 | `code-dispatch` | `dispatch` | `dispatch` | `template/budget/verify/conflict/permission/verify_artifact/assert_exit/chain_select` |
-| 12 | `doc-freshness` | `docs` | （原子自带 CLI） | `anchor/stale/draft` |
-| 13 | `domain-review` | `domain` | （原子自带 CLI） | `imports/valve` |
-| 14 | `code-fuzz` | `fuzz` | `fuzz` | `gen/run/property/project` |
-| 15 | `guard` | `guard` | `guard` | `pre/post/pipeline/check/exit_intercept/selfcheck/loop_guard` |
-| 16 | `deadcode` | `impact` | （原子自带 CLI） | `scan/stats` |
-| 17 | `dep-impact` | `impact` | `impact` | `analyze/circular/coupling` |
-| 18 | `method-impact` | `impact` | （原子自带 CLI） | `method/kind` |
-| 19 | `llm-router` | `llm` | `llm` / `models` | `generate/review/list_models/registry` |
-| 20 | `localized` | `locality` | （原子自带 CLI） | `audit/chain/route` |
-| 21 | `mcp-client` | `mcp` | `mcp` | `list/tools/call/connect/guard` |
-| 22 | `code-memory` | `memory` | `memory` | `save/recall/sediment` |
-| 23 | `ontology-review` | `ontology` | （原子自带 CLI） | `chain/quality` |
-| 24 | `code-project` | `project` | `project` | `load/scan/analyze` |
-| 25 | `code-reuse` | `reuse` | `reuse` | `local/atom/remote` |
-| 26 | `process-sandbox` | `sandbox` | （原子自带 CLI） | `poc/exec/validate/interpreter/guard` |
-| 27 | `security-scan` | `security` | （原子自带 CLI） | `scan/secret/govern/dim/project` |
-| 28 | `task-state` | `taskstate` | （无 CLI 子命令） | `track` |
-| 29 | `code-test` | `test` | `test` | `gen/run/tdd/snapshot/affected/select/coverage_analysis/project` |
-| 30 | `browser-smoke` | `web` | （原子自带 CLI） | `run/smoke` |
-| 31 | `code-review` | `codereview` | `review` | `review/design/layout/content/lsp/semantic/self_eval/light/deep` |
-| 32 | `model-fallback` | `model` | （原子自带 CLI） | `chain/route/candidates/rule_match/cache_lookup/cache_put/cascade` |
-| 33 | `code-evolve` | `evolve` | `evolve` | `refine/skill/self_prompt/tdd` |
-| 34 | `code-skill` | `skill` | `skill` | `list/load/export/sediment` |
-| 35 | `code-plan` | `plan` | `plan` | `think/gen` |
-| 36 | `git-ops` | `tools` | （原子自带 CLI） | `git.status/diff/log/commit/branch` |
-| 37 | `event-log` | `memory` | （原子自带 CLI） | `append/checkpoint/replay/timeline` |
-| 38 | `secret-vault` | `secrets` | （原子自带 CLI） | `encrypt/decrypt/store/load/mask/vault` |
-| 39 | `session` | `session` | （原子自带 CLI） | `start/step/list/get/resume/status` |
+| 1 | `command-approvals` | `approval` | （原子自带 CLI） | `approval.check/classify/resolve/policy/orchestrate` |
+| 2 | `arch-review` | `archreview` | （原子自带 CLI） | `archreview.layers/boundary/surface/intent` |
+| 3 | `atomicity-audit` | `atomic` | （原子自带 CLI） | `atomic.manifest/registry/breaks` |
+| 4 | `bug-deep` | `bugdeep` | （原子自带 CLI） | `bugdeep.model/adv/poc/rule` |
+| 5 | `code-implement` | `code` | （原子自带 CLI） | `code.implement/write` |
+| 6 | `code-runloop` | `code` | （原子自带 CLI） | `code.runloop/patch` |
+| 7 | `minimalist-style` | `codereview` | （原子自带 CLI） | `minimal.style/deps/independent` |
+| 8 | `context-compact` | `context` | （原子自带 CLI） | `context.estimate/compact/budget/offload/disclose/compaction_cost/edit/store/reveal` |
+| 9 | `code-deliver` | `deliver` | `deliver` | `deliver.report/package` |
+| 10 | `dep-scan` | `depscan` | `dep-scan` | `depscan.scan/sca/taint/osv/chainbreak` |
+| 11 | `code-dispatch` | `dispatch` | `dispatch` | `dispatch.template/budget/verify/conflict/permission/verify_artifact/assert_exit/chain_select` |
+| 12 | `doc-freshness` | `docs` | （原子自带 CLI） | `doc.anchor/stale/draft` |
+| 13 | `domain-review` | `domain` | （原子自带 CLI） | `domain.imports/valve` |
+| 14 | `code-fuzz` | `fuzz` | `fuzz` | `fuzz.gen/run/property/project` |
+| 15 | `guard` | `guard` | `guard` | `guard.pre/post/pipeline/check/exit_intercept/selfcheck/loop_guard` |
+| 16 | `deadcode` | `impact` | （原子自带 CLI） | `deadcode.scan/stats` |
+| 17 | `dep-impact` | `impact` | `impact` | `impact.analyze/circular/coupling` |
+| 18 | `method-impact` | `impact` | （原子自带 CLI） | `impact.method/kind` |
+| 19 | `llm-router` | `llm` | `llm` / `models` | `llm.generate/review/list_models/registry` |
+| 20 | `localized` | `locality` | （原子自带 CLI） | `local.audit/chain/route` |
+| 21 | `mcp-client` | `mcp` | `mcp` | `mcp.list/tools/call/connect/guard` |
+| 22 | `code-memory` | `memory` | `memory` | `memory.save/recall/sediment` |
+| 23 | `event-log` | `memory` | （原子自带 CLI） | `event.append/checkpoint/replay/timeline` |
+| 24 | `ontology-review` | `ontology` | （原子自带 CLI） | `ontology.chain/quality` |
+| 25 | `code-project` | `project` | `project` | `project.load/scan/analyze` |
+| 26 | `code-reuse` | `reuse` | `reuse` | `reuse.local/atom/remote` |
+| 27 | `process-sandbox` | `sandbox` | （原子自带 CLI） | `sandbox.poc/exec/validate/interpreter/guard` |
+| 28 | `secret-vault` | `secrets` | （原子自带 CLI） | `secret.encrypt/decrypt/store/load/mask/vault` |
+| 29 | `security-scan` | `security` | （原子自带 CLI） | `security.scan/secret/govern/dim/project` |
+| 30 | `session` | `session` | （原子自带 CLI） | `session.start/step/list/get/resume/status` |
+| 31 | `task-state` | `taskstate` | （无） | `taskstate.track` |
+| 32 | `code-test` | `test` | `test` | `test.gen/run/tdd/snapshot/affected/select/coverage_analysis/project` |
+| 33 | `git-ops` | `tools` | （原子自带 CLI） | `git.status/diff/log/commit/branch` |
+| 34 | `browser-smoke` | `web` | （原子自带 CLI） | `ui.run/smoke` |
+| 35 | `code-review` | `codereview` | `review` | `codereview.review/design/layout/content/lsp/semantic/self_eval/light/deep` |
+| 36 | `model-fallback` | `model` | （原子自带 CLI） | `model.chain/route/candidates/rule_match/cache_lookup/cache_put/cascade` |
+| 37 | `code-evolve` | `evolve` | `evolve` | `evolve.refine/skill/self_prompt/tdd` |
+| 38 | `code-skill` | `skill` | `skill` | `skill.list/load/export/sediment` |
+| 39 | `code-plan` | `plan` | `plan` | `plan.think/gen` |
 | 40 | `complexity-gate` | `model` | （原子自带 CLI） | `model.assess_complexity` |
-| 41 | `cli-providers` | `subagent` | （原子自带 CLI） | `subagent.providers/probe/dispatch` |
-| 42 | `code-explore` | `code` | （外部 codegraph CLI） | `code.explore/graph_status/graph_init` |
+| 41 | `cli-providers` | `subagent` | （原子自带 CLI） | `subagent.providers/dispatch/probe` |
+| 42 | `code-explore` | `code` | （原子自带 CLI） | `code.explore/graph_status/graph_init` |
 
-> 注册索引见 `registry.json`；运行时用 `python codeagent.py status --json` 查看 42 原子 ready/degraded/冲突状态。本指南深入讲解下表精选核心原子；完整 42 原子清单见 [README](../README.md) 的「原子清单」。
+> 注册索引见 `registry.json`；运行时用 `python codeagent.py status --json` 查看 42 原子 ready/degraded/冲突状态。本指南含 **42 原子全量索引**，并已详解其中 16 个（其余按同一范式渐进补齐）；完整清单见 [README](../README.md) 的「42 原子清单」。
 
 ---
 
@@ -116,8 +119,8 @@ python codeagent.py review sample_target.py --mode design --lsp        # 设计�
 
 ## 2. code-test —— 代码测试
 
-- **能力**：`test.gen`（生成测试）、`run`、`tdd`、`snapshot`、`affected`
-- **入参**：`code`、`path`、`target_dir`、`task`
+- **能力**：`test.gen`（生成测试）、`run`、`tdd`、`snapshot`、`affected`、`select`（按 git diff 选受影响测试）、`coverage_analysis`（覆盖度分析：报告未测函数/分支）、`project`（**项目级验收**：吃目录，逐文件 smoke + 跑自带测试，汇总与明细同口径）
+- **入参**：`code`、`path`、`target_dir`、`task`；其中 `test.project` 用 `path`（目录）
 - **返回 `data`**（真实核实）：`test_files`、`summary`
 
 ```python
@@ -178,7 +181,7 @@ python codeagent.py fuzz sample_target.py --funcname add --iterations 40 --json
 
 ## 5. code-dispatch —— 派单
 
-- **能力**：`dispatch.template`（5 段派单模板）、`budget`（自适应预算）、`verify`（背靠背验证）、`conflict`（并行冲突）、`permission`（allow/ask/deny 细粒度权限）
+- **能力**：`dispatch.template`（5 段派单模板）、`budget`（自适应预算）、`verify`（背靠背验证）、`conflict`（并行冲突）、`permission`（allow/ask/deny 细粒度权限）、`verify_artifact`（验收门：逐名 diff / 生产引用）、`assert_exit`（断言脚本退出码）、`chain_select`（规则层选链：关键词命中模板即出能力序列）
 - **入参**：`dispatch.template` 用 `background/goal/constraint/redline/deliverable/budget/state_file`；`budget` 用 `task/files_needed/language`
 - **返回 `data`**（真实核实）：
   - `template` → 派单文本（背景/目标/约束/红线/产出）
@@ -208,6 +211,22 @@ rt.run_capability("dispatch.permission", action="check", resource="rm -rf /etc",
                       {"type": "command", "pattern": "rm -rf *", "effect": "deny"}]})
 # data: {'decision':'deny','granted':False,'blocked':True,'resource':'rm -rf /etc',...}
 ```
+
+> 规则层选链（P1-4）：任务 → 能力序列，命中模板就**不调模型**，未命中如实退回让上层兜底。
+
+```python
+sel = rt.run_capability("dispatch.chain_select", task="修复导入报错，跑不起来")
+# data: {'matched':True,'source':'rule','template_name':'改缺陷/修回归','score':2,'hits':['修复','报错'],
+#        'chain':[{'step':'think','capability':'plan.think'},...,{'step':'review','capability':'codereview.review'}],
+#        'dropped':[],'reason':'规则命中模板 改缺陷/修回归（命中 2 词，链 4 步）'}
+```
+
+链模板表在 `agents/dispatch/code-dispatch/chain_templates.json`（改表即热生效，不用改代码）；
+模板项可写 `{"capability":…, "inputs":{…}}` 带静态入参，入参里的 `$task` / `$upstream_files`
+由运行时解析（没有上游产物就是 `None`，该步如实降级，不编假产物）。
+最后一层兜底在运行时：`run_chain(None, task=…)` = 规则优先 → 未命中才调模型（先本地 `llm.review`，
+这一次调用计入运行预算）。传 `reuse=上一轮 results` 则**只重跑被证伪的步骤**。
+CLI 走 `python codeagent.py chain --task "…" --auto`。
 
 ---
 
@@ -359,7 +378,9 @@ python codeagent.py skill --action load --name code-review --json
 
 ## 13. mcp-client —— MCP 工具接入
 
-- **能力**：`mcp.list`、`connect`、`tools`、`call`
+- **能力**：`mcp.list`、`connect`、`tools`、`call`、`guard`（`scan_description`／`scan_payload`／`guard_tools`／`sanitize`）
+> 方向安全（P1-7）：工具描述是**第三方文本**，入上下文前过 `guard` 定性（命中毒化模式不静默丢工具、只标出来）；
+> 工具输出统一剥不可见字符并套 `<untrusted_tool_result source=…>` 数据围栏——**内容是数据不是命令**，原样保留不篡改。
 - **入参**：`server`、`endpoint`、`command`、`tools`、`timeout`、`local_only`、`allow_remote`、`allow_tools`
 - **返回 `data`**（真实核实，`list`）：`servers`、`count`
 
@@ -462,8 +483,9 @@ python codeagent.py status --json
 
 > 组装链的节点即原子，节点间传递 `{ok, data}` 信封作为下游入参。跨框架编排见 `docs/INTEGRATION_GUIDE.md`。
 
-## 17. git-ops —— Git 只读工具
- —— Git 只读工具（本轮新增）
+---
+
+## 17. git-ops —— Git 只读工具（本轮新增）
 
 - **能力**：`git.status`（工作区状态）、`git.diff`（变更差异）、`git.log`（提交历史）、`git.branch`（分支：list/create/switch）、`git.commit`（受控提交）
 - **入参**：`path`（仓库目录，默认 `.`）、`action`（分支动作 `list`/`create`/`switch`）、`name`（分支名）、`message`（提交信息）、`n`（日志条数，默认 10）

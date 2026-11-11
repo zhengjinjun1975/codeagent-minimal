@@ -3,9 +3,9 @@
  "summary": {
   "atoms": 42,
   "capabilities": 169,
-  "declared_inputs": 285,
+  "declared_inputs": 284,
   "broken": 0,
-  "undeclared": 57,
+  "undeclared": 58,
   "judgeable": 35,
   "unjudgeable_atoms": [
    "code-explore",
@@ -222,12 +222,7 @@
     "name"
    ],
    "declared_outputs": [
-    "providers",
-    "count",
-    "usable",
-    "ok",
-    "degraded",
-    "provider"
+    "echo"
    ],
    "accepted_params": [
     "cwd",
@@ -655,8 +650,20 @@
    "broken": [],
    "undeclared": [],
    "judgeable": true,
-   "permission": {},
-   "resource": {},
+   "permission": {
+    "needs": [
+     "read",
+     "write",
+     "exec",
+     "net"
+    ],
+    "network": true
+   },
+   "resource": {
+    "model_calls": 1,
+    "timeout_sec": 600,
+    "memory_mb": 1024
+   },
    "capabilities": [
     "code.implement",
     "code.write"
@@ -836,8 +843,20 @@
    "broken": [],
    "undeclared": [],
    "judgeable": true,
-   "permission": {},
-   "resource": {},
+   "permission": {
+    "needs": [
+     "read",
+     "write",
+     "exec",
+     "net"
+    ],
+    "network": true
+   },
+   "resource": {
+    "model_calls": 1,
+    "timeout_sec": 600,
+    "memory_mb": 1024
+   },
    "capabilities": [
     "reuse.atom",
     "reuse.local",
@@ -2177,7 +2196,6 @@
     "purpose",
     "preference",
     "local_only",
-    "candidates",
     "text",
     "rules",
     "ttl_sec",
@@ -2216,7 +2234,9 @@
     "ttl_sec"
    ],
    "broken": [],
-   "undeclared": [],
+   "undeclared": [
+    "candidates"
+   ],
    "judgeable": true,
    "permission": {
     "needs": [

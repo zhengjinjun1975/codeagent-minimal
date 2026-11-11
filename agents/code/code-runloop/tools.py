@@ -10,55 +10,12 @@ run / read_file / grep / edit / write / verify_cmd。
 """
 import os
 import re
-import shlex
+import difflib
 import subprocess
 
 DEFAULT_TIMEOUT = 60
 OUT_MAX_LINES = 250      # 截断保尾: 最多保留的行数(前缀 [truncated N lines])
 OUT_MAX_CHARS = 20000    # 字节帽
-
-# 命令串里属 shell 语法的分隔/替换符。本工具以参数列表直传(shell=False)，这些字符
-# **不会**被解释；混进来只会让人误以为能链式/重定向，静默按字面量传参等于假执行。
-_SHELL_META = ";|&<>`"
-_QUOTED_RE = re.compile(r"\"[^\"]*\"|'[^']*'")
-
-
-def _meta_outside_quote(tok):
-    """token 内「引号外」是否含 shell 元字符（引号内的 | & 是字面量，不该拦）。
-
-    做法：先删掉成对引号段，再在剩下的裸串里找 —— 比逐字符状态机扁平，也不易漏。
-    不成对引号（如 `echo "abc | x`）会保留 `|` 判为元字符：宁可拒，不放过。
-    """
-    bare = _QUOTED_RE.sub("", tok)
-    return any(ch in bare for ch in _SHELL_META) or "$(" in bare
-
-
-def _strip_quote(tok):
-    """剥掉成对外层引号。posix=False 切分保留引号，故 Windows 路径的反斜杠不被吃掉。"""
-    if len(tok) >= 2 and tok[0] == tok[-1] and tok[0] in "\"'":
-        return tok[1:-1]
-    return tok
-
-
-def _prepare_argv(cmd):
-    """cmd → (argv, meta, err)。err 非空表示调用方直接回这个错误 dict。
-
-    为什么 posix=False：posix 模式把 C:\\x\\y.py 的反斜杠当转义吃掉，Windows 路径直接废。
-    """
-    if isinstance(cmd, (list, tuple)):
-        argv = [str(x) for x in cmd]
-        return argv, [], None if argv else {"status": "error", "reason": "cmd 为空", "exit_code": 1}
-    if not cmd or not str(cmd).strip():
-        return [], [], {"status": "error", "reason": "cmd 为空", "exit_code": 1}
-    try:
-        raw = shlex.split(str(cmd), posix=False)
-    except ValueError as e:
-        return [], [], {"status": "error", "reason": f"命令解析失败: {e}", "exit_code": 2}
-    argv = [_strip_quote(t) for t in raw]
-    meta = [t for t in raw if _meta_outside_quote(t)]
-    if not argv:
-        return [], [], {"status": "error", "reason": "cmd 为空", "exit_code": 1}
-    return argv, meta, None
 
 
 def resolve_roots(*paths):
@@ -122,27 +79,16 @@ def truncate_tail(text, max_lines=OUT_MAX_LINES, max_chars=OUT_MAX_CHARS):
 
 def run(cmd, cwd=None, timeout=DEFAULT_TIMEOUT, max_lines=OUT_MAX_LINES,
         max_chars=OUT_MAX_CHARS, env=None):
-    """run(cmd, cwd, timeout): 真执行; 分列捕获; 截断保尾; exit_code/超时哨兵124。
-
-    安全：一律 shell=False + 参数列表执行，命令串只切分不解释。cmd 可传 list（原样当
-    argv）或 str（按 shell 词法切分）。含 shell 元字符的串直接拒绝并回理由 —— 本工具
-    不提供 shell 语义，静默按字面量传参只会让人误判"命令已经跑过了"。
-    """
-    argv, meta, err = _prepare_argv(cmd)
-    if err:
-        return err
-    if meta:
-        return {"status": "error", "exit_code": 2, "output": "", "timeout": False,
-                "truncated": False,
-                "reason": ("命令含 shell 元字符 %s，已拒绝：本工具以参数列表直传"
-                           "(shell=False)，不会解释 &&/||/;/|/重定向/命令替换。"
-                           "请拆成多条独立命令分别调用。" % ", ".join(meta[:3]))}
+    """run(cmd, cwd, timeout): 真执行; 分列捕获; 截断保尾; exit_code/超时哨兵124。"""
+    if not cmd or not str(cmd).strip():
+        return {"status": "error", "reason": "cmd 为空", "exit_code": 1}
     full_env = dict(os.environ)
     if env:
         full_env.update(env)
     timeout = int(timeout or DEFAULT_TIMEOUT)
+    p = None  # 超时路径不会给 p 赋值；先置空，避免后文 getattr(p,...) 抛 UnboundLocalError
     try:
-        p = subprocess.run(argv, shell=False, cwd=cwd, env=full_env,
+        p = subprocess.run(str(cmd), shell=True, cwd=cwd, env=full_env,
                            capture_output=True, text=True,
                            timeout=timeout, errors="replace")
         code = p.returncode
@@ -218,6 +164,43 @@ def grep(pattern, path, roots=None):
     return {"status": "ok", "path": ap, "matches": matches, "count": len(matches)}
 
 
+def _miss_hint(content, old_m):
+    """old 匹配失败时给出可操作定位：第几行开始偏、文件原句、最接近的候选行。
+
+    实测动机（2026-10-16 编辑型任务 0/2）：只回「找不到该 old」时，模型只能整篇重读，
+    轮数全烧在「读全文→再试」上。给出偏离行号与原文后，模型可以直接改 old 串。
+    """
+    old_lines = [ln for ln in old_m.split("\n") if ln.strip()]
+    if not old_lines:
+        return ""
+    anchor = old_lines[0].strip()
+    file_lines = content.split("\n")
+    exact = [i for i, ln in enumerate(file_lines) if ln.strip() == anchor]
+    if exact:
+        base = exact[0]
+        for k, ln in enumerate(old_lines):
+            j = base + k
+            if j >= len(file_lines):
+                return ("定位：old 首行在第 %d 行命中，但 old 比文件剩余部分长"
+                        "（文件只到第 %d 行）。" % (base + 1, len(file_lines)))
+            if file_lines[j].strip() != ln.strip():
+                return ("定位：old 第 %d 行开始偏 —— 你给的 %r，文件第 %d 行实际是 %r。"
+                        "请照文件原样改写 old。" % (k + 1, ln[:80], j + 1, file_lines[j][:80]))
+        return "定位：old 首行在第 %d 行，逐行一致但整体未命中（多半是行尾/空白差异）。" % (base + 1)
+    flat = [ln.strip() for ln in file_lines]
+    cand = difflib.get_close_matches(anchor, flat, n=3, cutoff=0.5)
+    if not cand:
+        return "定位：old 首行与文件任何一行都不相似，可能改错了文件（先 read_file 确认目标）。"
+    rows = []
+    for c in cand:
+        rows.append("第 %d 行 %r" % (flat.index(c) + 1, c[:70]))
+    return "定位：old 首行在文件里找不到。最接近的几行：" + "；".join(rows) + "。请引用其中一行作起点。"
+
+
+def _line_of(content, idx):
+    return content.count("\n", 0, idx) + 1
+
+
 def _apply_edit(path, old, new, dry_run):
     """search-replace 字面量唯一匹配; dry_run=True 内存模拟不落盘。
 
@@ -236,11 +219,16 @@ def _apply_edit(path, old, new, dry_run):
     idxs = [m.start() for m in re.finditer(re.escape(old_m), content)]
     n = len(idxs)
     if n == 0:
-        return {"status": "error",
-                "reason": f"0 blocks failed to match(找不到该 old 字面量): {old[:120]!r}"}
+        hint = _miss_hint(content, old_m)
+        reason = f"0 blocks failed to match(找不到该 old 字面量): {old[:120]!r}"
+        if hint:
+            reason = reason + "\n" + hint
+        return {"status": "error", "reason": reason}
     if n > 1:
+        hit_lines = [_line_of(content, i) for i in idxs[:5]]
         return {"status": "error",
-                "reason": f"{n} blocks matched, 需唯一锚点; 请加更多上下文(引用上一行/缩进): {old[:120]!r}"}
+                "reason": (f"{n} blocks matched, 需唯一锚点; 请加更多上下文(引用上一行/缩进): {old[:120]!r}"
+                           f"\n定位：命中行 {hit_lines}，从中挑一处补足上下文。")}
     new_content = content[:idxs[0]] + new_m + content[idxs[0] + len(old_m):]
     if nl == "\r\n":
         new_content = new_content.replace("\n", "\r\n")

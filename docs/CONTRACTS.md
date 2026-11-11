@@ -17,9 +17,9 @@
 |----|----|
 | 原子 | 42 |
 | 能力 | 169 |
-| 声明输入 | 285 |
+| 声明输入 | 284 |
 | 断链 | 0 |
-| 漏记 | 57 |
+| 漏记 | 58 |
 | 可静态判定的原子 | 35 / 42 |
 
 判不了的原子（吃 `**kwargs` 或签名不透明）：`code-explore`、`code-review`、`deadcode`、`doc-freshness`、`git-ops`、`mcp-client`、`method-impact`
@@ -67,7 +67,7 @@
 | `mcp-client` | mcp | 5 | 14 | 0 | 2 |
 | `method-impact` | impact | 2 | 6 | 0 | 0 |
 | `minimalist-style` | codereview | 3 | 3 | 0 | 0 |
-| `model-fallback` | model | 7 | 11 | 0 | 0 |
+| `model-fallback` | model | 7 | 10 | 0 | 1 |
 | `ontology-review` | ontology | 2 | 4 | 0 | 0 |
 | `process-sandbox` | sandbox | 5 | 10 | 0 | 3 |
 | `secret-vault` | secrets | 6 | 7 | 0 | 0 |
@@ -121,7 +121,7 @@
 - 能力（3）：`subagent.dispatch`、`subagent.probe`、`subagent.providers`
 - 依赖：（无）
 - 声明输入：`task`、`provider`、`cwd`、`timeout`、`name`
-- 声明输出：`providers`、`count`、`usable`、`ok`、`degraded`、`provider`
+- 声明输出：`echo`
 - 实现接受：`cwd`、`name`、`provider`、`task`、`timeout`
 - 权限：exec，不联网
 
@@ -184,6 +184,7 @@
 - 声明输入：`task`、`language`、`path`、`output_dir`、`domain`、`loop`、`max_iter`、`write_root`、`verify`、`skill_path`
 - 声明输出：`files`、`score`、`summary`、`issues`、`versions`、`written`、`write_error`、`engine`
 - 实现接受：`domain`、`language`、`loop`、`max_iter`、`output_dir`、`path`、`skill_path`、`task`、`verify`、`write_root`
+- 权限：read/write/exec/net，需要网络
 
 ### code-memory
 
@@ -223,6 +224,7 @@
 - 声明输入：`content`、`path`、`top_k`
 - 声明输出：`suggestions`、`atoms`、`count`
 - 实现接受：`content`、`path`、`top_k`
+- 权限：read/write/exec/net，需要网络
 
 ### code-review
 
@@ -436,9 +438,10 @@
 - 域：model ｜ 版本：0.2.0 ｜ 开源：是 ｜ 入口：`main.py`
 - 能力（7）：`model.cache_lookup`、`model.cache_put`、`model.candidates`、`model.cascade`、`model.chain`、`model.route`、`model.rule_match`
 - 依赖：`llm.list_models`
-- 声明输入：`messages`、`call_model`、`purpose`、`preference`、`local_only`、`candidates`、`text`、`rules`、`ttl_sec`、`store_dir`、`intent`
+- 声明输入：`messages`、`call_model`、`purpose`、`preference`、`local_only`、`text`、`rules`、`ttl_sec`、`store_dir`、`intent`
 - 声明输出：`ok`、`verdict`、`provider`、`type`、`result`、`fell_back`、`candidates`、`errors`、`layer`、`shortcut`、`matched`、`handler`、`confidence`、`hit`、`key`、`size`
 - 实现接受：`call_model`、`candidates`、`intent`、`local_only`、`messages`、`preference`、`purpose`、`rules`、`store_dir`、`text`、`ttl_sec`
+- 漏记（清单没写、实现接受）：`candidates`
 - 权限：read/write，不联网
 
 ### ontology-review
