@@ -4,6 +4,27 @@
 
 格式遵循 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.0.0/)。
 
+## [0.9.0] - 2026-11-11
+
+本轮把「原子能力图谱」从一个脚本变成 CI 硬门，并清掉一批「看不懂就报成功」的静默路径；不改审查规则的行为。
+
+### 新增
+- **原子能力图谱**（`atoms_graph_core.py` + `config/atoms_graph_baseline.json` / `atoms_entries.json` / `atoms_signatures.json`）：组合链可从代码反查，写死的组合与漏声明在 CI 报红。
+- **`code-explore` 原子**：代码探查（结构 / 调用 / 链路），提供 `code.explore` 能力。
+- **契约总账**（`config/contracts.json` + `engine_struct_contract.py`）：manifest 声明与能力签名双向对账，缺函数或形参不一致直接判不通过。
+- **空结果门**：审计类工具对「什么都没审」不得报成功。
+
+### 修复
+- 结构契约缺 `check_source`，引擎两处校验路径真实跑到是 `AttributeError` 并被 fail-open 吞掉（表现为门静默不生效）→ 补回该函数并让 `check_file` 委托它，副本只保留一份实现。
+- `ok=false` 未反映到 CLI 退出码。
+- 图谱扫描读不了的文件不再静默跳过；G15 漏掉「关键字传链」的写死组合（变异测试发现）。
+
+### 其它
+- 隐私：公开文档里的内部知识库路径清掉，客户评审文档挡在库外；写码原子描述里的本机旧引擎路径换成中性说法。
+- 内核按宪法门拆小（`_atom_block` cc=14 → 三段渲染；chain 接口收成 ctx）。
+- CI 接入三道门：静默吞错 / 契约总账 / 运行时依赖。
+
+
 ## [0.8.4] - 2026-10-23
 
 本轮是一次安全加固 + 版本口径统一，不改任何审查规则的行为，存量结论不受影响。
